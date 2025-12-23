@@ -1,20 +1,14 @@
 package storage
 
 import (
-	"time"
-
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// Add a new event to the event log
-// Must be called with lock held
-func (s *Storage) addEvent(eventType pb.OpType, message *pb.Message) {
-	event := &pb.MessageEvent{
-		SequenceNumber: s.eventCounter,
-		Message:        message,
-		Op:             eventType,
-		EventAt:        timestamppb.New(time.Now()),
+func (s *Storage) addTopicEvent(topic *pb.Topic) {
+	event := &ReplicationEvent{
+		sequenceNumber: s.eventCounter,
+		eventType:      CreateTopicEvent,
+		topic:          topic,
 	}
 
 	// Append the event
@@ -24,30 +18,38 @@ func (s *Storage) addEvent(eventType pb.OpType, message *pb.Message) {
 	s.eventCounter++
 }
 
-// Get events from a given sequence number for a given list of topics (or all topics if empty)
-func (s *Storage) GetEvents(fromSequence int64, topicIds []int64) []*pb.MessageEvent {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	result := make([]*pb.MessageEvent, 0)
-
-	// Create a map for topic lookup
-	topicFilter := make(map[int64]bool)
-	for _, topicId := range topicIds {
-		topicFilter[topicId] = true
+func (s *Storage) addUserEvent(user *pb.User) {
+	event := &ReplicationEvent{
+		sequenceNumber: s.eventCounter,
+		eventType:      CreateUserEvent,
+		user:           user,
 	}
 
-	// Loop from the given sequence number to the latest event
-	for i := fromSequence; i < int64(len(s.events)); i++ {
-		event := s.events[i]
+	// Append the event
+	s.events = append(s.events, event)
 
-		// Take only events for the specified topic
-		if len(topicFilter) == 0 || topicFilter[event.Message.TopicId] {
-			result = append(result, event)
-		}
+	// Increment the event counter
+	s.eventCounter++
+}
+
+// Add a new event to the event log
+// Must be called with lock held
+func (s *Storage) addMessageEvent(eventType ReplicationEventType, message *pb.Message) {
+	if eventType == CreateTopicEvent || eventType == CreateUserEvent {
+		panic("use specific functions for topic/user events")
 	}
 
-	return result
+	event := &ReplicationEvent{
+		sequenceNumber: s.eventCounter,
+		message:        message,
+		eventType:      eventType,
+	}
+
+	// Append the event
+	s.events = append(s.events, event)
+
+	// Increment the event counter
+	s.eventCounter++
 }
 
 // Get the current event number for clients to use as a reference

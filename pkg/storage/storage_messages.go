@@ -40,7 +40,8 @@ func (s *Storage) PostMessage(topicId int64, userId int64, text string) (*pb.Mes
 	}
 	s.messages[topicId][messageId] = message
 	s.nextMessageId[topicId]++
-	s.addEvent(pb.OpType_OP_POST, message)
+
+	s.addMessageEvent(PostMessageEvent, message)
 
 	return message, nil
 }
@@ -73,7 +74,7 @@ func (s *Storage) UpdateMessage(topicId int64, userId int64, messageId int64, te
 
 	// Update the message text
 	message.Text = text
-	s.addEvent(pb.OpType_OP_UPDATE, message)
+	s.addMessageEvent(UpdateMessageEvent, message)
 
 	return message, nil
 }
@@ -105,7 +106,7 @@ func (s *Storage) DeleteMessage(topicId int64, userId int64, messageId int64) er
 	}
 
 	// Delete the message
-	s.addEvent(pb.OpType_OP_DELETE, message)
+	s.addMessageEvent(DeleteMessageEvent, message)
 	delete(s.messages[topicId], messageId)
 
 	return nil
@@ -145,7 +146,7 @@ func (s *Storage) LikeMessage(topicId int64, userId int64, messageId int64) (*pb
 	// Like the message
 	s.likes[messageId][userId] = true
 	message.Likes++
-	s.addEvent(pb.OpType_OP_LIKE, message)
+	s.addMessageEvent(LikeMessageEvent, message)
 
 	return message, nil
 }

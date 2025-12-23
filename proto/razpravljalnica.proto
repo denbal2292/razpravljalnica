@@ -51,7 +51,7 @@ message NodeInfo {
 // Data plane
 ////////////////////////////////////////////////////////////////////////////////
 
-service MessageBoard{
+service MessageBoard {
   // Writes (only to head)
 
   // Creates a new user and assigns it an id
