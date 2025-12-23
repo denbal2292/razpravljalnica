@@ -206,5 +206,4 @@ Primarna naloga je, da implementirate zgornji programski vmesnik strežnika in p
     -   Uporabite pakete za pisanje ukaznih vmesnikov ukazne lupine, kot so [cli](https://cli.urfave.org/), [cobra](https://pkg.go.dev/github.com/spf13/cobra), [kong](https://github.com/alecthomas/kong).
     -   Uporabite pakete za pisanje grafičnih vmesnikov za strežnik in odjemalec npr. [tview](https://github.com/rivo/tview).
     -   Go ima vgrajeno [podporo](https://go.dev/doc/tutorial/fuzz) za pisanje testov. Pripravite nabor testov, ki validirajo delovanje vaše Razpravljalnice.
-
     -   Predvidite, da lahko pride do odpovedi nadzorne ravnine. Uvedite več vozlišč v nadzorno ravnino in uporabite protokol [raft](https://repozitorij.uni-lj.si/Dokument.php?id=215152&lang=slv), da poskrbite za primere odpovedi. Poslužite se lahko katere izmed obstoječih, na primer [HashiCorp](https://github.com/hashicorp/raft) ali [diploma FRI](https://github.com/Timcek/raft) protokola raft v Go.

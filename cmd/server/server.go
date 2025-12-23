@@ -23,7 +23,7 @@ func main() {
 	gRPCServer := grpc.NewServer()
 
 	// Create and register MessageBoard server
-	messageBoardServer := server.NewServer()
+	messageBoardServer := server.NewServer(nil, nil)
 	razpravljalnica.RegisterMessageBoardServer(gRPCServer, messageBoardServer)
 
 	hostname, err := os.Hostname()

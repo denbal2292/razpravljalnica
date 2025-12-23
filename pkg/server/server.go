@@ -9,6 +9,7 @@ import (
 
 type Node struct {
 	pb.UnimplementedMessageBoardServer
+	pb.UnimplementedChainReplicationServer
 	storage     *storage.Storage
 	predecessor *NodeConnection // nil if HEAD
 	successor   *NodeConnection // nil if TAIL

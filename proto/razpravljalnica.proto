@@ -176,6 +176,21 @@ service ControlPlane {
   rpc GetClusterState(google.protobuf.Empty) returns (GetClusterStateResponse);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Chain replication messages
+////////////////////////////////////////////////////////////////////////////////
+service ChainReplication {
+  // Replicate an event to the next node in the chain
+  rpc ReplicateMessageEvent(MessageEvent) returns (google.protobuf.Empty);
+  rpc ReplicateUser(User) returns (google.protobuf.Empty);
+  rpc ReplicateTopic(Topic) returns (google.protobuf.Empty);
+
+  // Acknowledge that the event has been applied
+  rpc AcknowledgeMessageEvent(MessageEvent) returns (google.protobuf.Empty);
+  rpc AcknowledgeUser(User) returns (google.protobuf.Empty);
+  rpc AcknowledgeTopic(Topic) returns (google.protobuf.Empty);
+}
+
 message GetClusterStateResponse {
   NodeInfo head = 1;
   NodeInfo tail = 2;

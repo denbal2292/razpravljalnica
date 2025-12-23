@@ -634,3 +634,307 @@ var ControlPlane_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "razpravljalnica.proto",
 }
+
+const (
+	ChainReplication_ReplicateMessageEvent_FullMethodName   = "/razpravljalnica.ChainReplication/ReplicateMessageEvent"
+	ChainReplication_ReplicateUser_FullMethodName           = "/razpravljalnica.ChainReplication/ReplicateUser"
+	ChainReplication_ReplicateTopic_FullMethodName          = "/razpravljalnica.ChainReplication/ReplicateTopic"
+	ChainReplication_AcknowledgeMessageEvent_FullMethodName = "/razpravljalnica.ChainReplication/AcknowledgeMessageEvent"
+	ChainReplication_AcknowledgeUser_FullMethodName         = "/razpravljalnica.ChainReplication/AcknowledgeUser"
+	ChainReplication_AcknowledgeTopic_FullMethodName        = "/razpravljalnica.ChainReplication/AcknowledgeTopic"
+)
+
+// ChainReplicationClient is the client API for ChainReplication service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// //////////////////////////////////////////////////////////////////////////////
+// Chain replication messages
+// //////////////////////////////////////////////////////////////////////////////
+type ChainReplicationClient interface {
+	// Replicate an event to the next node in the chain
+	ReplicateMessageEvent(ctx context.Context, in *MessageEvent, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ReplicateUser(ctx context.Context, in *User, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ReplicateTopic(ctx context.Context, in *Topic, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Acknowledge that the event has been applied
+	AcknowledgeMessageEvent(ctx context.Context, in *MessageEvent, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	AcknowledgeUser(ctx context.Context, in *User, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	AcknowledgeTopic(ctx context.Context, in *Topic, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type chainReplicationClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewChainReplicationClient(cc grpc.ClientConnInterface) ChainReplicationClient {
+	return &chainReplicationClient{cc}
+}
+
+func (c *chainReplicationClient) ReplicateMessageEvent(ctx context.Context, in *MessageEvent, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ChainReplication_ReplicateMessageEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chainReplicationClient) ReplicateUser(ctx context.Context, in *User, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ChainReplication_ReplicateUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chainReplicationClient) ReplicateTopic(ctx context.Context, in *Topic, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ChainReplication_ReplicateTopic_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chainReplicationClient) AcknowledgeMessageEvent(ctx context.Context, in *MessageEvent, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ChainReplication_AcknowledgeMessageEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chainReplicationClient) AcknowledgeUser(ctx context.Context, in *User, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ChainReplication_AcknowledgeUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chainReplicationClient) AcknowledgeTopic(ctx context.Context, in *Topic, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ChainReplication_AcknowledgeTopic_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ChainReplicationServer is the server API for ChainReplication service.
+// All implementations must embed UnimplementedChainReplicationServer
+// for forward compatibility.
+//
+// //////////////////////////////////////////////////////////////////////////////
+// Chain replication messages
+// //////////////////////////////////////////////////////////////////////////////
+type ChainReplicationServer interface {
+	// Replicate an event to the next node in the chain
+	ReplicateMessageEvent(context.Context, *MessageEvent) (*emptypb.Empty, error)
+	ReplicateUser(context.Context, *User) (*emptypb.Empty, error)
+	ReplicateTopic(context.Context, *Topic) (*emptypb.Empty, error)
+	// Acknowledge that the event has been applied
+	AcknowledgeMessageEvent(context.Context, *MessageEvent) (*emptypb.Empty, error)
+	AcknowledgeUser(context.Context, *User) (*emptypb.Empty, error)
+	AcknowledgeTopic(context.Context, *Topic) (*emptypb.Empty, error)
+	mustEmbedUnimplementedChainReplicationServer()
+}
+
+// UnimplementedChainReplicationServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedChainReplicationServer struct{}
+
+func (UnimplementedChainReplicationServer) ReplicateMessageEvent(context.Context, *MessageEvent) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplicateMessageEvent not implemented")
+}
+func (UnimplementedChainReplicationServer) ReplicateUser(context.Context, *User) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplicateUser not implemented")
+}
+func (UnimplementedChainReplicationServer) ReplicateTopic(context.Context, *Topic) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplicateTopic not implemented")
+}
+func (UnimplementedChainReplicationServer) AcknowledgeMessageEvent(context.Context, *MessageEvent) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method AcknowledgeMessageEvent not implemented")
+}
+func (UnimplementedChainReplicationServer) AcknowledgeUser(context.Context, *User) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method AcknowledgeUser not implemented")
+}
+func (UnimplementedChainReplicationServer) AcknowledgeTopic(context.Context, *Topic) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method AcknowledgeTopic not implemented")
+}
+func (UnimplementedChainReplicationServer) mustEmbedUnimplementedChainReplicationServer() {}
+func (UnimplementedChainReplicationServer) testEmbeddedByValue()                          {}
+
+// UnsafeChainReplicationServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ChainReplicationServer will
+// result in compilation errors.
+type UnsafeChainReplicationServer interface {
+	mustEmbedUnimplementedChainReplicationServer()
+}
+
+func RegisterChainReplicationServer(s grpc.ServiceRegistrar, srv ChainReplicationServer) {
+	// If the following call panics, it indicates UnimplementedChainReplicationServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&ChainReplication_ServiceDesc, srv)
+}
+
+func _ChainReplication_ReplicateMessageEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MessageEvent)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainReplicationServer).ReplicateMessageEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainReplication_ReplicateMessageEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainReplicationServer).ReplicateMessageEvent(ctx, req.(*MessageEvent))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChainReplication_ReplicateUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(User)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainReplicationServer).ReplicateUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainReplication_ReplicateUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainReplicationServer).ReplicateUser(ctx, req.(*User))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChainReplication_ReplicateTopic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Topic)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainReplicationServer).ReplicateTopic(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainReplication_ReplicateTopic_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainReplicationServer).ReplicateTopic(ctx, req.(*Topic))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChainReplication_AcknowledgeMessageEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MessageEvent)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainReplicationServer).AcknowledgeMessageEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainReplication_AcknowledgeMessageEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainReplicationServer).AcknowledgeMessageEvent(ctx, req.(*MessageEvent))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChainReplication_AcknowledgeUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(User)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainReplicationServer).AcknowledgeUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainReplication_AcknowledgeUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainReplicationServer).AcknowledgeUser(ctx, req.(*User))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChainReplication_AcknowledgeTopic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Topic)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainReplicationServer).AcknowledgeTopic(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainReplication_AcknowledgeTopic_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainReplicationServer).AcknowledgeTopic(ctx, req.(*Topic))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ChainReplication_ServiceDesc is the grpc.ServiceDesc for ChainReplication service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ChainReplication_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "razpravljalnica.ChainReplication",
+	HandlerType: (*ChainReplicationServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ReplicateMessageEvent",
+			Handler:    _ChainReplication_ReplicateMessageEvent_Handler,
+		},
+		{
+			MethodName: "ReplicateUser",
+			Handler:    _ChainReplication_ReplicateUser_Handler,
+		},
+		{
+			MethodName: "ReplicateTopic",
+			Handler:    _ChainReplication_ReplicateTopic_Handler,
+		},
+		{
+			MethodName: "AcknowledgeMessageEvent",
+			Handler:    _ChainReplication_AcknowledgeMessageEvent_Handler,
+		},
+		{
+			MethodName: "AcknowledgeUser",
+			Handler:    _ChainReplication_AcknowledgeUser_Handler,
+		},
+		{
+			MethodName: "AcknowledgeTopic",
+			Handler:    _ChainReplication_AcknowledgeTopic_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "razpravljalnica.proto",
+}
