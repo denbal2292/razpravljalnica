@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (s *MessageBoardServer) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb.Topic, error) {
+func (s *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb.Topic, error) {
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name cannot be empty")
 	}
@@ -22,7 +22,7 @@ func (s *MessageBoardServer) CreateTopic(ctx context.Context, req *pb.CreateTopi
 	return topic, nil
 }
 
-func (s *MessageBoardServer) ListTopics(ctx context.Context, req *emptypb.Empty) (*pb.ListTopicsResponse, error) {
+func (s *Node) ListTopics(ctx context.Context, req *emptypb.Empty) (*pb.ListTopicsResponse, error) {
 	topics, err := s.storage.ListTopics()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

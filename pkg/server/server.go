@@ -7,15 +7,32 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type MessageBoardServer struct {
+type Node struct {
 	pb.UnimplementedMessageBoardServer
-	storage *storage.Storage
+	storage     *storage.Storage
+	predecessor *NodeConnection // nil if HEAD
+	successor   *NodeConnection // nil if TAIL
 }
 
-func NewServer() *MessageBoardServer {
-	return &MessageBoardServer{
-		storage: storage.NewStorage(),
+type NodeConnection struct {
+	address string
+	client  pb.MessageBoardClient // gRPC client to the connected node
+}
+
+func NewServer(predecessor *NodeConnection, successor *NodeConnection) *Node {
+	return &Node{
+		storage:     storage.NewStorage(),
+		predecessor: predecessor,
+		successor:   successor,
 	}
+}
+
+func (s *Node) isHead() bool {
+	return s.predecessor == nil
+}
+
+func (s *Node) isTail() bool {
+	return s.successor == nil
 }
 
 // Convert storage layer errors to appropriate gRPC status codes.

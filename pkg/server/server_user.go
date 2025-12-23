@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *MessageBoardServer) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.User, error) {
+func (s *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.User, error) {
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name cannot be empty")
 	}
@@ -21,15 +21,16 @@ func (s *MessageBoardServer) CreateUser(ctx context.Context, req *pb.CreateUserR
 	return user, nil
 }
 
-// func (s *MessageBoardServer) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {
-// 	if req.UserId <= 0 {
-// 		return nil, status.Error(codes.InvalidArgument, "user_id must be positive")
-// 	}
+// Retrieve user by their ID
+func (s *Node) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {
+	if req.UserId <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "user_id must be positive")
+	}
 
-// 	user, err := s.storage.GetUser(req.UserId)
-// 	if err != nil {
-// 		return nil, handleStorageError(err)
-// 	}
+	user, err := s.storage.GetUser(req.UserId)
+	if err != nil {
+		return nil, handleStorageError(err)
+	}
 
-// 	return user, nil
-// }
+	return user, nil
+}

@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (s *MessageBoardServer) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb.Message, error) {
+func (s *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb.Message, error) {
 	if req.Text == "" {
 		return nil, status.Error(codes.InvalidArgument, "text cannot be empty")
 	}
@@ -28,7 +28,7 @@ func (s *MessageBoardServer) PostMessage(ctx context.Context, req *pb.PostMessag
 	return message, nil
 }
 
-func (s *MessageBoardServer) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) (*pb.Message, error) {
+func (s *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) (*pb.Message, error) {
 	if req.Text == "" {
 		return nil, status.Error(codes.InvalidArgument, "text cannot be empty")
 	}
@@ -50,7 +50,7 @@ func (s *MessageBoardServer) UpdateMessage(ctx context.Context, req *pb.UpdateMe
 	return message, nil
 }
 
-func (s *MessageBoardServer) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) (*emptypb.Empty, error) {
+func (s *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) (*emptypb.Empty, error) {
 	if req.TopicId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "topic_id must be positive")
 	}
@@ -69,7 +69,7 @@ func (s *MessageBoardServer) DeleteMessage(ctx context.Context, req *pb.DeleteMe
 	return &emptypb.Empty{}, nil
 }
 
-func (s *MessageBoardServer) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb.Message, error) {
+func (s *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb.Message, error) {
 	if req.TopicId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "topic_id must be positive")
 	}
@@ -88,7 +88,7 @@ func (s *MessageBoardServer) LikeMessage(ctx context.Context, req *pb.LikeMessag
 	return message, nil
 }
 
-func (s *MessageBoardServer) GetMessages(ctx context.Context, req *pb.GetMessagesRequest) (*pb.GetMessagesResponse, error) {
+func (s *Node) GetMessages(ctx context.Context, req *pb.GetMessagesRequest) (*pb.GetMessagesResponse, error) {
 	if req.TopicId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "topic_id must be positive")
 	}
@@ -104,7 +104,7 @@ func (s *MessageBoardServer) GetMessages(ctx context.Context, req *pb.GetMessage
 	return &pb.GetMessagesResponse{Messages: messages}, nil
 }
 
-func (s *MessageBoardServer) SubscribeTopic(req *pb.SubscribeTopicRequest, stream pb.MessageBoard_SubscribeTopicServer) error {
+func (s *Node) SubscribeTopic(req *pb.SubscribeTopicRequest, stream pb.MessageBoard_SubscribeTopicServer) error {
 	// TODO: Implement topic subscription streaming logic
 	return status.Error(codes.Unimplemented, "SubscribeTopic is not yet implemented")
 }
