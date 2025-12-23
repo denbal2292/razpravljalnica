@@ -11,7 +11,7 @@ import (
 // Must be called with lock held
 func (s *Storage) addEvent(eventType pb.OpType, message *pb.Message) {
 	event := &pb.MessageEvent{
-		SequenceNumber: s.eventNumber,
+		SequenceNumber: s.eventCounter,
 		Message:        message,
 		Op:             eventType,
 		EventAt:        timestamppb.New(time.Now()),
@@ -20,8 +20,8 @@ func (s *Storage) addEvent(eventType pb.OpType, message *pb.Message) {
 	// Append the event
 	s.events = append(s.events, event)
 
-	// Increment the event number
-	s.eventNumber++
+	// Increment the event counter
+	s.eventCounter++
 }
 
 // Get events from a given sequence number for a given list of topics (or all topics if empty)
@@ -54,5 +54,5 @@ func (s *Storage) GetEvents(fromSequence int64, topicIds []int64) []*pb.MessageE
 func (s *Storage) GetCurrentSequenceNumber() int64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.eventNumber
+	return s.eventCounter
 }

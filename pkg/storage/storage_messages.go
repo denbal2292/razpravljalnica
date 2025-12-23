@@ -145,7 +145,7 @@ func (s *Storage) LikeMessage(topicId int64, userId int64, messageId int64) (*pb
 	// Like the message
 	s.likes[messageId][userId] = true
 	message.Likes++
-	s.addEvent(pb.OpType_OP_POST, message)
+	s.addEvent(pb.OpType_OP_LIKE, message)
 
 	return message, nil
 }
@@ -169,7 +169,7 @@ func (s *Storage) GetMessages(topicId int64, fromMessageId int64, limit int32) (
 	// Retrieve messages for the topic
 	messages := make([]*pb.Message, 0)
 
-	for id := fromMessageId; id < fromMessageId+int64(limit) && id <= s.nextMessageId[topicId]; id++ {
+	for id := fromMessageId; id < fromMessageId+int64(limit) && id < s.nextMessageId[topicId]; id++ {
 		if msg, exists := messagesMap[id]; exists {
 			messages = append(messages, msg)
 		}

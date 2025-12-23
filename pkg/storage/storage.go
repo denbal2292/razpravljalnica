@@ -25,7 +25,7 @@ type Storage struct {
 	nextTopicId   int64
 	nextMessageId map[int64]int64 // topicId -> nextMessageId
 	events        []*pb.MessageEvent
-	eventNumber   int64 // current event number
+	eventCounter  int64 // current event counter
 }
 
 func NewStorage() *Storage {
@@ -38,6 +38,6 @@ func NewStorage() *Storage {
 		nextTopicId:   1,
 		nextMessageId: make(map[int64]int64),
 		events:        make([]*pb.MessageEvent, 0),
-		eventNumber:   0,
+		eventCounter:  0,
 	}
 }
