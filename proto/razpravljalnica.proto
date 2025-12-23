@@ -6,6 +6,7 @@ option go_package = "/razpravljalnica";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+
 ////////////////////////////////////////////////////////////////////////////////
 // Basic data types
 ////////////////////////////////////////////////////////////////////////////////
@@ -50,7 +51,7 @@ message NodeInfo {
 // Data plane
 ////////////////////////////////////////////////////////////////////////////////
 
-service  MessageBoard{
+service MessageBoard{
   // Writes (only to head)
 
   // Creates a new user and assigns it an id
@@ -132,6 +133,7 @@ message GetMessagesRequest {
   int64 from_message_id = 2; // starting id of the message (0 from beggining)
   int32 limit = 3; // max number of messages
 }
+
 message GetMessagesResponse {
   repeated Message messages = 1;
 }
