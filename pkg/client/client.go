@@ -13,17 +13,29 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// ClientSet holds gRPC clients for different services
+type ClientSet struct {
+	Reads        pb.MessageBoardReadsClient
+	Writes       pb.MessageBoardWritesClient
+	Subsciptions pb.MessageBoardSubscriptionsClient
+}
+
 // Initialize a new client instance
 func RunClient(url string) {
 	fmt.Printf("gRPC client connecting to URL %s\n", url)
-	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials((insecure.NewCredentials())))
+	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
 
-	grpcClient := pb.NewMessageBoardClient(conn)
+	// Create gRPC clients for all services
+	clients := &ClientSet{
+		Reads:        pb.NewMessageBoardReadsClient(conn),
+		Writes:       pb.NewMessageBoardWritesClient(conn),
+		Subsciptions: pb.NewMessageBoardSubscriptionsClient(conn),
+	}
 
 	// Simple REPL loop
 	// Useful for proper line reading
@@ -50,7 +62,7 @@ func RunClient(url string) {
 			panic(err)
 		}
 
-		if err := route(grpcClient, command, args); err != nil {
+		if err := route(clients, command, args); err != nil {
 			if errors.Is(err, ErrExit) {
 				// Client decided to exit
 				break

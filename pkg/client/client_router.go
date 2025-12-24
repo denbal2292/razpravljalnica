@@ -3,13 +3,10 @@ package client
 import (
 	"errors"
 	"fmt"
-
-	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 )
 
 // Help message listing available commands
-const HELP = `
-Available commands:
+const HELP = `Available commands:
 help, h                                         - Show this help message
 exit, quit, q                                   - Exit the client
 createuser <name>                               - Create a new user
@@ -27,30 +24,34 @@ subscribe <user_id> <topic_id>... [from_msg_id] - Subscribe to topics
 var ErrExit = errors.New("exit")
 
 // Route the command to the appropriate client method
-func route(client pb.MessageBoardClient, command string, args []string) error {
+func route(client *ClientSet, command string, args []string) error {
 	switch command {
 	case "help", "h":
 		printHelp()
 	case "exit", "quit", "q":
 		return ErrExit
 	case "createuser":
-		return createUser(client, args)
+		return createUser(client.Writes, args)
 	case "createtopic":
-		return createTopic(client, args)
+		return createTopic(client.Writes, args)
 	case "post":
-		return postMessage(client, args)
+		return postMessage(client.Writes, args)
 	case "update":
-		return updateMessage(client, args)
+		return updateMessage(client.Writes, args)
 	case "delete":
-		return deleteMessage(client, args)
+		return deleteMessage(client.Writes, args)
 	case "like":
-		return likeMessage(client, args)
+		return likeMessage(client.Writes, args)
 	case "topics":
-		return listTopics(client, args)
+		return listTopics(client.Reads, args)
 	case "messages":
-		return getMessages(client, args)
+		return getMessages(client.Reads, args)
+	case "user":
+		return getUser(client.Reads, args)
 	case "subscribe":
-		return subscribeTopics(client, args)
+		return subscribeTopics(client.Subsciptions, args)
+	case "getsubscribtionnode":
+		return getSubscriptionNode(client.Subsciptions, args)
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 	}
@@ -60,5 +61,5 @@ func route(client pb.MessageBoardClient, command string, args []string) error {
 
 // Print the help message with available commands
 func printHelp() {
-	fmt.Println(HELP)
+	fmt.Print(HELP)
 }
