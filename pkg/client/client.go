@@ -2,6 +2,7 @@ package client
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -50,6 +51,10 @@ func RunClient(url string) {
 		}
 
 		if err := route(grpcClient, command, args); err != nil {
+			if errors.Is(err, ErrExit) {
+				// Client decided to exit
+				break
+			}
 			fmt.Printf("Error: %v\n", err)
 		}
 	}
