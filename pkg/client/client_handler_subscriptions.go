@@ -5,9 +5,11 @@ import (
 )
 
 func getSubscriptionNode(grpcClient pb.MessageBoardSubscriptionsClient, args []string) error {
+	// Currently not implemented
 	return nil
 }
 
 func subscribeTopics(grpcClient pb.MessageBoardSubscriptionsClient, args []string) error {
+	// Currently not implemented
 	return nil
 }

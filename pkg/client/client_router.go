@@ -5,19 +5,26 @@ import (
 	"fmt"
 )
 
-// Help message listing available commands
-const HELP = `Available commands:
-help, h                                         - Show this help message
-exit, quit, q                                   - Exit the client
-createuser <name>                               - Create a new user
-createtopic <name>                              - Create a new topic
-post <topic_id> <user_id> <text>                - Post a message to a topic
-update <topic_id> <user_id> <msg_id> <text>     - Update a message
-delete <topic_id> <user_id> <msg_id>            - Delete a message
-like <topic_id> <msg_id> <user_id>              - Like a message
-topics                                          - List all topics
-messages <topic_id> [from_id] [limit]           - Get messages from a topic
-subscribe <user_id> <topic_id>... [from_msg_id] - Subscribe to topics
+const help = `Available commands:
+  help, h                                     - Show this help message
+  exit, quit, q                               - Exit the client
+
+Write operations:
+  createuser <name>                           - Create a new user
+  createtopic <name>                          - Create a new topic
+  post <user_id> <topic_id> <content>         - Post a message to a topic
+  update <topic_id> <user_id> <msg_id> <text> - Update a message
+  delete <topic_id> <user_id> <msg_id>        - Delete a message
+  like <topic_id> <msg_id> <user_id>          - Like a message
+
+Read operations:
+  topics                                      - List all topics
+  user <user_id>                              - Get user information
+  messages <topic_id> <from_id> <limit>       - Get messages from a topic
+
+Subscription operations:
+  subscribe <user_id> <topic_id>...           - Subscribe to topics (stream)
+  getsubscribtionnode <user_id> <topic_id>... - Get subscription node info
 `
 
 // Custom exit error to signal client termination
@@ -53,7 +60,7 @@ func route(client *ClientSet, command string, args []string) error {
 	case "getsubscribtionnode":
 		return getSubscriptionNode(client.Subsciptions, args)
 	default:
-		fmt.Printf("Unknown command: %s\n", command)
+		return fmt.Errorf("unknown command: %s\n", command)
 	}
 
 	return nil
@@ -61,5 +68,5 @@ func route(client *ClientSet, command string, args []string) error {
 
 // Print the help message with available commands
 func printHelp() {
-	fmt.Print(HELP)
+	fmt.Print(help)
 }
