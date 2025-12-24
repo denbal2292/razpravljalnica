@@ -15,8 +15,6 @@ func (s *Storage) CreateTopic(name string) (*pb.Topic, error) {
 	s.topics[topicId] = topic
 	s.nextTopicId++
 
-	s.addTopicEvent(topic)
-
 	return topic, nil
 }
 

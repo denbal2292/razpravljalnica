@@ -1,60 +1,37 @@
 package storage
 
-import (
-	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
-)
+import pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 
-func (s *Storage) addTopicEvent(topic *pb.Topic) {
-	event := &ReplicationEvent{
-		sequenceNumber: s.eventCounter,
-		eventType:      CreateTopicEvent,
-		topic:          topic,
+// TODO: Here we just assume the ids will match
+// It would be nice to add a sanity check
+func (s *Storage) ApplyMessageEvent(message *pb.Message, op pb.OpType) error {
+	switch op {
+	case pb.OpType_OP_POST:
+		_, err := s.PostMessage(message.TopicId, message.UserId, message.Text, message.CreatedAt)
+		return err
+	case pb.OpType_OP_UPDATE:
+		_, err := s.UpdateMessage(message.TopicId, message.UserId, message.Id, message.Text)
+		return err
+	case pb.OpType_OP_DELETE:
+		return s.DeleteMessage(message.TopicId, message.UserId, message.Id)
+	default:
+		return nil
 	}
-
-	// Append the event
-	s.events = append(s.events, event)
-
-	// Increment the event counter
-	s.eventCounter++
 }
 
-func (s *Storage) addUserEvent(user *pb.User) {
-	event := &ReplicationEvent{
-		sequenceNumber: s.eventCounter,
-		eventType:      CreateUserEvent,
-		user:           user,
-	}
-
-	// Append the event
-	s.events = append(s.events, event)
-
-	// Increment the event counter
-	s.eventCounter++
+func (s *Storage) ApplyLikeEvent(message *pb.Message, like *pb.Like) error {
+	_, err := s.LikeMessage(message.TopicId, message.UserId, message.Id)
+	return err
 }
 
-// Add a new event to the event log
-// Must be called with lock held
-func (s *Storage) addMessageEvent(eventType ReplicationEventType, message *pb.Message) {
-	if eventType == CreateTopicEvent || eventType == CreateUserEvent {
-		panic("use specific functions for topic/user events")
-	}
-
-	event := &ReplicationEvent{
-		sequenceNumber: s.eventCounter,
-		message:        message,
-		eventType:      eventType,
-	}
-
-	// Append the event
-	s.events = append(s.events, event)
-
-	// Increment the event counter
-	s.eventCounter++
+func (s *Storage) ApplyUserEvent(user *pb.User, op pb.OpType) error {
+	// TODO: here we just assume the id will match
+	_, err := s.CreateUser(user.Name)
+	return err
 }
 
-// Get the current event number for clients to use as a reference
-func (s *Storage) GetCurrentSequenceNumber() int64 {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.eventCounter
+func (s *Storage) ApplyTopicEvent(topic *pb.Topic, op pb.OpType) error {
+	// TODO: here we just assume the id will match
+	_, err := s.CreateTopic(topic.Name)
+	return err
 }

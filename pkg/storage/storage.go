@@ -21,31 +21,9 @@ type Storage struct {
 	topics        map[int64]*pb.Topic             // topicId -> Topic
 	messages      map[int64]map[int64]*pb.Message // topicId -> (messageId -> Message)
 	likes         map[int64]map[int64]bool        // messageId -> userId
-	nextUserId    int64
-	nextTopicId   int64
-	nextMessageId map[int64]int64 // topicId -> nextMessageId
-	events        []*ReplicationEvent
-	eventCounter  int64 // current event counter
-}
-
-type ReplicationEventType int32
-
-const (
-	PostMessageEvent ReplicationEventType = iota
-	DeleteMessageEvent
-	LikeMessageEvent
-	UpdateMessageEvent
-	CreateTopicEvent
-	CreateUserEvent
-)
-
-type ReplicationEvent struct {
-	sequenceNumber int64
-	eventType      ReplicationEventType
-
-	user    *pb.User
-	topic   *pb.Topic
-	message *pb.Message
+	nextMessageId map[int64]int64                 // topicId -> nextMessageId
+	nextUserId    int64                           // next user ID to assign
+	nextTopicId   int64                           // next topic ID to assign
 }
 
 func NewStorage() *Storage {
@@ -57,7 +35,5 @@ func NewStorage() *Storage {
 		nextUserId:    1,
 		nextTopicId:   1,
 		nextMessageId: make(map[int64]int64),
-		events:        make([]*ReplicationEvent, 0),
-		eventCounter:  0,
 	}
 }

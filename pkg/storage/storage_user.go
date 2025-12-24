@@ -15,8 +15,6 @@ func (s *Storage) CreateUser(name string) (*pb.User, error) {
 	s.users[userId] = user
 	s.nextUserId++
 
-	s.addUserEvent(user)
-
 	return user, nil
 }
 

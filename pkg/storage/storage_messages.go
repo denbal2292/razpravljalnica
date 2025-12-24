@@ -1,14 +1,12 @@
 package storage
 
 import (
-	"time"
-
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Create a new message in a given topic by a user
-func (s *Storage) PostMessage(topicId int64, userId int64, text string) (*pb.Message, error) {
+func (s *Storage) PostMessage(topicId int64, userId int64, text string, createdAt *timestamppb.Timestamp) (*pb.Message, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -34,14 +32,12 @@ func (s *Storage) PostMessage(topicId int64, userId int64, text string) (*pb.Mes
 		Id:        messageId,
 		TopicId:   topicId,
 		UserId:    userId,
-		CreatedAt: timestamppb.New(time.Now()),
+		CreatedAt: createdAt,
 		Text:      text,
 		Likes:     0,
 	}
 	s.messages[topicId][messageId] = message
 	s.nextMessageId[topicId]++
-
-	s.addMessageEvent(PostMessageEvent, message)
 
 	return message, nil
 }
@@ -74,7 +70,6 @@ func (s *Storage) UpdateMessage(topicId int64, userId int64, messageId int64, te
 
 	// Update the message text
 	message.Text = text
-	s.addMessageEvent(UpdateMessageEvent, message)
 
 	return message, nil
 }
@@ -106,7 +101,6 @@ func (s *Storage) DeleteMessage(topicId int64, userId int64, messageId int64) er
 	}
 
 	// Delete the message
-	s.addMessageEvent(DeleteMessageEvent, message)
 	delete(s.messages[topicId], messageId)
 
 	return nil
@@ -146,7 +140,6 @@ func (s *Storage) LikeMessage(topicId int64, userId int64, messageId int64) (*pb
 	// Like the message
 	s.likes[messageId][userId] = true
 	message.Likes++
-	s.addMessageEvent(LikeMessageEvent, message)
 
 	return message, nil
 }

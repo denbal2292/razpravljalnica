@@ -11,18 +11,20 @@ type Node struct {
 	pb.UnimplementedMessageBoardServer
 	pb.UnimplementedChainReplicationServer
 	storage     *storage.Storage
+	eventBuffer *EventBuffer
 	predecessor *NodeConnection // nil if HEAD
 	successor   *NodeConnection // nil if TAIL
 }
 
 type NodeConnection struct {
 	address string
-	client  pb.MessageBoardClient // gRPC client to the connected node
+	client  pb.ChainReplicationClient // gRPC client to the connected node
 }
 
 func NewServer(predecessor *NodeConnection, successor *NodeConnection) *Node {
 	return &Node{
 		storage:     storage.NewStorage(),
+		eventBuffer: NewEventBuffer(),
 		predecessor: predecessor,
 		successor:   successor,
 	}
@@ -34,6 +36,37 @@ func (s *Node) isHead() bool {
 
 func (s *Node) isTail() bool {
 	return s.successor == nil
+}
+
+func (n *Node) enforceHeadOnly() error {
+	if !n.isHead() {
+		return status.Error(codes.FailedPrecondition, "operation allowed only on HEAD node")
+	}
+
+	return nil
+}
+
+func (n *Node) enforceTailOnly() error {
+	if !n.isTail() {
+		return status.Error(codes.FailedPrecondition, "operation allowed only on TAIL node")
+	}
+
+	return nil
+}
+
+// Apply the given event to the local storage
+func (n *Node) applyEvent(event *pb.Event) error {
+	if event.Like != nil {
+		return n.storage.ApplyLikeEvent(event.Message, event.Like)
+	} else if event.Message != nil {
+		return n.storage.ApplyMessageEvent(event.Message, event.Op)
+	} else if event.User != nil {
+		return n.storage.ApplyUserEvent(event.User, event.Op)
+	} else if event.Topic != nil {
+		return n.storage.ApplyTopicEvent(event.Topic, event.Op)
+	} else {
+		panic("invalid event: no message, user, or topic")
+	}
 }
 
 // Convert storage layer errors to appropriate gRPC status codes.

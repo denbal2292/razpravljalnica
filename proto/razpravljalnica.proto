@@ -40,6 +40,8 @@ enum OpType {
   OP_LIKE   = 1; // like a message
   OP_DELETE = 2; // delete a message
   OP_UPDATE = 3; // update a message
+  OP_CREATE_USER = 4; // create a user
+  OP_CREATE_TOPIC = 5; // create a topic
 }
 
 message NodeInfo {
@@ -89,7 +91,6 @@ service MessageBoard {
 
   // Subscribe to topics; goes to the node returned by head
   rpc SubscribeTopic(SubscribeTopicRequest) returns (stream MessageEvent);
-  
 }
 
 message CreateUserRequest {
@@ -179,16 +180,29 @@ service ControlPlane {
 ////////////////////////////////////////////////////////////////////////////////
 // Chain replication messages
 ////////////////////////////////////////////////////////////////////////////////
+message Event {
+  int64 sequence_number = 1;
+  OpType op = 2;
+  google.protobuf.Timestamp event_at = 3;
+
+  // Only one of the following will be set
+  Message message = 4;  // set for message ops
+  Like like = 5;        // set for OP_LIKE
+  User user = 6;        // set for OP_CREATE_USER
+  Topic topic = 7;      // set for OP_CREATE_TOPIC
+}
+
+message AcknowledgeEventRequest {
+  int64 sequence_number = 1; // The sequence number of the event being acknowledged
+}
+
 service ChainReplication {
   // Replicate an event to the next node in the chain
-  rpc ReplicateMessageEvent(MessageEvent) returns (google.protobuf.Empty);
-  rpc ReplicateUser(User) returns (google.protobuf.Empty);
-  rpc ReplicateTopic(Topic) returns (google.protobuf.Empty);
+  rpc ReplicateEvent(Event) returns (google.protobuf.Empty);
 
-  // Acknowledge that the event has been applied
-  rpc AcknowledgeMessageEvent(MessageEvent) returns (google.protobuf.Empty);
-  rpc AcknowledgeUser(User) returns (google.protobuf.Empty);
-  rpc AcknowledgeTopic(Topic) returns (google.protobuf.Empty);
+  // Acknowledge that the event with a given sequence number
+  // has been applied by the tail node
+  rpc AcknowledgeEvent(AcknowledgeEventRequest) returns (google.protobuf.Empty);
 }
 
 message GetClusterStateResponse {

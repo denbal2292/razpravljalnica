@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (s *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb.Message, error) {
@@ -20,7 +21,9 @@ func (s *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "user_id must be positive")
 	}
 
-	message, err := s.storage.PostMessage(req.TopicId, req.UserId, req.Text)
+	// Make the created_at timestamp here
+	createdAt := timestamppb.Now()
+	message, err := s.storage.PostMessage(req.TopicId, req.UserId, req.Text, createdAt)
 	if err != nil {
 		return nil, handleStorageError(err)
 	}
