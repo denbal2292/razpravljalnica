@@ -43,5 +43,4 @@ func main() {
 	if err := gRPCServer.Serve(listener); err != nil {
 		panic(err)
 	}
-
 }
