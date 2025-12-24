@@ -8,7 +8,9 @@ import (
 )
 
 type Node struct {
-	pb.UnimplementedMessageBoardServer
+	pb.UnimplementedMessageBoardReadsServer         // reads
+	pb.UnimplementedMessageBoardWritesServer        // writes
+	pb.UnimplementedMessageBoardSubscriptionsServer // subscriptions
 	pb.UnimplementedChainReplicationServer
 	storage     *storage.Storage
 	eventBuffer *EventBuffer
@@ -30,28 +32,12 @@ func NewServer(predecessor *NodeConnection, successor *NodeConnection) *Node {
 	}
 }
 
-func (s *Node) isHead() bool {
+func (s *Node) IsHead() bool {
 	return s.predecessor == nil
 }
 
-func (s *Node) isTail() bool {
+func (s *Node) IsTail() bool {
 	return s.successor == nil
-}
-
-func (n *Node) enforceHeadOnly() error {
-	if !n.isHead() {
-		return status.Error(codes.FailedPrecondition, "operation allowed only on HEAD node")
-	}
-
-	return nil
-}
-
-func (n *Node) enforceTailOnly() error {
-	if !n.isTail() {
-		return status.Error(codes.FailedPrecondition, "operation allowed only on TAIL node")
-	}
-
-	return nil
 }
 
 // Apply the given event to the local storage

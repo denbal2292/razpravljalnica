@@ -53,9 +53,8 @@ message NodeInfo {
 // Data plane
 ////////////////////////////////////////////////////////////////////////////////
 
-service MessageBoard {
-  // Writes (only to head)
-
+// Writes (only to head)
+service MessageBoardWrites {
   // Creates a new user and assigns it an id
   rpc CreateUser(CreateUserRequest) returns (User);
 
@@ -73,12 +72,10 @@ service MessageBoard {
 
   // Like an existing message. Return the message with the new number of likes.
   rpc LikeMessage(LikeMessageRequest) returns (Message);
+}
 
-  // Request a node to which a subscription can be opened.
-  rpc GetSubscriptionNode(SubscriptionNodeRequest) returns (SubscriptionNodeResponse);
-
-  // Reads go to the tail node
-
+// Reads go to the tail node
+service MessageBoardReads {
   // Returns all the topics
   rpc ListTopics(google.protobuf.Empty) returns (ListTopicsResponse);
 
@@ -88,9 +85,15 @@ service MessageBoard {
 
   // Returns messages in a topic
   rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
+}
 
+// Subscriptions; goes to the node (in the middle of the chain) returned by head
+service MessageBoardSubscriptions {
   // Subscribe to topics; goes to the node returned by head
   rpc SubscribeTopic(SubscribeTopicRequest) returns (stream MessageEvent);
+
+  // Request a node to which a subscription can be opened.
+  rpc GetSubscriptionNode(SubscriptionNodeRequest) returns (SubscriptionNodeResponse);
 }
 
 message CreateUserRequest {

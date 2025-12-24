@@ -19,6 +19,12 @@ func (s *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	// Send event to replication chain and wait for confirmation
+	event := s.eventBuffer.CreateTopicEvent(topic)
+	if err := s.forwardEventToNextNode(event); err != nil {
+		return nil, err
+	}
+
 	return topic, nil
 }
 

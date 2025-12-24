@@ -28,6 +28,12 @@ func (s *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 		return nil, handleStorageError(err)
 	}
 
+	// Send event to replication chain and wait for confirmation
+	event := s.eventBuffer.CreateMessageEvent(pb.OpType_OP_POST, message)
+	if err := s.forwardEventToNextNode(event); err != nil {
+		return nil, err
+	}
+
 	return message, nil
 }
 
@@ -50,6 +56,12 @@ func (s *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 		return nil, handleStorageError(err)
 	}
 
+	// Send event to replication chain and wait for confirmation
+	event := s.eventBuffer.CreateMessageEvent(pb.OpType_OP_UPDATE, message)
+	if err := s.forwardEventToNextNode(event); err != nil {
+		return nil, err
+	}
+
 	return message, nil
 }
 
@@ -67,6 +79,17 @@ func (s *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 	err := s.storage.DeleteMessage(req.TopicId, req.UserId, req.MessageId)
 	if err != nil {
 		return nil, handleStorageError(err)
+	}
+
+	// Send event to replication chain and wait for confirmation
+	// TODO: This is a bit hacky, we create a message with only the IDs set
+	event := s.eventBuffer.CreateMessageEvent(pb.OpType_OP_DELETE, &pb.Message{
+		Id:      req.MessageId,
+		TopicId: req.TopicId,
+		UserId:  req.UserId,
+	})
+	if err := s.forwardEventToNextNode(event); err != nil {
+		return nil, err
 	}
 
 	return &emptypb.Empty{}, nil
@@ -88,6 +111,14 @@ func (s *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 		return nil, handleStorageError(err)
 	}
 
+	// Send event to replication chain and wait for confirmation
+	event := s.eventBuffer.CreateLikeEvent(message, &pb.Like{
+		UserId: req.UserId,
+	})
+	if err := s.forwardEventToNextNode(event); err != nil {
+		return nil, err
+	}
+
 	return message, nil
 }
 
@@ -107,7 +138,7 @@ func (s *Node) GetMessages(ctx context.Context, req *pb.GetMessagesRequest) (*pb
 	return &pb.GetMessagesResponse{Messages: messages}, nil
 }
 
-func (s *Node) SubscribeTopic(req *pb.SubscribeTopicRequest, stream pb.MessageBoard_SubscribeTopicServer) error {
+func (s *Node) SubscribeTopic(req *pb.SubscribeTopicRequest, stream pb.MessageBoardSubscriptions_SubscribeTopicServer) error {
 	// TODO: Implement topic subscription streaming logic
 	return status.Error(codes.Unimplemented, "SubscribeTopic is not yet implemented")
 }

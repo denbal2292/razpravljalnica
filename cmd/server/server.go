@@ -23,8 +23,21 @@ func main() {
 	gRPCServer := grpc.NewServer()
 
 	// Create and register MessageBoard server
-	messageBoardServer := server.NewServer(nil, nil)
-	razpravljalnica.RegisterMessageBoardServer(gRPCServer, messageBoardServer)
+	node := server.NewServer(nil, nil)
+
+	// Register services based on the node position
+	// Only head nodes handle writes
+	if node.IsHead() {
+		razpravljalnica.RegisterMessageBoardWritesServer(gRPCServer, node)
+	}
+
+	// Only tail nodes handle reads
+	if node.IsTail() {
+		razpravljalnica.RegisterMessageBoardReadsServer(gRPCServer, node)
+	}
+
+	// All nodes handle subscriptions
+	razpravljalnica.RegisterChainReplicationServer(gRPCServer, node)
 
 	hostname, err := os.Hostname()
 	if err != nil {
