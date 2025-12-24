@@ -55,7 +55,6 @@ func getUser(grpcClient pb.MessageBoardReadsClient, args []string) error {
 }
 
 func getMessages(grpcClient pb.MessageBoardReadsClient, args []string) error {
-
 	if err := requireArgs(args, 3, "messages <topic_id> <from_id> <limit_id>"); err != nil {
 		return err
 	}
