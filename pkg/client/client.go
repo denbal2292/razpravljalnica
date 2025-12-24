@@ -58,10 +58,6 @@ func RunClient(url string) {
 		command := fields[0]
 		args := fields[1:]
 
-		if err != nil {
-			panic(err)
-		}
-
 		if err := route(clients, command, args); err != nil {
 			if errors.Is(err, ErrExit) {
 				// Client decided to exit
