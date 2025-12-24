@@ -22,17 +22,23 @@ type Node struct {
 }
 
 type NodeConnection struct {
-	address string
-	client  pb.ChainReplicationClient // gRPC client to the connected node
+	// address string
+	Client pb.ChainReplicationClient // gRPC client to the connected node
 }
 
-func NewServer(predecessor *NodeConnection, successor *NodeConnection) *Node {
+func NewServer() *Node {
 	return &Node{
 		storage:     storage.NewStorage(),
 		eventBuffer: NewEventBuffer(),
-		predecessor: predecessor,
-		successor:   successor,
 	}
+}
+
+func (s *Node) SetPredecessor(conn *NodeConnection) {
+	s.predecessor = conn
+}
+
+func (s *Node) SetSuccessor(conn *NodeConnection) {
+	s.successor = conn
 }
 
 func (s *Node) IsHead() bool {

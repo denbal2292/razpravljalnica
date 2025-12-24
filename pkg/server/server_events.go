@@ -20,7 +20,7 @@ func (n *Node) replicateAndWaitForAck(ctx context.Context, event *pb.Event) erro
 	defer cancel()
 
 	// Forward the event to the next node in the chain
-	_, err := n.successor.client.ReplicateEvent(timeoutCtx, event)
+	_, err := n.successor.Client.ReplicateEvent(timeoutCtx, event)
 	return err
 }
 

@@ -49,6 +49,10 @@ func getUser(grpcClient pb.MessageBoardReadsClient, args []string) error {
 		UserId: userId,
 	})
 
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
 	fmt.Println(user.Id, user.Name)
 
 	return nil
