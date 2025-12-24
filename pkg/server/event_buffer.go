@@ -23,14 +23,47 @@ func NewEventBuffer() *EventBuffer {
 }
 
 // Create a new message event and add it to the buffer
-func (eb *EventBuffer) CreateMessageEvent(op pb.OpType, message *pb.Message) *pb.Event {
+func (eb *EventBuffer) CreateMessageEvent(message *pb.PostMessageRequest) *pb.Event {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
-		Op:             op,
-		Message:        message,
+		Op:             pb.OpType_OP_POST,
+		PostMessage:    message,
+	}
+
+	eb.events = append(eb.events, event)
+	eb.nextEventSeq++
+
+	return event
+}
+
+// Create a new update message event and add it to the buffer
+func (eb *EventBuffer) UpdateMessageEvent(message *pb.UpdateMessageRequest) *pb.Event {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+
+	event := &pb.Event{
+		SequenceNumber: eb.nextEventSeq,
+		Op:             pb.OpType_OP_UPDATE,
+		UpdateMessage:  message,
+	}
+
+	eb.events = append(eb.events, event)
+	eb.nextEventSeq++
+
+	return event
+}
+
+func (eb *EventBuffer) DeleteMessageEvent(message *pb.DeleteMessageRequest) *pb.Event {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+
+	event := &pb.Event{
+		SequenceNumber: eb.nextEventSeq,
+		Op:             pb.OpType_OP_DELETE,
+		DeleteMessage:  message,
 	}
 
 	eb.events = append(eb.events, event)
@@ -40,15 +73,14 @@ func (eb *EventBuffer) CreateMessageEvent(op pb.OpType, message *pb.Message) *pb
 }
 
 // Create a new like event and add it to the buffer
-func (eb *EventBuffer) CreateLikeEvent(message *pb.Message, like *pb.Like) *pb.Event {
+func (eb *EventBuffer) LikeMessageEvent(like *pb.LikeMessageRequest) *pb.Event {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
 		Op:             pb.OpType_OP_LIKE,
-		Message:        message,
-		Like:           like,
+		LikeMessage:    like,
 	}
 
 	eb.events = append(eb.events, event)
@@ -58,14 +90,14 @@ func (eb *EventBuffer) CreateLikeEvent(message *pb.Message, like *pb.Like) *pb.E
 }
 
 // Create a new user event and add it to the buffer
-func (eb *EventBuffer) CreateUserEvent(user *pb.User) *pb.Event {
+func (eb *EventBuffer) CreateUserEvent(user *pb.CreateUserRequest) *pb.Event {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
 		Op:             pb.OpType_OP_CREATE_USER,
-		User:           user,
+		CreateUser:     user,
 	}
 
 	eb.events = append(eb.events, event)
@@ -75,14 +107,14 @@ func (eb *EventBuffer) CreateUserEvent(user *pb.User) *pb.Event {
 }
 
 // Create a new topic event and add it to the buffer
-func (eb *EventBuffer) CreateTopicEvent(topic *pb.Topic) *pb.Event {
+func (eb *EventBuffer) CreateTopicEvent(topic *pb.CreateTopicRequest) *pb.Event {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
 		Op:             pb.OpType_OP_CREATE_TOPIC,
-		Topic:          topic,
+		CreateTopic:    topic,
 	}
 
 	eb.events = append(eb.events, event)

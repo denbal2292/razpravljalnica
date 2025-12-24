@@ -180,25 +180,14 @@ service ControlPlane {
   rpc GetClusterState(google.protobuf.Empty) returns (GetClusterStateResponse);
 }
 
+message GetClusterStateResponse {
+  NodeInfo head = 1;
+  NodeInfo tail = 2;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Chain replication messages
 ////////////////////////////////////////////////////////////////////////////////
-message Event {
-  int64 sequence_number = 1;
-  OpType op = 2;
-  google.protobuf.Timestamp event_at = 3;
-
-  // Only one of the following will be set
-  Message message = 4;  // set for message ops
-  Like like = 5;        // set for OP_LIKE
-  User user = 6;        // set for OP_CREATE_USER
-  Topic topic = 7;      // set for OP_CREATE_TOPIC
-}
-
-message AcknowledgeEventRequest {
-  int64 sequence_number = 1; // The sequence number of the event being acknowledged
-}
-
 service ChainReplication {
   // Replicate an event to the next node in the chain
   rpc ReplicateEvent(Event) returns (google.protobuf.Empty);
@@ -208,7 +197,20 @@ service ChainReplication {
   rpc AcknowledgeEvent(AcknowledgeEventRequest) returns (google.protobuf.Empty);
 }
 
-message GetClusterStateResponse {
-  NodeInfo head = 1;
-  NodeInfo tail = 2;
+message Event {
+  int64 sequence_number = 1;
+  OpType op = 2;
+  google.protobuf.Timestamp event_at = 3;
+
+  // Only one of the following will be set
+  PostMessageRequest post_message = 4; // set for OP_POST
+  LikeMessageRequest like_message = 5; // set for OP_LIKE
+  DeleteMessageRequest delete_message = 6; // set for OP_DELETE
+  UpdateMessageRequest update_message = 7; // set for OP_UPDATE
+  CreateUserRequest create_user = 8; // set for OP_CREATE_USER
+  CreateTopicRequest create_topic = 9; // set for OP_CREATE_TOPIC
+}
+
+message AcknowledgeEventRequest {
+  int64 sequence_number = 1; // The sequence number of the event being acknowledged
 }

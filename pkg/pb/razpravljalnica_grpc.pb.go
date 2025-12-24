@@ -784,6 +784,10 @@ const (
 // ChainReplicationClient is the client API for ChainReplication service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// //////////////////////////////////////////////////////////////////////////////
+// Chain replication messages
+// //////////////////////////////////////////////////////////////////////////////
 type ChainReplicationClient interface {
 	// Replicate an event to the next node in the chain
 	ReplicateEvent(ctx context.Context, in *Event, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -823,6 +827,10 @@ func (c *chainReplicationClient) AcknowledgeEvent(ctx context.Context, in *Ackno
 // ChainReplicationServer is the server API for ChainReplication service.
 // All implementations must embed UnimplementedChainReplicationServer
 // for forward compatibility.
+//
+// //////////////////////////////////////////////////////////////////////////////
+// Chain replication messages
+// //////////////////////////////////////////////////////////////////////////////
 type ChainReplicationServer interface {
 	// Replicate an event to the next node in the chain
 	ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error)

@@ -7,7 +7,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (s *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb.Message, error) {
@@ -21,17 +20,16 @@ func (s *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "user_id must be positive")
 	}
 
-	// Make the created_at timestamp here
-	createdAt := timestamppb.Now()
-	message, err := s.storage.PostMessage(req.TopicId, req.UserId, req.Text, createdAt)
-	if err != nil {
-		return nil, handleStorageError(err)
+	// Send event to replication chain and wait for confirmation
+	event := s.eventBuffer.CreateMessageEvent(req)
+	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
+		return nil, err
 	}
 
-	// Send event to replication chain and wait for confirmation
-	event := s.eventBuffer.CreateMessageEvent(pb.OpType_OP_POST, message)
-	if err := s.forwardEventToNextNode(event); err != nil {
-		return nil, err
+	// We can now safely commit the message to storage with the event timestamp
+	message, err := s.storage.PostMessage(req.TopicId, req.UserId, req.Text, event.EventAt)
+	if err != nil {
+		return nil, handleStorageError(err)
 	}
 
 	return message, nil
@@ -51,15 +49,16 @@ func (s *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 		return nil, status.Error(codes.InvalidArgument, "message_id must be positive")
 	}
 
+	// Send event to replication chain and wait for confirmation
+	event := s.eventBuffer.UpdateMessageEvent(req)
+	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
+		return nil, err
+	}
+
+	// We can now safely commit the message update to storage
 	message, err := s.storage.UpdateMessage(req.TopicId, req.UserId, req.MessageId, req.Text)
 	if err != nil {
 		return nil, handleStorageError(err)
-	}
-
-	// Send event to replication chain and wait for confirmation
-	event := s.eventBuffer.CreateMessageEvent(pb.OpType_OP_UPDATE, message)
-	if err := s.forwardEventToNextNode(event); err != nil {
-		return nil, err
 	}
 
 	return message, nil
@@ -76,20 +75,16 @@ func (s *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 		return nil, status.Error(codes.InvalidArgument, "message_id must be positive")
 	}
 
+	// Send event to replication chain and wait for confirmation
+	event := s.eventBuffer.DeleteMessageEvent(req)
+	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
+		return nil, err
+	}
+
+	// We can now safely commit the message deletion to storage
 	err := s.storage.DeleteMessage(req.TopicId, req.UserId, req.MessageId)
 	if err != nil {
 		return nil, handleStorageError(err)
-	}
-
-	// Send event to replication chain and wait for confirmation
-	// TODO: This is a bit hacky, we create a message with only the IDs set
-	event := s.eventBuffer.CreateMessageEvent(pb.OpType_OP_DELETE, &pb.Message{
-		Id:      req.MessageId,
-		TopicId: req.TopicId,
-		UserId:  req.UserId,
-	})
-	if err := s.forwardEventToNextNode(event); err != nil {
-		return nil, err
 	}
 
 	return &emptypb.Empty{}, nil
@@ -106,17 +101,16 @@ func (s *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "message_id must be positive")
 	}
 
+	// Send event to replication chain and wait for confirmation
+	event := s.eventBuffer.LikeMessageEvent(req)
+	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
+		return nil, err
+	}
+
+	// We can now safely commit the like to storage
 	message, err := s.storage.LikeMessage(req.TopicId, req.UserId, req.MessageId)
 	if err != nil {
 		return nil, handleStorageError(err)
-	}
-
-	// Send event to replication chain and wait for confirmation
-	event := s.eventBuffer.CreateLikeEvent(message, &pb.Like{
-		UserId: req.UserId,
-	})
-	if err := s.forwardEventToNextNode(event); err != nil {
-		return nil, err
 	}
 
 	return message, nil
