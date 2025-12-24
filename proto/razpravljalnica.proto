@@ -190,11 +190,8 @@ message GetClusterStateResponse {
 ////////////////////////////////////////////////////////////////////////////////
 service ChainReplication {
   // Replicate an event to the next node in the chain
+  // The reply serves as an ACK from the next node
   rpc ReplicateEvent(Event) returns (google.protobuf.Empty);
-
-  // Acknowledge that the event with a given sequence number
-  // has been applied by the tail node
-  rpc AcknowledgeEvent(AcknowledgeEventRequest) returns (google.protobuf.Empty);
 }
 
 message Event {
@@ -209,8 +206,4 @@ message Event {
   UpdateMessageRequest update_message = 7; // set for OP_UPDATE
   CreateUserRequest create_user = 8; // set for OP_CREATE_USER
   CreateTopicRequest create_topic = 9; // set for OP_CREATE_TOPIC
-}
-
-message AcknowledgeEventRequest {
-  int64 sequence_number = 1; // The sequence number of the event being acknowledged
 }

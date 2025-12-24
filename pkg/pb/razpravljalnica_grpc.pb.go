@@ -777,8 +777,7 @@ var ControlPlane_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChainReplication_ReplicateEvent_FullMethodName   = "/razpravljalnica.ChainReplication/ReplicateEvent"
-	ChainReplication_AcknowledgeEvent_FullMethodName = "/razpravljalnica.ChainReplication/AcknowledgeEvent"
+	ChainReplication_ReplicateEvent_FullMethodName = "/razpravljalnica.ChainReplication/ReplicateEvent"
 )
 
 // ChainReplicationClient is the client API for ChainReplication service.
@@ -790,10 +789,8 @@ const (
 // //////////////////////////////////////////////////////////////////////////////
 type ChainReplicationClient interface {
 	// Replicate an event to the next node in the chain
+	// The reply serves as an ACK from the next node
 	ReplicateEvent(ctx context.Context, in *Event, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Acknowledge that the event with a given sequence number
-	// has been applied by the tail node
-	AcknowledgeEvent(ctx context.Context, in *AcknowledgeEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type chainReplicationClient struct {
@@ -814,16 +811,6 @@ func (c *chainReplicationClient) ReplicateEvent(ctx context.Context, in *Event, 
 	return out, nil
 }
 
-func (c *chainReplicationClient) AcknowledgeEvent(ctx context.Context, in *AcknowledgeEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, ChainReplication_AcknowledgeEvent_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ChainReplicationServer is the server API for ChainReplication service.
 // All implementations must embed UnimplementedChainReplicationServer
 // for forward compatibility.
@@ -833,10 +820,8 @@ func (c *chainReplicationClient) AcknowledgeEvent(ctx context.Context, in *Ackno
 // //////////////////////////////////////////////////////////////////////////////
 type ChainReplicationServer interface {
 	// Replicate an event to the next node in the chain
+	// The reply serves as an ACK from the next node
 	ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error)
-	// Acknowledge that the event with a given sequence number
-	// has been applied by the tail node
-	AcknowledgeEvent(context.Context, *AcknowledgeEventRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedChainReplicationServer()
 }
 
@@ -849,9 +834,6 @@ type UnimplementedChainReplicationServer struct{}
 
 func (UnimplementedChainReplicationServer) ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReplicateEvent not implemented")
-}
-func (UnimplementedChainReplicationServer) AcknowledgeEvent(context.Context, *AcknowledgeEventRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method AcknowledgeEvent not implemented")
 }
 func (UnimplementedChainReplicationServer) mustEmbedUnimplementedChainReplicationServer() {}
 func (UnimplementedChainReplicationServer) testEmbeddedByValue()                          {}
@@ -892,24 +874,6 @@ func _ChainReplication_ReplicateEvent_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChainReplication_AcknowledgeEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AcknowledgeEventRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChainReplicationServer).AcknowledgeEvent(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChainReplication_AcknowledgeEvent_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainReplicationServer).AcknowledgeEvent(ctx, req.(*AcknowledgeEventRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // ChainReplication_ServiceDesc is the grpc.ServiceDesc for ChainReplication service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -920,10 +884,6 @@ var ChainReplication_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReplicateEvent",
 			Handler:    _ChainReplication_ReplicateEvent_Handler,
-		},
-		{
-			MethodName: "AcknowledgeEvent",
-			Handler:    _ChainReplication_AcknowledgeEvent_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -19,7 +19,6 @@ type Node struct {
 
 	predecessor *NodeConnection // nil if HEAD
 	successor   *NodeConnection // nil if TAIL
-	ackSync     *AckSynchronization
 }
 
 type NodeConnection struct {
@@ -33,7 +32,6 @@ func NewServer(predecessor *NodeConnection, successor *NodeConnection) *Node {
 		eventBuffer: NewEventBuffer(),
 		predecessor: predecessor,
 		successor:   successor,
-		ackSync:     NewAckSynchronization(),
 	}
 }
 
