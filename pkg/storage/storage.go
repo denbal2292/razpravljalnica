@@ -16,11 +16,11 @@ var (
 )
 
 type Storage struct {
-	mu            sync.RWMutex
+	mu            sync.RWMutex                    // protects all fields below
 	users         map[int64]*pb.User              // userId -> User
 	topics        map[int64]*pb.Topic             // topicId -> Topic
 	messages      map[int64]map[int64]*pb.Message // topicId -> (messageId -> Message)
-	likes         map[int64]map[int64]bool        // messageId -> userId
+	likes         map[int64]map[int64]bool        // messageId -> (userId -> bool)
 	nextMessageId map[int64]int64                 // topicId -> nextMessageId
 	nextUserId    int64                           // next user ID to assign
 	nextTopicId   int64                           // next topic ID to assign

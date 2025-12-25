@@ -13,8 +13,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// ServerAddresses holds the addresses for head and tail servers - this
-// might be useful later when we add more complex functionality
+// ServerAddresses holds the addresses for HEAD and TAIL servers - this
+// might be useful later when we add more complex functionality (subscriptions)
 type ServerAddresses struct {
 	AddrHead string
 	AddrTail string

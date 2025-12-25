@@ -8,19 +8,19 @@ import (
 )
 
 func main() {
-	// Server head address
+	// Server HEAD address
 	shPtr := flag.String("sh", "localhost", "head server URL")
-	// Server head port
+	// Server HEAD port
 	phPtr := flag.Int("ph", 9876, "head server port")
 
-	// Server tail address
+	// Server TAIL address
 	stPtr := flag.String("st", "localhost", "tail server URL")
-	// Server tail port
+	// Server TAIL port
 	ptPtr := flag.Int("pt", 9877, "tail server port")
 
 	flag.Parse()
 
-	// URLs for head and tail servers
+	// URLs for head and TAIL servers
 	urlHead := fmt.Sprintf("%s:%d", *shPtr, *phPtr)
 	urlTail := fmt.Sprintf("%s:%d", *stPtr, *ptPtr)
 

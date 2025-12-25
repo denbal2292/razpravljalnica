@@ -34,10 +34,12 @@ func NewServer() *Node {
 }
 
 func (s *Node) SetPredecessor(conn *NodeConnection) {
+	// HEAD is the predecessor (not immediate) of all nodes in the chain
 	s.predecessor = conn
 }
 
 func (s *Node) SetSuccessor(conn *NodeConnection) {
+	// TAIL is the successor (not immediate) of all nodes in the chain
 	s.successor = conn
 }
 
