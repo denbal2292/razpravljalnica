@@ -65,7 +65,7 @@ func RunClient(serverUrls ServerAddresses) {
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		// Read the command
-		fmt.Print(">: ")
+		fmt.Print("> ")
 		if !scanner.Scan() {
 			break
 		}

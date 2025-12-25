@@ -136,7 +136,6 @@ func (eb *EventBuffer) AddEvent(event *pb.Event) {
 	eb.nextEventSeq++
 }
 
-// TODO: Think about a nicer way to handle this
 // Acknowledge that an event has been confirmed by the tail
 // Returns the acknowledged event
 func (eb *EventBuffer) AcknowledgeEvent(sequenceNumber int64) *pb.Event {
