@@ -16,11 +16,14 @@ func (s *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb
 
 	// Send event to replication chain and wait for confirmation
 	event := s.eventBuffer.CreateTopicEvent(req)
+	s.logEventReceived(event)
+
 	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
 		return nil, err
 	}
 
 	// We can now safely commit the topic to storage
+	s.logApplyEvent(event)
 	topic, err := s.storage.CreateTopic(req.Name)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

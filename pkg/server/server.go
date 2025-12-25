@@ -9,6 +9,8 @@ import (
 	"github.com/denbal2292/razpravljalnica/pkg/storage"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/lmittmann/tint"
 )
 
 type Node struct {
@@ -36,7 +38,15 @@ func NewServer() *Node {
 		eventBuffer: NewEventBuffer(),
 		// Keep this as os.Stdout for simplicity - can be easily extended
 		// to use file or other logging backends
-		logger: slog.New(slog.NewTextHandler(os.Stdout, nil)),
+		// Use tint for nicer output
+		logger: slog.New(tint.NewHandler(
+			os.Stdout,
+			&tint.Options{
+				Level: slog.LevelDebug,
+				// GO's default reference time
+				TimeFormat: "02-01-2006 15:04:05",
+			},
+		)),
 	}
 }
 
@@ -93,7 +103,6 @@ func (n *Node) applyEvent(event *pb.Event) error {
 	default:
 		panic(fmt.Sprintf("unknown event operation: %v", event.Op))
 	}
-
 }
 
 // Convert storage layer errors to appropriate gRPC status codes.

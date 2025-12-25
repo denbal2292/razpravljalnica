@@ -10,25 +10,26 @@ import (
 
 // Replicate the event to the next node and wait for ACK from the tail (used for create/update operations)
 func (n *Node) replicateAndWaitForAck(ctx context.Context, event *pb.Event) error {
-	// If this is the tail, we don't send the ACK
+	// If this is the tail, we don't propagate further
 	if n.IsTail() {
 		return nil
 	}
+
+	// Log the replication attempt
+	n.logEventReplicated(event)
 
 	// TODO: Put timeout in a config
 	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	// Forward the event to the next node in the chain
-	// Log the replication attempt
-	n.logger.Info("Replicating event to successor", "successor", n.successor)
 	_, err := n.successor.Client.ReplicateEvent(timeoutCtx, event)
 
-	// Log the ACK reception or error
 	if err != nil {
-		n.logger.Warn("Failed to receive ACK from successor", "successor", n.successor, "error", err)
+		n.logFailReplicationEvent(event, err)
 	} else {
-		n.logger.Info("Received ACK from successor", "successor", n.successor)
+		// No error means ACK received
+		n.logAckReceived(event)
 	}
 
 	return err
@@ -39,6 +40,9 @@ func (n *Node) replicateAndWaitForAck(ctx context.Context, event *pb.Event) erro
 func (n *Node) ReplicateEvent(ctx context.Context, event *pb.Event) (*emptypb.Empty, error) {
 	// 1. Add the event to the buffer but don't apply it yet since it's not confirmed by the tail
 	n.eventBuffer.AddEvent(event)
+
+	// Log event reception from predecessor
+	n.logEventReceived(event)
 
 	// 2. Forward the event to the next node and wait for ACK
 	if !n.IsTail() {
@@ -52,15 +56,22 @@ func (n *Node) ReplicateEvent(ctx context.Context, event *pb.Event) (*emptypb.Em
 	// Acknowledge in our buffer
 	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 
+	// Q: I don't think this check is necessary
 	if n.IsHead() {
 		// If HEAD, signal the waiting client and add to storage in the controller (for easier return)
 		return &emptypb.Empty{}, nil
 	}
 
+	// Log event
+	n.logApplyEvent(event)
+
 	// Not HEAD, apply the event here
 	if err := n.applyEvent(event); err != nil {
 		return nil, err
 	}
+
+	// Log ACK propagation
+	n.logAckPropagated(event)
 
 	return &emptypb.Empty{}, nil
 }

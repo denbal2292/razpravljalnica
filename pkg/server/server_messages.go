@@ -22,10 +22,13 @@ func (s *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 
 	// Send event to replication chain and wait for confirmation
 	event := s.eventBuffer.CreateMessageEvent(req)
+	s.logEventReceived(event)
+
 	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
 		return nil, err
 	}
 
+	s.logApplyEvent(event)
 	// We can now safely commit the message to storage with the event timestamp
 	message, err := s.storage.PostMessage(req.TopicId, req.UserId, req.Text, event.EventAt)
 	if err != nil {
@@ -51,11 +54,14 @@ func (s *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 
 	// Send event to replication chain and wait for confirmation
 	event := s.eventBuffer.UpdateMessageEvent(req)
+	s.logEventReceived(event)
+
 	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
 		return nil, err
 	}
 
 	// We can now safely commit the message update to storage
+	s.logApplyEvent(event)
 	message, err := s.storage.UpdateMessage(req.TopicId, req.UserId, req.MessageId, req.Text)
 	if err != nil {
 		return nil, handleStorageError(err)
@@ -77,10 +83,12 @@ func (s *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 
 	// Send event to replication chain and wait for confirmation
 	event := s.eventBuffer.DeleteMessageEvent(req)
+	s.logEventReceived(event)
 	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
 		return nil, err
 	}
 
+	s.logApplyEvent(event)
 	// We can now safely commit the message deletion to storage
 	err := s.storage.DeleteMessage(req.TopicId, req.UserId, req.MessageId)
 	if err != nil {
@@ -103,15 +111,19 @@ func (s *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 
 	// Send event to replication chain and wait for confirmation
 	event := s.eventBuffer.LikeMessageEvent(req)
+	s.logEventReceived(event)
+
 	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
 		return nil, err
 	}
 
+	s.logApplyEvent(event)
 	// We can now safely commit the like to storage
 	message, err := s.storage.LikeMessage(req.TopicId, req.UserId, req.MessageId)
 	if err != nil {
 		return nil, handleStorageError(err)
 	}
+	s.logApplyEvent(event)
 
 	return message, nil
 }

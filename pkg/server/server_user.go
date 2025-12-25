@@ -15,10 +15,13 @@ func (s *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.U
 
 	// Send event to replication chain and wait for confirmation
 	event := s.eventBuffer.CreateUserEvent(req)
+	s.logEventReceived(event)
+
 	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
 		return nil, err
 	}
 
+	s.logApplyEvent(event)
 	// We can now safely commit the user to storage
 	user, err := s.storage.CreateUser(req.Name)
 	if err != nil {
