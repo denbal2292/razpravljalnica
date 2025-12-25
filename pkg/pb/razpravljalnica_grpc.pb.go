@@ -671,16 +671,131 @@ var MessageBoardSubscriptions_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ControlPlane_GetClusterState_FullMethodName = "/razpravljalnica.ControlPlane/GetClusterState"
+	ClientDiscovery_GetClusterState_FullMethodName = "/razpravljalnica.ClientDiscovery/GetClusterState"
+)
+
+// ClientDiscoveryClient is the client API for ClientDiscovery service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// API for clients
+type ClientDiscoveryClient interface {
+	// Get the current head and tail nodes (for the client to connect to)
+	GetClusterState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetClusterStateResponse, error)
+}
+
+type clientDiscoveryClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewClientDiscoveryClient(cc grpc.ClientConnInterface) ClientDiscoveryClient {
+	return &clientDiscoveryClient{cc}
+}
+
+func (c *clientDiscoveryClient) GetClusterState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetClusterStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetClusterStateResponse)
+	err := c.cc.Invoke(ctx, ClientDiscovery_GetClusterState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ClientDiscoveryServer is the server API for ClientDiscovery service.
+// All implementations must embed UnimplementedClientDiscoveryServer
+// for forward compatibility.
+//
+// API for clients
+type ClientDiscoveryServer interface {
+	// Get the current head and tail nodes (for the client to connect to)
+	GetClusterState(context.Context, *emptypb.Empty) (*GetClusterStateResponse, error)
+	mustEmbedUnimplementedClientDiscoveryServer()
+}
+
+// UnimplementedClientDiscoveryServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedClientDiscoveryServer struct{}
+
+func (UnimplementedClientDiscoveryServer) GetClusterState(context.Context, *emptypb.Empty) (*GetClusterStateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetClusterState not implemented")
+}
+func (UnimplementedClientDiscoveryServer) mustEmbedUnimplementedClientDiscoveryServer() {}
+func (UnimplementedClientDiscoveryServer) testEmbeddedByValue()                         {}
+
+// UnsafeClientDiscoveryServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ClientDiscoveryServer will
+// result in compilation errors.
+type UnsafeClientDiscoveryServer interface {
+	mustEmbedUnimplementedClientDiscoveryServer()
+}
+
+func RegisterClientDiscoveryServer(s grpc.ServiceRegistrar, srv ClientDiscoveryServer) {
+	// If the following call panics, it indicates UnimplementedClientDiscoveryServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&ClientDiscovery_ServiceDesc, srv)
+}
+
+func _ClientDiscovery_GetClusterState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientDiscoveryServer).GetClusterState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientDiscovery_GetClusterState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientDiscoveryServer).GetClusterState(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ClientDiscovery_ServiceDesc is the grpc.ServiceDesc for ClientDiscovery service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ClientDiscovery_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "razpravljalnica.ClientDiscovery",
+	HandlerType: (*ClientDiscoveryServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetClusterState",
+			Handler:    _ClientDiscovery_GetClusterState_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "razpravljalnica.proto",
+}
+
+const (
+	ControlPlane_Heartbeat_FullMethodName      = "/razpravljalnica.ControlPlane/Heartbeat"
+	ControlPlane_RegisterNode_FullMethodName   = "/razpravljalnica.ControlPlane/RegisterNode"
+	ControlPlane_UnregisterNode_FullMethodName = "/razpravljalnica.ControlPlane/UnregisterNode"
 )
 
 // ControlPlaneClient is the client API for ControlPlane service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Return the the head and the tail node address
+// API for nodes to call the control plane (node -> control plane)
 type ControlPlaneClient interface {
-	GetClusterState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetClusterStateResponse, error)
+	// Heartbeat from a node to indicate it is alive
+	Heartbeat(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Register a new node in the cluster
+	RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*NeighborsInfo, error)
+	// Remove an existing node from the cluster
+	UnregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type controlPlaneClient struct {
@@ -691,10 +806,30 @@ func NewControlPlaneClient(cc grpc.ClientConnInterface) ControlPlaneClient {
 	return &controlPlaneClient{cc}
 }
 
-func (c *controlPlaneClient) GetClusterState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetClusterStateResponse, error) {
+func (c *controlPlaneClient) Heartbeat(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetClusterStateResponse)
-	err := c.cc.Invoke(ctx, ControlPlane_GetClusterState_FullMethodName, in, out, cOpts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ControlPlane_Heartbeat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneClient) RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*NeighborsInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NeighborsInfo)
+	err := c.cc.Invoke(ctx, ControlPlane_RegisterNode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneClient) UnregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ControlPlane_UnregisterNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -705,9 +840,14 @@ func (c *controlPlaneClient) GetClusterState(ctx context.Context, in *emptypb.Em
 // All implementations must embed UnimplementedControlPlaneServer
 // for forward compatibility.
 //
-// Return the the head and the tail node address
+// API for nodes to call the control plane (node -> control plane)
 type ControlPlaneServer interface {
-	GetClusterState(context.Context, *emptypb.Empty) (*GetClusterStateResponse, error)
+	// Heartbeat from a node to indicate it is alive
+	Heartbeat(context.Context, *NodeInfo) (*emptypb.Empty, error)
+	// Register a new node in the cluster
+	RegisterNode(context.Context, *NodeInfo) (*NeighborsInfo, error)
+	// Remove an existing node from the cluster
+	UnregisterNode(context.Context, *NodeInfo) (*emptypb.Empty, error)
 	mustEmbedUnimplementedControlPlaneServer()
 }
 
@@ -718,8 +858,14 @@ type ControlPlaneServer interface {
 // pointer dereference when methods are called.
 type UnimplementedControlPlaneServer struct{}
 
-func (UnimplementedControlPlaneServer) GetClusterState(context.Context, *emptypb.Empty) (*GetClusterStateResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetClusterState not implemented")
+func (UnimplementedControlPlaneServer) Heartbeat(context.Context, *NodeInfo) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Heartbeat not implemented")
+}
+func (UnimplementedControlPlaneServer) RegisterNode(context.Context, *NodeInfo) (*NeighborsInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method RegisterNode not implemented")
+}
+func (UnimplementedControlPlaneServer) UnregisterNode(context.Context, *NodeInfo) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnregisterNode not implemented")
 }
 func (UnimplementedControlPlaneServer) mustEmbedUnimplementedControlPlaneServer() {}
 func (UnimplementedControlPlaneServer) testEmbeddedByValue()                      {}
@@ -742,20 +888,56 @@ func RegisterControlPlaneServer(s grpc.ServiceRegistrar, srv ControlPlaneServer)
 	s.RegisterService(&ControlPlane_ServiceDesc, srv)
 }
 
-func _ControlPlane_GetClusterState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+func _ControlPlane_Heartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ControlPlaneServer).GetClusterState(ctx, in)
+		return srv.(ControlPlaneServer).Heartbeat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ControlPlane_GetClusterState_FullMethodName,
+		FullMethod: ControlPlane_Heartbeat_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlPlaneServer).GetClusterState(ctx, req.(*emptypb.Empty))
+		return srv.(ControlPlaneServer).Heartbeat(ctx, req.(*NodeInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlane_RegisterNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServer).RegisterNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlane_RegisterNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServer).RegisterNode(ctx, req.(*NodeInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlane_UnregisterNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServer).UnregisterNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlane_UnregisterNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServer).UnregisterNode(ctx, req.(*NodeInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -768,8 +950,16 @@ var ControlPlane_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ControlPlaneServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetClusterState",
-			Handler:    _ControlPlane_GetClusterState_Handler,
+			MethodName: "Heartbeat",
+			Handler:    _ControlPlane_Heartbeat_Handler,
+		},
+		{
+			MethodName: "RegisterNode",
+			Handler:    _ControlPlane_RegisterNode_Handler,
+		},
+		{
+			MethodName: "UnregisterNode",
+			Handler:    _ControlPlane_UnregisterNode_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -777,20 +967,131 @@ var ControlPlane_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChainReplication_ReplicateEvent_FullMethodName = "/razpravljalnica.ChainReplication/ReplicateEvent"
+	NodeSync_UpdateNeighbors_FullMethodName = "/razpravljalnica.NodeSync/UpdateNeighbors"
+)
+
+// NodeSyncClient is the client API for NodeSync service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// API for control plane to call nodes (control plane -> node)
+type NodeSyncClient interface {
+	// Inform a node about its new predecessor and successor
+	UpdateNeighbors(ctx context.Context, in *NeighborsInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type nodeSyncClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNodeSyncClient(cc grpc.ClientConnInterface) NodeSyncClient {
+	return &nodeSyncClient{cc}
+}
+
+func (c *nodeSyncClient) UpdateNeighbors(ctx context.Context, in *NeighborsInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeSync_UpdateNeighbors_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NodeSyncServer is the server API for NodeSync service.
+// All implementations must embed UnimplementedNodeSyncServer
+// for forward compatibility.
+//
+// API for control plane to call nodes (control plane -> node)
+type NodeSyncServer interface {
+	// Inform a node about its new predecessor and successor
+	UpdateNeighbors(context.Context, *NeighborsInfo) (*emptypb.Empty, error)
+	mustEmbedUnimplementedNodeSyncServer()
+}
+
+// UnimplementedNodeSyncServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNodeSyncServer struct{}
+
+func (UnimplementedNodeSyncServer) UpdateNeighbors(context.Context, *NeighborsInfo) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateNeighbors not implemented")
+}
+func (UnimplementedNodeSyncServer) mustEmbedUnimplementedNodeSyncServer() {}
+func (UnimplementedNodeSyncServer) testEmbeddedByValue()                  {}
+
+// UnsafeNodeSyncServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NodeSyncServer will
+// result in compilation errors.
+type UnsafeNodeSyncServer interface {
+	mustEmbedUnimplementedNodeSyncServer()
+}
+
+func RegisterNodeSyncServer(s grpc.ServiceRegistrar, srv NodeSyncServer) {
+	// If the following call panics, it indicates UnimplementedNodeSyncServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NodeSync_ServiceDesc, srv)
+}
+
+func _NodeSync_UpdateNeighbors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NeighborsInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeSyncServer).UpdateNeighbors(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeSync_UpdateNeighbors_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeSyncServer).UpdateNeighbors(ctx, req.(*NeighborsInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NodeSync_ServiceDesc is the grpc.ServiceDesc for NodeSync service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NodeSync_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "razpravljalnica.NodeSync",
+	HandlerType: (*NodeSyncServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "UpdateNeighbors",
+			Handler:    _NodeSync_UpdateNeighbors_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "razpravljalnica.proto",
+}
+
+const (
+	ChainReplication_ReplicateEvent_FullMethodName        = "/razpravljalnica.ChainReplication/ReplicateEvent"
+	ChainReplication_SyncEvents_FullMethodName            = "/razpravljalnica.ChainReplication/SyncEvents"
+	ChainReplication_GetLastSequenceNumber_FullMethodName = "/razpravljalnica.ChainReplication/GetLastSequenceNumber"
 )
 
 // ChainReplicationClient is the client API for ChainReplication service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-//
-// //////////////////////////////////////////////////////////////////////////////
-// Chain replication messages
-// //////////////////////////////////////////////////////////////////////////////
 type ChainReplicationClient interface {
 	// Replicate an event to the next node in the chain
 	// The reply serves as an ACK from the next node
 	ReplicateEvent(ctx context.Context, in *Event, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Request to sync events starting from a given sequence number
+	// Used when a new node joins the chain and needs to catch up
+	SyncEvents(ctx context.Context, in *SyncEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error)
+	// Ask the node for its latest sequence number
+	GetLastSequenceNumber(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetLastSequenceNumberResponse, error)
 }
 
 type chainReplicationClient struct {
@@ -811,17 +1112,47 @@ func (c *chainReplicationClient) ReplicateEvent(ctx context.Context, in *Event, 
 	return out, nil
 }
 
+func (c *chainReplicationClient) SyncEvents(ctx context.Context, in *SyncEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ChainReplication_ServiceDesc.Streams[0], ChainReplication_SyncEvents_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SyncEventsRequest, Event]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChainReplication_SyncEventsClient = grpc.ServerStreamingClient[Event]
+
+func (c *chainReplicationClient) GetLastSequenceNumber(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetLastSequenceNumberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetLastSequenceNumberResponse)
+	err := c.cc.Invoke(ctx, ChainReplication_GetLastSequenceNumber_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChainReplicationServer is the server API for ChainReplication service.
 // All implementations must embed UnimplementedChainReplicationServer
 // for forward compatibility.
-//
-// //////////////////////////////////////////////////////////////////////////////
-// Chain replication messages
-// //////////////////////////////////////////////////////////////////////////////
 type ChainReplicationServer interface {
 	// Replicate an event to the next node in the chain
 	// The reply serves as an ACK from the next node
 	ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error)
+	// Request to sync events starting from a given sequence number
+	// Used when a new node joins the chain and needs to catch up
+	SyncEvents(*SyncEventsRequest, grpc.ServerStreamingServer[Event]) error
+	// Ask the node for its latest sequence number
+	GetLastSequenceNumber(context.Context, *emptypb.Empty) (*GetLastSequenceNumberResponse, error)
 	mustEmbedUnimplementedChainReplicationServer()
 }
 
@@ -834,6 +1165,12 @@ type UnimplementedChainReplicationServer struct{}
 
 func (UnimplementedChainReplicationServer) ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReplicateEvent not implemented")
+}
+func (UnimplementedChainReplicationServer) SyncEvents(*SyncEventsRequest, grpc.ServerStreamingServer[Event]) error {
+	return status.Error(codes.Unimplemented, "method SyncEvents not implemented")
+}
+func (UnimplementedChainReplicationServer) GetLastSequenceNumber(context.Context, *emptypb.Empty) (*GetLastSequenceNumberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetLastSequenceNumber not implemented")
 }
 func (UnimplementedChainReplicationServer) mustEmbedUnimplementedChainReplicationServer() {}
 func (UnimplementedChainReplicationServer) testEmbeddedByValue()                          {}
@@ -874,6 +1211,35 @@ func _ChainReplication_ReplicateEvent_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChainReplication_SyncEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SyncEventsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ChainReplicationServer).SyncEvents(m, &grpc.GenericServerStream[SyncEventsRequest, Event]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChainReplication_SyncEventsServer = grpc.ServerStreamingServer[Event]
+
+func _ChainReplication_GetLastSequenceNumber_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainReplicationServer).GetLastSequenceNumber(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainReplication_GetLastSequenceNumber_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainReplicationServer).GetLastSequenceNumber(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChainReplication_ServiceDesc is the grpc.ServiceDesc for ChainReplication service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -885,7 +1251,17 @@ var ChainReplication_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ReplicateEvent",
 			Handler:    _ChainReplication_ReplicateEvent_Handler,
 		},
+		{
+			MethodName: "GetLastSequenceNumber",
+			Handler:    _ChainReplication_GetLastSequenceNumber_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "SyncEvents",
+			Handler:       _ChainReplication_SyncEvents_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "razpravljalnica.proto",
 }

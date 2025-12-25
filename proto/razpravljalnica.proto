@@ -175,9 +175,22 @@ message GetUserRequest {
 // Control plane
 ////////////////////////////////////////////////////////////////////////////////
 
-// Return the the head and the tail node address
-service ControlPlane {
+// API for clients
+service ClientDiscovery {
+  // Get the current head and tail nodes (for the client to connect to)
   rpc GetClusterState(google.protobuf.Empty) returns (GetClusterStateResponse);
+}
+
+// API for nodes to call the control plane (node -> control plane)
+service ControlPlane {
+  // Heartbeat from a node to indicate it is alive
+  rpc Heartbeat(NodeInfo) returns (google.protobuf.Empty);
+
+  // Register a new node in the cluster
+  rpc RegisterNode(NodeInfo) returns (NeighborsInfo);
+
+  // Remove an existing node from the cluster
+  rpc UnregisterNode(NodeInfo) returns (google.protobuf.Empty);
 }
 
 message GetClusterStateResponse {
@@ -185,25 +198,58 @@ message GetClusterStateResponse {
   NodeInfo tail = 2;
 }
 
+message RegisterNodeRequest {
+  NodeInfo node = 1;
+}
+
+// API for control plane to call nodes (control plane -> node)
+service NodeSync {
+  // Inform a node about its new predecessor and successor
+  rpc UpdateNeighbors(NeighborsInfo) returns (google.protobuf.Empty);
+}
+
+message NeighborsInfo {
+  NodeInfo predecessor = 1;
+  NodeInfo successor = 2;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
-// Chain replication messages
+// Chain replication messages (between nodes)
 ////////////////////////////////////////////////////////////////////////////////
+
 service ChainReplication {
   // Replicate an event to the next node in the chain
   // The reply serves as an ACK from the next node
   rpc ReplicateEvent(Event) returns (google.protobuf.Empty);
-}
 
+  // Request to sync events starting from a given sequence number
+  // Used when a new node joins the chain and needs to catch up 
+  rpc SyncEvents(SyncEventsRequest) returns (stream Event);
+
+  // Ask the node for its latest sequence number
+  rpc GetLastSequenceNumber(google.protobuf.Empty) returns (GetLastSequenceNumberResponse);
+}
+ 
 message Event {
   int64 sequence_number = 1;
   OpType op = 2;
   google.protobuf.Timestamp event_at = 3;
 
   // Only one of the following will be set
+  // TODO: Use "oneof"?
   PostMessageRequest post_message = 4; // set for OP_POST
   LikeMessageRequest like_message = 5; // set for OP_LIKE
   DeleteMessageRequest delete_message = 6; // set for OP_DELETE
   UpdateMessageRequest update_message = 7; // set for OP_UPDATE
   CreateUserRequest create_user = 8; // set for OP_CREATE_USER
   CreateTopicRequest create_topic = 9; // set for OP_CREATE_TOPIC
+}
+
+// TODO: Maybe we should add some kind of token like in subscriptions to authorize the sync?
+message SyncEventsRequest {
+  int64 from_sequence_number = 1; // starting sequence number
+}
+
+message GetLastSequenceNumberResponse {
+  int64 sequence_number = 1;
 }

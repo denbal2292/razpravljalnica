@@ -17,7 +17,8 @@ type Node struct {
 	pb.UnimplementedMessageBoardReadsServer         // reads
 	pb.UnimplementedMessageBoardWritesServer        // writes
 	pb.UnimplementedMessageBoardSubscriptionsServer // subscriptions
-	pb.UnimplementedChainReplicationServer
+	pb.UnimplementedChainReplicationServer          // for communication between nodes in the chain
+
 	storage     *storage.Storage
 	eventBuffer *EventBuffer
 
