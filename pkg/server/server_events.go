@@ -20,7 +20,17 @@ func (n *Node) replicateAndWaitForAck(ctx context.Context, event *pb.Event) erro
 	defer cancel()
 
 	// Forward the event to the next node in the chain
+	// Log the replication attempt
+	n.logger.Info("Replicating event to successor", "successor", n.successor)
 	_, err := n.successor.Client.ReplicateEvent(timeoutCtx, event)
+
+	// Log the ACK reception or error
+	if err != nil {
+		n.logger.Warn("Failed to receive ACK from successor", "successor", n.successor, "error", err)
+	} else {
+		n.logger.Info("Received ACK from successor", "successor", n.successor)
+	}
+
 	return err
 }
 

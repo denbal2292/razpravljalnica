@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/denbal2292/razpravljalnica/pkg/storage"
@@ -19,6 +21,8 @@ type Node struct {
 
 	predecessor *NodeConnection // nil if HEAD
 	successor   *NodeConnection // nil if TAIL
+
+	logger *slog.Logger // logger for the node
 }
 
 type NodeConnection struct {
@@ -30,6 +34,9 @@ func NewServer() *Node {
 	return &Node{
 		storage:     storage.NewStorage(),
 		eventBuffer: NewEventBuffer(),
+		// Keep this as os.Stdout for simplicity - can be easily extended
+		// to use file or other logging backends
+		logger: slog.New(slog.NewTextHandler(os.Stdout, nil)),
 	}
 }
 
