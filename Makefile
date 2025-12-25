@@ -22,8 +22,10 @@ build-client:
 run-server:
 	go run ./cmd/server/
 
+# Pass additional arguments to the client via ARGS variable -
+# e.g., make run-client ARGS="-sh localhost -ph 9876 -st localhost -pt 9877"
 run-client:
-	go run ./cmd/client/
+	go run ./cmd/client/ $(ARGS)
 
 clean:
 	rm -rf pkg/pb/*

@@ -13,6 +13,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// ServerAddresses holds the addresses for head and tail servers - this
+// might be useful later when we add more complex functionality
+type ServerAddresses struct {
+	AddrHead string
+	AddrTail string
+}
+
 // ClientSet holds gRPC clients for different services
 type ClientSet struct {
 	Reads        pb.MessageBoardReadsClient
@@ -21,20 +28,36 @@ type ClientSet struct {
 }
 
 // Initialize a new client instance
-func RunClient(url string) {
-	fmt.Printf("gRPC client connecting to URL %s\n", url)
-	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func RunClient(serverUrls ServerAddresses) {
+	fmt.Printf("Client connecting to head server at: %s\n", serverUrls.AddrHead)
+	fmt.Printf("Client connecting to tail server at: %s\n", serverUrls.AddrTail)
+
+	connHead, err := grpc.NewClient(
+		serverUrls.AddrHead,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close()
+	defer connHead.Close()
+
+	connTail, err := grpc.NewClient(
+		serverUrls.AddrTail,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+
+	if err != nil {
+		panic(err)
+	}
+	defer connTail.Close()
 
 	// Create gRPC clients for all services
 	clients := &ClientSet{
-		Reads:        pb.NewMessageBoardReadsClient(conn),
-		Writes:       pb.NewMessageBoardWritesClient(conn),
-		Subsciptions: pb.NewMessageBoardSubscriptionsClient(conn),
+		Reads:  pb.NewMessageBoardReadsClient(connTail),
+		Writes: pb.NewMessageBoardWritesClient(connHead),
+		// This isn't yet implemented
+		Subsciptions: pb.NewMessageBoardSubscriptionsClient(connHead),
 	}
 
 	// Simple REPL loop

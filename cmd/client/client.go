@@ -8,12 +8,25 @@ import (
 )
 
 func main() {
-	sPtr := flag.String("s", "localhost", "server URL")
-	pPtr := flag.Int("p", 9876, "server port")
+	// Server head address
+	shPtr := flag.String("sh", "localhost", "head server URL")
+	// Server head port
+	phPtr := flag.Int("ph", 9876, "head server port")
+
+	// Server tail address
+	stPtr := flag.String("st", "localhost", "tail server URL")
+	// Server tail port
+	ptPtr := flag.Int("pt", 9877, "tail server port")
+
 	flag.Parse()
 
-	url := fmt.Sprintf("%s:%d", *sPtr, *pPtr)
+	// URLs for head and tail servers
+	urlHead := fmt.Sprintf("%s:%d", *shPtr, *phPtr)
+	urlTail := fmt.Sprintf("%s:%d", *stPtr, *ptPtr)
 
 	// Run the client
-	client.RunClient(url)
+	client.RunClient(client.ServerAddresses{
+		AddrHead: urlHead,
+		AddrTail: urlTail,
+	})
 }
