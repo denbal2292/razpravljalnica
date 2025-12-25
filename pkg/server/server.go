@@ -90,7 +90,6 @@ func (n *Node) applyEvent(event *pb.Event) error {
 }
 
 // Convert storage layer errors to appropriate gRPC status codes.
-// TODO: Expand (UserNotFound, TopicNotFound, etc.)
 func handleStorageError(err error) error {
 	switch err {
 	case storage.ErrTopicNotFound, storage.ErrUserNotFound, storage.ErrMsgNotFound:

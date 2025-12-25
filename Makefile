@@ -20,7 +20,7 @@ build-client:
 	go build -o bin/client ./cmd/client/
 
 run-server:
-	go run ./cmd/server/
+	go run ./cmd/server/ $(ARGS)
 
 # Pass additional arguments to the client via ARGS variable -
 # e.g., make run-client ARGS="-sh localhost -ph 9876 -st localhost -pt 9877"
