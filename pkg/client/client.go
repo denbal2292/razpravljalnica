@@ -2,6 +2,7 @@ package client
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -11,14 +12,11 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // ServerAddresses holds the addresses for HEAD and TAIL servers - this
 // might be useful later when we add more complex functionality (subscriptions)
-type ServerAddresses struct {
-	AddrHead string
-	AddrTail string
-}
 
 // ClientSet holds gRPC clients for different services
 type ClientSet struct {
@@ -28,25 +26,54 @@ type ClientSet struct {
 }
 
 // Initialize a new client instance
-func RunClient(serverUrls ServerAddresses) {
-	fmt.Printf("Client connecting to head server at: %s\n", serverUrls.AddrHead)
-	fmt.Printf("Client connecting to tail server at: %s\n", serverUrls.AddrTail)
+func RunClient(controlPlaneUrl string) {
+	fmt.Println("Connecting to control plane at", controlPlaneUrl)
 
-	connHead, err := grpc.NewClient(
-		serverUrls.AddrHead,
+	// Connect to control plane to get HEAD and TAIL addresses
+	connControlPlane, err := grpc.NewClient(
+		controlPlaneUrl,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+	if err != nil {
+		panic(err)
+	}
+	// We might need control plane connection in the client for requests in the
+	// future
+	defer connControlPlane.Close()
 
+	// Initialize control plane client
+	controlPlaneClient := pb.NewClientDiscoveryClient(connControlPlane)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// Get addresses of HEAD and TAIL servers from the control plane
+	serverConns, err := controlPlaneClient.GetClusterState(
+		ctx, &emptypb.Empty{},
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	// Get the head and tail addresses
+	headAddr := serverConns.Head.Address
+	tailAddr := serverConns.Tail.Address
+
+	// Connect to HEAD and TAIL servers
+	connHead, err := grpc.NewClient(
+		headAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		panic(err)
 	}
 	defer connHead.Close()
 
 	connTail, err := grpc.NewClient(
-		serverUrls.AddrTail,
+		tailAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
-
 	if err != nil {
 		panic(err)
 	}

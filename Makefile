@@ -26,7 +26,7 @@ run-server:
 	go run ./cmd/server/ $(ARGS)
 
 # Pass additional arguments to the client via ARGS variable -
-# e.g., make run-client ARGS="--head localhost:9000 --tail localhost:9002"
+# e.g., make run-client ARGS="--control localhost:9000"
 run-client:
 	go run ./cmd/client/ $(ARGS)
 

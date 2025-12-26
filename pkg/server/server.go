@@ -78,7 +78,7 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 func (n *Node) connectToControlPlane() {
 	neighbors, err := n.controlPlane.RegisterNode(context.Background(), n.nodeInfo)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to register node with control plane: %v", err))
+		panic(fmt.Errorf("Failed to register node with control plane: %w", err))
 	}
 
 	n.logger.Info("Registered node with control plane", "node_id", n.nodeInfo.NodeId, "address", n.nodeInfo.Address)

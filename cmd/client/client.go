@@ -7,17 +7,14 @@ import (
 )
 
 func main() {
-	// Server HEAD address and port
-	urlHead := flag.String("head", "localhost:9000", "head server URL")
-
-	// Server TAIL address and port
-	urlTail := flag.String("tail", "localhost:9002", "tail server URL")
+	urlControlPlane := flag.String(
+		"control",
+		"localhost:9000",
+		"control plane URL",
+	)
 
 	flag.Parse()
 
 	// Run the client
-	client.RunClient(client.ServerAddresses{
-		AddrHead: *urlHead,
-		AddrTail: *urlTail,
-	})
+	client.RunClient(*urlControlPlane)
 }
