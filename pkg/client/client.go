@@ -41,6 +41,7 @@ func RunClient(controlPlaneAddress string) {
 		fmt.Println("Failed to create client:", err)
 		return
 	}
+	fmt.Println("Successfully connected to the server.")
 
 	// Simple REPL loop
 	// Useful for proper line reading
