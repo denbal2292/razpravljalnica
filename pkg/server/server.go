@@ -28,6 +28,7 @@ type Node struct {
 
 	storage     *storage.Storage
 	eventBuffer *EventBuffer
+	ackSync     *AckSynchronization // for waiting for ACKs from predecessor
 
 	predecessor *NodeConnection // nil if HEAD
 	successor   *NodeConnection // nil if TAIL
@@ -49,6 +50,7 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 			Address: address,
 		},
 		controlPlane:      controlPlane,
+		ackSync:           NewAckSynchronization(),
 		predecessor:       nil,
 		successor:         nil,
 		heartbeatInterval: 5 * time.Second, // TODO: Configurable
@@ -76,7 +78,7 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 func (n *Node) connectToControlPlane() {
 	neighbors, err := n.controlPlane.RegisterNode(context.Background(), n.nodeInfo)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to register node with control plane: %w", err))
+		panic(fmt.Sprintf("Failed to register node with control plane: %v", err))
 	}
 
 	n.logger.Info("Registered node with control plane", "node_id", n.nodeInfo.NodeId, "address", n.nodeInfo.Address)

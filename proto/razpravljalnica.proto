@@ -221,9 +221,12 @@ message NeighborsInfo {
 ////////////////////////////////////////////////////////////////////////////////
 
 service ChainReplication {
-  // Replicate an event to the next node in the chain
-  // The reply serves as an ACK from the next node
+  // Replicate an event to the next node in the chain (succeeeds when new node receives)
   rpc ReplicateEvent(Event) returns (google.protobuf.Empty);
+
+  // Acknowledge the event with given sequence number was applied by the TAIL
+  // (used for propagating ACKs back to HEAD)
+  rpc AcknowledgeEvent(AcknowledgeEventRequest) returns (google.protobuf.Empty);
 
   // TODO: This will have to reworked for syncing down the chain
   // Request to sync events starting from a given sequence number
@@ -256,4 +259,8 @@ message SyncEventsRequest {
 
 message LastSequenceNumberResponse {
   int64 sequence_number = 1;
+}
+
+message AcknowledgeEventRequest {
+  int64 sequence_number = 1; // sequence number of the event being acknowledged
 }

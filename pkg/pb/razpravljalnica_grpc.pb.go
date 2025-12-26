@@ -1116,6 +1116,7 @@ var NodeUpdate_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	ChainReplication_ReplicateEvent_FullMethodName        = "/razpravljalnica.ChainReplication/ReplicateEvent"
+	ChainReplication_AcknowledgeEvent_FullMethodName      = "/razpravljalnica.ChainReplication/AcknowledgeEvent"
 	ChainReplication_SyncEvents_FullMethodName            = "/razpravljalnica.ChainReplication/SyncEvents"
 	ChainReplication_GetLastSequenceNumber_FullMethodName = "/razpravljalnica.ChainReplication/GetLastSequenceNumber"
 )
@@ -1124,9 +1125,11 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChainReplicationClient interface {
-	// Replicate an event to the next node in the chain
-	// The reply serves as an ACK from the next node
+	// Replicate an event to the next node in the chain (succeeeds when new node receives)
 	ReplicateEvent(ctx context.Context, in *Event, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Acknowledge the event with given sequence number was applied by the TAIL
+	// (used for propagating ACKs back to HEAD)
+	AcknowledgeEvent(ctx context.Context, in *AcknowledgeEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// TODO: This will have to reworked for syncing down the chain
 	// Request to sync events starting from a given sequence number
 	// Used when a new node joins the chain and needs to catch up
@@ -1147,6 +1150,16 @@ func (c *chainReplicationClient) ReplicateEvent(ctx context.Context, in *Event, 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, ChainReplication_ReplicateEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chainReplicationClient) AcknowledgeEvent(ctx context.Context, in *AcknowledgeEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ChainReplication_AcknowledgeEvent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1186,9 +1199,11 @@ func (c *chainReplicationClient) GetLastSequenceNumber(ctx context.Context, in *
 // All implementations must embed UnimplementedChainReplicationServer
 // for forward compatibility.
 type ChainReplicationServer interface {
-	// Replicate an event to the next node in the chain
-	// The reply serves as an ACK from the next node
+	// Replicate an event to the next node in the chain (succeeeds when new node receives)
 	ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error)
+	// Acknowledge the event with given sequence number was applied by the TAIL
+	// (used for propagating ACKs back to HEAD)
+	AcknowledgeEvent(context.Context, *AcknowledgeEventRequest) (*emptypb.Empty, error)
 	// TODO: This will have to reworked for syncing down the chain
 	// Request to sync events starting from a given sequence number
 	// Used when a new node joins the chain and needs to catch up
@@ -1207,6 +1222,9 @@ type UnimplementedChainReplicationServer struct{}
 
 func (UnimplementedChainReplicationServer) ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReplicateEvent not implemented")
+}
+func (UnimplementedChainReplicationServer) AcknowledgeEvent(context.Context, *AcknowledgeEventRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method AcknowledgeEvent not implemented")
 }
 func (UnimplementedChainReplicationServer) SyncEvents(*SyncEventsRequest, grpc.ServerStreamingServer[Event]) error {
 	return status.Error(codes.Unimplemented, "method SyncEvents not implemented")
@@ -1253,6 +1271,24 @@ func _ChainReplication_ReplicateEvent_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChainReplication_AcknowledgeEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcknowledgeEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChainReplicationServer).AcknowledgeEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChainReplication_AcknowledgeEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChainReplicationServer).AcknowledgeEvent(ctx, req.(*AcknowledgeEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChainReplication_SyncEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SyncEventsRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -1292,6 +1328,10 @@ var ChainReplication_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReplicateEvent",
 			Handler:    _ChainReplication_ReplicateEvent_Handler,
+		},
+		{
+			MethodName: "AcknowledgeEvent",
+			Handler:    _ChainReplication_AcknowledgeEvent_Handler,
 		},
 		{
 			MethodName: "GetLastSequenceNumber",

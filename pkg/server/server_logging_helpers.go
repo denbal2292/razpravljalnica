@@ -27,20 +27,3 @@ func (n *Node) logApplyEvent(event *pb.Event) {
 func (n *Node) logEventReceived(event *pb.Event) {
 	n.logInfoEvent(event, "Received new event")
 }
-
-func (n *Node) logAckReceived(event *pb.Event) {
-	n.logInfoEvent(event, "ACK received from successor")
-}
-
-func (n *Node) logAckPropagated(event *pb.Event) {
-	n.logInfoEvent(event, "ACK propagated to predecessor")
-}
-
-func (n *Node) logEventReplicated(event *pb.Event) {
-	n.logInfoEvent(event, "Replicating event to successor")
-}
-
-// errors
-func (n *Node) logFailReplicationEvent(event *pb.Event, err error) {
-	n.logErrorEvent(event, err, "Failed to replicate to successor")
-}

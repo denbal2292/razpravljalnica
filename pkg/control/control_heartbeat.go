@@ -50,6 +50,7 @@ func (cp *ControlPlane) monitorHeartbeats() {
 				// TODO: Some other logger?
 				log.Printf("Node %s (%s) considered dead due to missed heartbeats", node.Info.NodeId, node.Info.Address)
 
+				// TODO: What if two consecutive nodes die in the same timeout period?
 				// Get predecessor and successor
 				var pred, succ *NodeInfo
 				if idx > 0 {
