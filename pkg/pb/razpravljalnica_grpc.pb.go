@@ -967,107 +967,147 @@ var ControlPlane_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	NodeSync_UpdateNeighbors_FullMethodName = "/razpravljalnica.NodeSync/UpdateNeighbors"
+	NodeUpdate_SetPredecessor_FullMethodName = "/razpravljalnica.NodeUpdate/SetPredecessor"
+	NodeUpdate_SetSuccessor_FullMethodName   = "/razpravljalnica.NodeUpdate/SetSuccessor"
 )
 
-// NodeSyncClient is the client API for NodeSync service.
+// NodeUpdateClient is the client API for NodeUpdate service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // API for control plane to call nodes (control plane -> node)
-type NodeSyncClient interface {
-	// Inform a node about its new predecessor and successor
-	UpdateNeighbors(ctx context.Context, in *NeighborsInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+type NodeUpdateClient interface {
+	// Inform a node about its new predecessor
+	SetPredecessor(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Inform a node about its new successor
+	SetSuccessor(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type nodeSyncClient struct {
+type nodeUpdateClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewNodeSyncClient(cc grpc.ClientConnInterface) NodeSyncClient {
-	return &nodeSyncClient{cc}
+func NewNodeUpdateClient(cc grpc.ClientConnInterface) NodeUpdateClient {
+	return &nodeUpdateClient{cc}
 }
 
-func (c *nodeSyncClient) UpdateNeighbors(ctx context.Context, in *NeighborsInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *nodeUpdateClient) SetPredecessor(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, NodeSync_UpdateNeighbors_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, NodeUpdate_SetPredecessor_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// NodeSyncServer is the server API for NodeSync service.
-// All implementations must embed UnimplementedNodeSyncServer
+func (c *nodeUpdateClient) SetSuccessor(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NodeUpdate_SetSuccessor_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NodeUpdateServer is the server API for NodeUpdate service.
+// All implementations must embed UnimplementedNodeUpdateServer
 // for forward compatibility.
 //
 // API for control plane to call nodes (control plane -> node)
-type NodeSyncServer interface {
-	// Inform a node about its new predecessor and successor
-	UpdateNeighbors(context.Context, *NeighborsInfo) (*emptypb.Empty, error)
-	mustEmbedUnimplementedNodeSyncServer()
+type NodeUpdateServer interface {
+	// Inform a node about its new predecessor
+	SetPredecessor(context.Context, *NodeInfo) (*emptypb.Empty, error)
+	// Inform a node about its new successor
+	SetSuccessor(context.Context, *NodeInfo) (*emptypb.Empty, error)
+	mustEmbedUnimplementedNodeUpdateServer()
 }
 
-// UnimplementedNodeSyncServer must be embedded to have
+// UnimplementedNodeUpdateServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedNodeSyncServer struct{}
+type UnimplementedNodeUpdateServer struct{}
 
-func (UnimplementedNodeSyncServer) UpdateNeighbors(context.Context, *NeighborsInfo) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateNeighbors not implemented")
+func (UnimplementedNodeUpdateServer) SetPredecessor(context.Context, *NodeInfo) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetPredecessor not implemented")
 }
-func (UnimplementedNodeSyncServer) mustEmbedUnimplementedNodeSyncServer() {}
-func (UnimplementedNodeSyncServer) testEmbeddedByValue()                  {}
+func (UnimplementedNodeUpdateServer) SetSuccessor(context.Context, *NodeInfo) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetSuccessor not implemented")
+}
+func (UnimplementedNodeUpdateServer) mustEmbedUnimplementedNodeUpdateServer() {}
+func (UnimplementedNodeUpdateServer) testEmbeddedByValue()                    {}
 
-// UnsafeNodeSyncServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to NodeSyncServer will
+// UnsafeNodeUpdateServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NodeUpdateServer will
 // result in compilation errors.
-type UnsafeNodeSyncServer interface {
-	mustEmbedUnimplementedNodeSyncServer()
+type UnsafeNodeUpdateServer interface {
+	mustEmbedUnimplementedNodeUpdateServer()
 }
 
-func RegisterNodeSyncServer(s grpc.ServiceRegistrar, srv NodeSyncServer) {
-	// If the following call panics, it indicates UnimplementedNodeSyncServer was
+func RegisterNodeUpdateServer(s grpc.ServiceRegistrar, srv NodeUpdateServer) {
+	// If the following call panics, it indicates UnimplementedNodeUpdateServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&NodeSync_ServiceDesc, srv)
+	s.RegisterService(&NodeUpdate_ServiceDesc, srv)
 }
 
-func _NodeSync_UpdateNeighbors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NeighborsInfo)
+func _NodeUpdate_SetPredecessor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeSyncServer).UpdateNeighbors(ctx, in)
+		return srv.(NodeUpdateServer).SetPredecessor(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NodeSync_UpdateNeighbors_FullMethodName,
+		FullMethod: NodeUpdate_SetPredecessor_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeSyncServer).UpdateNeighbors(ctx, req.(*NeighborsInfo))
+		return srv.(NodeUpdateServer).SetPredecessor(ctx, req.(*NodeInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// NodeSync_ServiceDesc is the grpc.ServiceDesc for NodeSync service.
+func _NodeUpdate_SetSuccessor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeUpdateServer).SetSuccessor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeUpdate_SetSuccessor_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeUpdateServer).SetSuccessor(ctx, req.(*NodeInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NodeUpdate_ServiceDesc is the grpc.ServiceDesc for NodeUpdate service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var NodeSync_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "razpravljalnica.NodeSync",
-	HandlerType: (*NodeSyncServer)(nil),
+var NodeUpdate_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "razpravljalnica.NodeUpdate",
+	HandlerType: (*NodeUpdateServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "UpdateNeighbors",
-			Handler:    _NodeSync_UpdateNeighbors_Handler,
+			MethodName: "SetPredecessor",
+			Handler:    _NodeUpdate_SetPredecessor_Handler,
+		},
+		{
+			MethodName: "SetSuccessor",
+			Handler:    _NodeUpdate_SetSuccessor_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1087,11 +1127,12 @@ type ChainReplicationClient interface {
 	// Replicate an event to the next node in the chain
 	// The reply serves as an ACK from the next node
 	ReplicateEvent(ctx context.Context, in *Event, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// TODO: This will have to reworked for syncing down the chain
 	// Request to sync events starting from a given sequence number
 	// Used when a new node joins the chain and needs to catch up
 	SyncEvents(ctx context.Context, in *SyncEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error)
 	// Ask the node for its latest sequence number
-	GetLastSequenceNumber(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetLastSequenceNumberResponse, error)
+	GetLastSequenceNumber(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LastSequenceNumberResponse, error)
 }
 
 type chainReplicationClient struct {
@@ -1131,9 +1172,9 @@ func (c *chainReplicationClient) SyncEvents(ctx context.Context, in *SyncEventsR
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChainReplication_SyncEventsClient = grpc.ServerStreamingClient[Event]
 
-func (c *chainReplicationClient) GetLastSequenceNumber(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetLastSequenceNumberResponse, error) {
+func (c *chainReplicationClient) GetLastSequenceNumber(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LastSequenceNumberResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetLastSequenceNumberResponse)
+	out := new(LastSequenceNumberResponse)
 	err := c.cc.Invoke(ctx, ChainReplication_GetLastSequenceNumber_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -1148,11 +1189,12 @@ type ChainReplicationServer interface {
 	// Replicate an event to the next node in the chain
 	// The reply serves as an ACK from the next node
 	ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error)
+	// TODO: This will have to reworked for syncing down the chain
 	// Request to sync events starting from a given sequence number
 	// Used when a new node joins the chain and needs to catch up
 	SyncEvents(*SyncEventsRequest, grpc.ServerStreamingServer[Event]) error
 	// Ask the node for its latest sequence number
-	GetLastSequenceNumber(context.Context, *emptypb.Empty) (*GetLastSequenceNumberResponse, error)
+	GetLastSequenceNumber(context.Context, *emptypb.Empty) (*LastSequenceNumberResponse, error)
 	mustEmbedUnimplementedChainReplicationServer()
 }
 
@@ -1169,7 +1211,7 @@ func (UnimplementedChainReplicationServer) ReplicateEvent(context.Context, *Even
 func (UnimplementedChainReplicationServer) SyncEvents(*SyncEventsRequest, grpc.ServerStreamingServer[Event]) error {
 	return status.Error(codes.Unimplemented, "method SyncEvents not implemented")
 }
-func (UnimplementedChainReplicationServer) GetLastSequenceNumber(context.Context, *emptypb.Empty) (*GetLastSequenceNumberResponse, error) {
+func (UnimplementedChainReplicationServer) GetLastSequenceNumber(context.Context, *emptypb.Empty) (*LastSequenceNumberResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetLastSequenceNumber not implemented")
 }
 func (UnimplementedChainReplicationServer) mustEmbedUnimplementedChainReplicationServer() {}

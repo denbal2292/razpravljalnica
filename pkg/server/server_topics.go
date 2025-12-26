@@ -9,22 +9,22 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (s *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb.Topic, error) {
+func (n *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb.Topic, error) {
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name cannot be empty")
 	}
 
 	// Send event to replication chain and wait for confirmation
-	event := s.eventBuffer.CreateTopicEvent(req)
-	s.logEventReceived(event)
+	event := n.eventBuffer.CreateTopicEvent(req)
+	n.logEventReceived(event)
 
-	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
+	if err := n.replicateAndWaitForAck(context.Background(), event); err != nil {
 		return nil, err
 	}
 
 	// We can now safely commit the topic to storage
-	s.logApplyEvent(event)
-	topic, err := s.storage.CreateTopic(req.Name)
+	n.logApplyEvent(event)
+	topic, err := n.storage.CreateTopic(req.Name)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -32,8 +32,8 @@ func (s *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb
 	return topic, nil
 }
 
-func (s *Node) ListTopics(ctx context.Context, req *emptypb.Empty) (*pb.ListTopicsResponse, error) {
-	topics, err := s.storage.ListTopics()
+func (n *Node) ListTopics(ctx context.Context, req *emptypb.Empty) (*pb.ListTopicsResponse, error) {
+	topics, err := n.storage.ListTopics()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/denbal2292/razpravljalnica/pkg/storage"
@@ -18,6 +20,11 @@ type Node struct {
 	pb.UnimplementedMessageBoardWritesServer        // writes
 	pb.UnimplementedMessageBoardSubscriptionsServer // subscriptions
 	pb.UnimplementedChainReplicationServer          // for communication between nodes in the chain
+	pb.UnimplementedNodeUpdateServer                // for control plane to notify about neighbor changes
+
+	nodeInfo          *pb.NodeInfo          // name and address of this node
+	controlPlane      pb.ControlPlaneClient // gRPC client to the control plane
+	heartbeatInterval time.Duration         // interval between heartbeats
 
 	storage     *storage.Storage
 	eventBuffer *EventBuffer
@@ -33,10 +40,18 @@ type NodeConnection struct {
 	Client pb.ChainReplicationClient // gRPC client to the connected node
 }
 
-func NewServer() *Node {
-	return &Node{
+func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) *Node {
+	n := &Node{
 		storage:     storage.NewStorage(),
 		eventBuffer: NewEventBuffer(),
+		nodeInfo: &pb.NodeInfo{
+			NodeId:  name,
+			Address: address,
+		},
+		controlPlane:      controlPlane,
+		predecessor:       nil,
+		successor:         nil,
+		heartbeatInterval: 5 * time.Second, // TODO: Configurable
 		// Keep this as os.Stdout for simplicity - can be easily extended
 		// to use file or other logging backends
 		// Use tint for nicer output
@@ -49,24 +64,54 @@ func NewServer() *Node {
 			},
 		)),
 	}
+
+	n.connectToControlPlane()
+
+	// Start sending heartbeats to the control plane in the background
+	go n.startHeartbeat()
+
+	return n
 }
 
-func (s *Node) SetPredecessor(conn *NodeConnection) {
-	// HEAD is the predecessor (not immediate) of all nodes in the chain
-	s.predecessor = conn
+func (n *Node) connectToControlPlane() {
+	neighbors, err := n.controlPlane.RegisterNode(context.Background(), n.nodeInfo)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to register node with control plane: %w", err))
+	}
+
+	n.logger.Info("Registered node with control plane", "node_id", n.nodeInfo.NodeId, "address", n.nodeInfo.Address)
+
+	if neighbors.Predecessor != nil {
+		n.predecessor = &NodeConnection{
+			Client: n.createClientConnection(neighbors.Predecessor.Address),
+		}
+		n.logger.Info("Set predecessor",
+			"node_id", neighbors.Predecessor.NodeId,
+			"address", neighbors.Predecessor.Address,
+		)
+	} else {
+		n.logger.Info("No predecessor (this node is HEAD)")
+	}
+
+	if neighbors.Successor != nil {
+		n.successor = &NodeConnection{
+			Client: n.createClientConnection(neighbors.Successor.Address),
+		}
+		n.logger.Info("Set successor",
+			"node_id", neighbors.Successor.NodeId,
+			"address", neighbors.Successor.Address,
+		)
+	} else {
+		n.logger.Info("No successor (this node is TAIL)")
+	}
 }
 
-func (s *Node) SetSuccessor(conn *NodeConnection) {
-	// TAIL is the successor (not immediate) of all nodes in the chain
-	s.successor = conn
+func (n *Node) IsHead() bool {
+	return n.predecessor == nil
 }
 
-func (s *Node) IsHead() bool {
-	return s.predecessor == nil
-}
-
-func (s *Node) IsTail() bool {
-	return s.successor == nil
+func (n *Node) IsTail() bool {
+	return n.successor == nil
 }
 
 // Apply the given event to the local storage

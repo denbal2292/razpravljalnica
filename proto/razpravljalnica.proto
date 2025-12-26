@@ -203,14 +203,17 @@ message RegisterNodeRequest {
 }
 
 // API for control plane to call nodes (control plane -> node)
-service NodeSync {
-  // Inform a node about its new predecessor and successor
-  rpc UpdateNeighbors(NeighborsInfo) returns (google.protobuf.Empty);
+service NodeUpdate {
+  // Inform a node about its new predecessor
+  rpc SetPredecessor(NodeInfo) returns (google.protobuf.Empty);
+
+  // Inform a node about its new successor
+  rpc SetSuccessor(NodeInfo) returns (google.protobuf.Empty);
 }
 
 message NeighborsInfo {
-  NodeInfo predecessor = 1;
-  NodeInfo successor = 2;
+  NodeInfo predecessor = 1; // nil means no predecessor (HEAD)
+  NodeInfo successor = 2; // nil means no successor (TAIL)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -222,12 +225,13 @@ service ChainReplication {
   // The reply serves as an ACK from the next node
   rpc ReplicateEvent(Event) returns (google.protobuf.Empty);
 
+  // TODO: This will have to reworked for syncing down the chain
   // Request to sync events starting from a given sequence number
   // Used when a new node joins the chain and needs to catch up 
   rpc SyncEvents(SyncEventsRequest) returns (stream Event);
 
   // Ask the node for its latest sequence number
-  rpc GetLastSequenceNumber(google.protobuf.Empty) returns (GetLastSequenceNumberResponse);
+  rpc GetLastSequenceNumber(google.protobuf.Empty) returns (LastSequenceNumberResponse);
 }
  
 message Event {
@@ -250,6 +254,6 @@ message SyncEventsRequest {
   int64 from_sequence_number = 1; // starting sequence number
 }
 
-message GetLastSequenceNumberResponse {
+message LastSequenceNumberResponse {
   int64 sequence_number = 1;
 }

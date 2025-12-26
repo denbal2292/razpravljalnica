@@ -14,67 +14,23 @@ import (
 
 func registerServices(node *server.Node, gRPCServer *grpc.Server) {
 	// Only head nodes handle writes
-	if node.IsHead() {
-		razpravljalnica.RegisterMessageBoardWritesServer(gRPCServer, node)
-	}
+	// if node.IsHead() {
+	razpravljalnica.RegisterMessageBoardWritesServer(gRPCServer, node)
+	// }
 
 	// Only tail nodes handle reads
-	if node.IsTail() {
-		razpravljalnica.RegisterMessageBoardReadsServer(gRPCServer, node)
-	}
+	// if node.IsTail() {
+	razpravljalnica.RegisterMessageBoardReadsServer(gRPCServer, node)
+	// }
 
 	// All nodes participate in chain replication
 	razpravljalnica.RegisterChainReplicationServer(gRPCServer, node)
 }
 
-func connectToNeighbors(
-	node *server.Node,
-	prevAddr string,
-	nextAddr string,
-) {
-	// Connect to predecessor
-	if prevAddr != "" {
-		conn, err := grpc.NewClient(
-			prevAddr,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to connect to predecessor %s: %v", prevAddr, err))
-		}
-
-		node.SetPredecessor(&server.NodeConnection{
-			Client: razpravljalnica.NewChainReplicationClient(conn),
-		})
-
-		fmt.Println("Connected to predecessor:", prevAddr)
-	} else {
-		node.SetPredecessor(nil)
-	}
-
-	// Connect to successor
-	if nextAddr != "" {
-		conn, err := grpc.NewClient(
-			nextAddr,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to connect to successor %s: %v", nextAddr, err))
-		}
-
-		node.SetSuccessor(&server.NodeConnection{
-			Client: razpravljalnica.NewChainReplicationClient(conn),
-		})
-
-		fmt.Println("Connected to successor:", nextAddr)
-	} else {
-		node.SetSuccessor(nil)
-	}
-}
-
 func main() {
 	port := flag.Int("port", 9876, "Port to listen on")
-	prev := flag.String("prev", "", "Address of predecessor node (empty if head)")
-	next := flag.String("next", "", "Address of successor node (empty if tail)")
+	// prev := flag.String("prev", "", "Address of predecessor node (empty if head)")
+	// next := flag.String("next", "", "Address of successor node (empty if tail)")
 	flag.Parse()
 
 	hostname, err := os.Hostname()
@@ -82,8 +38,17 @@ func main() {
 		panic(err)
 	}
 
-	node := server.NewServer()
+	controlPlaneAddress := "localhost:50051" // TODO: Make configurable
+
+	conn, err := grpc.NewClient(
+		controlPlaneAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	controlPlaneClient := razpravljalnica.NewControlPlaneClient(conn)
+
+	node := server.NewServer("server-"+hostname, fmt.Sprintf("localhost:%d", *port), controlPlaneClient)
 	gRPCServer := grpc.NewServer()
+	razpravljalnica.RegisterNodeUpdateServer(gRPCServer, node)
 
 	addr := fmt.Sprintf("localhost:%d", *port)
 	listener, err := net.Listen("tcp", addr)
@@ -94,23 +59,23 @@ func main() {
 	fmt.Println("Starting node:")
 	fmt.Println("  Address:", addr)
 	fmt.Println("  Host:", hostname)
-	fmt.Println("  Role:",
-		func() string {
-			switch {
-			case *prev == "" && *next == "":
-				return "Single (Head & Tail)"
-			case *prev == "":
-				return "Head"
-			case *next == "":
-				return "Tail"
-			default:
-				return "Middle"
-			}
-		}(),
-	)
+	// fmt.Println("  Role:",
+	// 	func() string {
+	// 		switch {
+	// 		case *prev == "" && *next == "":
+	// 			return "Single (Head & Tail)"
+	// 		case *prev == "":
+	// 			return "Head"
+	// 		case *next == "":
+	// 			return "Tail"
+	// 		default:
+	// 			return "Middle"
+	// 		}
+	// 	}(),
+	// )
 
 	// Connect to neighbors AFTER startup
-	connectToNeighbors(node, *prev, *next)
+	// connectToNeighbors(node, *prev, *next)
 	registerServices(node, gRPCServer)
 
 	// Start serving

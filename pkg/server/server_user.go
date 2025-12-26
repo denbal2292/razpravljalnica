@@ -8,22 +8,22 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.User, error) {
+func (n *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.User, error) {
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name cannot be empty")
 	}
 
 	// Send event to replication chain and wait for confirmation
-	event := s.eventBuffer.CreateUserEvent(req)
-	s.logEventReceived(event)
+	event := n.eventBuffer.CreateUserEvent(req)
+	n.logEventReceived(event)
 
-	if err := s.replicateAndWaitForAck(context.Background(), event); err != nil {
+	if err := n.replicateAndWaitForAck(context.Background(), event); err != nil {
 		return nil, err
 	}
 
-	s.logApplyEvent(event)
+	n.logApplyEvent(event)
 	// We can now safely commit the user to storage
-	user, err := s.storage.CreateUser(req.Name)
+	user, err := n.storage.CreateUser(req.Name)
 	if err != nil {
 		return nil, handleStorageError(err)
 	}
@@ -32,12 +32,12 @@ func (s *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.U
 }
 
 // Retrieve user by their ID
-func (s *Node) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {
+func (n *Node) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {
 	if req.UserId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id must be positive")
 	}
 
-	user, err := s.storage.GetUser(req.UserId)
+	user, err := n.storage.GetUser(req.UserId)
 	if err != nil {
 		return nil, handleStorageError(err)
 	}

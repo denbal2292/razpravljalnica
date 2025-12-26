@@ -69,58 +69,31 @@ func (cp *ControlPlane) monitorHeartbeats() {
 	}
 }
 
-// Reconnect the chain around the dead
-// TODO: We return nil for predecessor/successor to mean no change,
-// but elsewhere we use nil to mean no predecessor/successor at all
+// Reconnect the chain around the dead node
 func (cp *ControlPlane) reconnectNeighbors(pred *NodeInfo, succ *NodeInfo) {
 	// The node will be removed from the list in monitorHeartbeats,
 	// here we just need to update neighbors (reconnect the chain)
-
 	if pred != nil && succ != nil {
 		// Middle node died
-		// Predecessor is now connected to successor
-		_, err := pred.Client.UpdateNeighbors(context.Background(),
-			&pb.NeighborsInfo{
-				Predecessor: nil,       // Predecessor remains the same
-				Successor:   succ.Info, // New successor is the dead node's successor
-			},
-		)
-		if err != nil {
+		// Predecessor is now connected to successor of the dead node
+		if _, err := pred.Client.SetSuccessor(context.Background(), succ.Info); err != nil {
 			log.Printf("Error updating predecessor %s: %v", pred.Info.NodeId, err)
 		}
 
-		// Successor is now connected to predecessor
-		_, err = succ.Client.UpdateNeighbors(context.Background(),
-			&pb.NeighborsInfo{
-				Predecessor: pred.Info, // New predecessor is the dead node's predecessor
-				Successor:   nil,       // Successor remains the same
-			},
-		)
-		if err != nil {
+		// Successor is now connected to predecessor of the dead node
+		if _, err := succ.Client.SetPredecessor(context.Background(), pred.Info); err != nil {
 			log.Printf("Error updating successor %s: %v", succ.Info.NodeId, err)
 		}
+
 	} else if pred != nil {
 		// TAIL node died -> predecessor becomes new TAIL
-		_, err := pred.Client.UpdateNeighbors(context.Background(),
-			&pb.NeighborsInfo{
-				Predecessor: nil, // Predecessor remains the same
-				Successor:   nil, // Now no successor
-			},
-		)
-
-		if err != nil {
+		if _, err := pred.Client.SetSuccessor(context.Background(), nil); err != nil {
 			log.Printf("Error updating predecessor %s to become TAIL: %v", pred.Info.NodeId, err)
 		}
+
 	} else if succ != nil {
 		// HEAD node died -> successor becomes new HEAD
-		_, err := succ.Client.UpdateNeighbors(context.Background(),
-			&pb.NeighborsInfo{
-				Predecessor: nil, // Now no predecessor
-				Successor:   nil, // Successor remains the same
-			},
-		)
-
-		if err != nil {
+		if _, err := succ.Client.SetPredecessor(context.Background(), nil); err != nil {
 			log.Printf("Error updating successor %s to become HEAD: %v", succ.Info.NodeId, err)
 		}
 	} else {
