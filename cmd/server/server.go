@@ -29,6 +29,7 @@ func registerServices(node *server.Node, gRPCServer *grpc.Server) {
 
 func main() {
 	port := flag.Int("port", 9876, "Port to listen on")
+	controlPlanePort := flag.Int("control-port", 50051, "Control plane port")
 	// prev := flag.String("prev", "", "Address of predecessor node (empty if head)")
 	// next := flag.String("next", "", "Address of successor node (empty if tail)")
 	flag.Parse()
@@ -38,7 +39,7 @@ func main() {
 		panic(err)
 	}
 
-	controlPlaneAddress := "localhost:50051" // TODO: Make configurable
+	controlPlaneAddress := fmt.Sprintf("localhost:%d", *controlPlanePort)
 
 	conn, err := grpc.NewClient(
 		controlPlaneAddress,

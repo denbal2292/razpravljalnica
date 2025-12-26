@@ -31,34 +31,34 @@ Subscription operations:
 var ErrExit = errors.New("exit")
 
 // Route the command to the appropriate client method
-func route(client *ClientSet, command string, args []string) error {
+func route(client *clientSet, command string, args []string) error {
 	switch command {
 	case "help", "h":
 		printHelp()
 	case "exit", "quit", "q":
 		return ErrExit
 	case "createuser":
-		return createUser(client.Writes, args)
+		return createUser(client.writes, args)
 	case "createtopic":
-		return createTopic(client.Writes, args)
+		return createTopic(client.writes, args)
 	case "post":
-		return postMessage(client.Writes, args)
+		return postMessage(client.writes, args)
 	case "update":
-		return updateMessage(client.Writes, args)
+		return updateMessage(client.writes, args)
 	case "delete":
-		return deleteMessage(client.Writes, args)
+		return deleteMessage(client.writes, args)
 	case "like":
-		return likeMessage(client.Writes, args)
+		return likeMessage(client.writes, args)
 	case "topics":
-		return listTopics(client.Reads, args)
+		return listTopics(client.reads, args)
 	case "messages":
-		return getMessages(client.Reads, args)
+		return getMessages(client.reads, args)
 	case "user":
-		return getUser(client.Reads, args)
+		return getUser(client.reads, args)
 	case "subscribe":
-		return subscribeTopics(client.Subsciptions, args)
+		return subscribeTopics(client.subscriptions, args)
 	case "getsubscribtionnode":
-		return getSubscriptionNode(client.Subsciptions, args)
+		return getSubscriptionNode(client.subscriptions, args)
 	default:
 		return fmt.Errorf("unknown command: %s\n", command)
 	}

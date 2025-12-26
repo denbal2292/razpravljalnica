@@ -2,19 +2,21 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/denbal2292/razpravljalnica/pkg/client"
 )
 
 func main() {
-	urlControlPlane := flag.String(
-		"control",
-		"localhost:9000",
-		"control plane URL",
+	controlPlanePort := flag.Int(
+		"control-port",
+		50051,
+		"control plane port",
 	)
 
 	flag.Parse()
+	controlPlaneAddress := fmt.Sprintf("localhost:%d", *controlPlanePort)
 
 	// Run the client
-	client.RunClient(*urlControlPlane)
+	client.RunClient(controlPlaneAddress)
 }
