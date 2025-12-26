@@ -28,6 +28,7 @@ type Storage struct {
 
 func NewStorage() *Storage {
 	return &Storage{
+		mu:            sync.RWMutex{},
 		users:         make(map[int64]*pb.User),
 		topics:        make(map[int64]*pb.Topic),
 		messages:      make(map[int64]map[int64]*pb.Message),

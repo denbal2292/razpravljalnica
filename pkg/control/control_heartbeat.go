@@ -38,39 +38,45 @@ func (cp *ControlPlane) monitorHeartbeats() {
 	for range ticker.C {
 		cp.mu.Lock()
 		now := time.Now()
+
+		var lastAlive *NodeInfo = nil
+		var deadInBetween bool = false
+
 		activeNodes := make([]*NodeInfo, 0, len(cp.nodes))
 
-		// Create a list of active nodes
-		for idx, node := range cp.nodes {
+		// 1. Create a list of active nodes
+		for _, node := range cp.nodes {
 			// Check if the last heartbeat was within the timeout
 			if now.Sub(node.LastHeartbeat) <= cp.heartbeatTimeout {
+				if deadInBetween {
+					// Reconnect last alive and current node
+					go cp.reconnectNeighbors(lastAlive, node)
+					deadInBetween = false
+				}
+
 				activeNodes = append(activeNodes, node)
+				lastAlive = node // Update last alive node for reconnection
 			} else {
-				// Node considered dead, log or handle as needed
-				// TODO: Some other logger?
+				// Node considered dead
 				log.Printf("Node %s (%s) considered dead due to missed heartbeats", node.Info.NodeId, node.Info.Address)
-
-				// TODO: What if two consecutive nodes die in the same timeout period?
-				// Get predecessor and successor
-				var pred, succ *NodeInfo
-				if idx > 0 {
-					pred = cp.nodes[idx-1]
-				}
-				if idx < len(cp.nodes)-1 {
-					succ = cp.nodes[idx+1]
-				}
-
-				// Handle dead node (update neighbors, etc.)
-				go cp.reconnectNeighbors(pred, succ)
+				deadInBetween = true
 			}
 		}
 
+		// There were dead nodes after the last alive node (TAIL died)
+		if deadInBetween {
+			// Reconnect last alive to nil (new TAIL)
+			go cp.reconnectNeighbors(lastAlive, nil)
+		}
+
+		// 2. Update the control plane's node list
 		cp.nodes = activeNodes
 		cp.mu.Unlock()
 	}
 }
 
 // Reconnect the chain around the dead node
+// TODO: Maybe add timeouts for these RPCs?
 func (cp *ControlPlane) reconnectNeighbors(pred *NodeInfo, succ *NodeInfo) {
 	// The node will be removed from the list in monitorHeartbeats,
 	// here we just need to update neighbors (reconnect the chain)
