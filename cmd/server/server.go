@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
 
 	razpravljalnica "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/denbal2292/razpravljalnica/pkg/server"
@@ -12,6 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// TODO: Move this so we check the node role inside the node
 func registerServices(node *server.Node, gRPCServer *grpc.Server) {
 	// Only head nodes handle writes
 	// if node.IsHead() {
@@ -28,17 +28,11 @@ func registerServices(node *server.Node, gRPCServer *grpc.Server) {
 }
 
 func main() {
-	port := flag.Int("port", 9876, "Port to listen on")
+	// Port 0 means to pick a random available port
+	port := flag.Int("port", 0, "Port to listen on")
 	controlPlanePort := flag.Int("control-port", 50051, "Control plane port")
-	// prev := flag.String("prev", "", "Address of predecessor node (empty if head)")
-	// next := flag.String("next", "", "Address of successor node (empty if tail)")
+
 	flag.Parse()
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		panic(err)
-	}
-
 	controlPlaneAddress := fmt.Sprintf("localhost:%d", *controlPlanePort)
 
 	conn, err := grpc.NewClient(
@@ -47,40 +41,25 @@ func main() {
 	)
 	controlPlaneClient := razpravljalnica.NewControlPlaneClient(conn)
 
-	node := server.NewServer("server-"+hostname, fmt.Sprintf("localhost:%d", *port), controlPlaneClient)
-	gRPCServer := grpc.NewServer()
-	razpravljalnica.RegisterNodeUpdateServer(gRPCServer, node)
-
-	addr := fmt.Sprintf("localhost:%d", *port)
-	listener, err := net.Listen("tcp", addr)
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Starting node:")
-	fmt.Println("  Address:", addr)
-	fmt.Println("  Host:", hostname)
-	// fmt.Println("  Role:",
-	// 	func() string {
-	// 		switch {
-	// 		case *prev == "" && *next == "":
-	// 			return "Single (Head & Tail)"
-	// 		case *prev == "":
-	// 			return "Head"
-	// 		case *next == "":
-	// 			return "Tail"
-	// 		default:
-	// 			return "Middle"
-	// 		}
-	// 	}(),
-	// )
+	addr := lis.Addr().String()
 
-	// Connect to neighbors AFTER startup
-	// connectToNeighbors(node, *prev, *next)
+	node := server.NewServer("server-"+addr, addr, controlPlaneClient)
+	gRPCServer := grpc.NewServer()
+	razpravljalnica.RegisterNodeUpdateServer(gRPCServer, node)
+
+	fmt.Println("Starting node:")
+	fmt.Println("  Addr: ", addr)
+	fmt.Println("  Control Plane Addr:", controlPlaneAddress)
+
 	registerServices(node, gRPCServer)
 
 	// Start serving
-	if err := gRPCServer.Serve(listener); err != nil {
+	if err := gRPCServer.Serve(lis); err != nil {
 		panic(err)
 	}
 }

@@ -75,10 +75,10 @@ func (n *Node) ReplicateEvent(ctx context.Context, event *pb.Event) (*emptypb.Em
 		go func() {
 			if err := n.sendAckToPredecessor(event); err != nil {
 				n.logErrorEvent(event, err, "Failed to propagate ACK to predecessor")
+			} else {
+				// Log successful ACK propagation
+				n.logInfoEvent(event, "ACK propagated to predecessor")
 			}
-
-			// Log successful ACK propagation
-			n.logInfoEvent(event, "ACK propagated to predecessor")
 		}()
 
 		return &emptypb.Empty{}, nil
