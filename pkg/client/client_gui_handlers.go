@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -26,6 +27,8 @@ func (gc *guiClient) handleCreateTopic() {
 
 	// Clear the input field after processing
 	gc.newTopicInput.SetText("")
+	// Set focus back to topics list
+	gc.app.SetFocus(gc.topicsList)
 
 	// Refresh the topics list to show the new topic
 	gc.refreshTopics()
@@ -49,20 +52,47 @@ func (gc *guiClient) displayStatus(message string, color string) {
 
 func (gc *guiClient) refreshTopics() {
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
 		topics, err := gc.clients.reads.ListTopics(ctx, &emptypb.Empty{})
 
 		if err != nil {
 			go gc.displayStatus("Napaka pri pridobivanju tem", "red")
+			return
 		}
 
+		// Sort the topics by id
+		sort.Slice(topics.Topics, func(i, j int) bool {
+			return topics.Topics[i].Id > topics.Topics[j].Id
+		})
+
+		// Update the topic IDs list - this probably isn't necessary but
+		// it might increase robustness and clarity of code
+		gc.topicIds = make([]int64, 0, len(topics.Topics))
 		gc.app.QueueUpdateDraw(func() {
 			gc.topicsList.Clear()
 			for _, topic := range topics.Topics {
 				gc.topicsList.AddItem(topic.Name, "", 0, nil)
+				gc.topicIds = append(gc.topicIds, topic.Id)
+			}
+			if len(gc.topicIds) > 0 {
+				// Set the current topic to the first one if available
+				gc.currentTopicId = gc.topicIds[0]
 			}
 		})
+
 	}()
+}
+
+// handleSelectTopic processes topic selection from the list and updates the GUI
+func (gc *guiClient) handleSelectTopic(topicId int64) {
+	// Set the current topic ID
+	gc.currentTopicId = topicId
+
+	// Load the messages from the selected topic
+	gc.loadMessagesForCurrentTopic()
+}
+
+func (gc *guiClient) loadMessagesForCurrentTopic() {
 }

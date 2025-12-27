@@ -13,8 +13,13 @@ type guiClient struct {
 	messageInput  *tview.InputField
 	statusBar     *tview.TextView
 
-	// Also keep reference to the connections
+	// Keep reference to the connections
 	clients *clientSet
+
+	// Extra information about the client state
+	// Current selected topic ID and list of topic IDs
+	currentTopicId int64
+	topicIds       []int64
 }
 
 func startGUIClient(clients *clientSet) {
@@ -23,7 +28,7 @@ func startGUIClient(clients *clientSet) {
 
 	// Set initial focus to the input field
 	gc := newGuiClient(clients)
-	gc.app.SetFocus(gc.newTopicInput)
+	gc.app.SetFocus(gc.topicsList)
 
 	if err := gc.app.Run(); err != nil {
 		panic(err)
@@ -60,6 +65,12 @@ func (gc *guiClient) setupWidgets() {
 		ShowSecondaryText(false).
 		SetBorder(true).
 		SetTitle("Teme")
+
+	gc.topicsList.SetSelectedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
+		if index >= 0 && index < len(gc.topicIds) {
+			gc.handleSelectTopic(gc.topicIds[index])
+		}
+	})
 
 	// Configure new topic input
 	gc.newTopicInput.
