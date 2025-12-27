@@ -978,9 +978,9 @@ const (
 // API for control plane to call nodes (control plane -> node)
 type NodeUpdateClient interface {
 	// Inform a node about its new predecessor
-	SetPredecessor(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetPredecessor(ctx context.Context, in *NodeInfoMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Inform a node about its new successor
-	SetSuccessor(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetSuccessor(ctx context.Context, in *NodeInfoMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type nodeUpdateClient struct {
@@ -991,7 +991,7 @@ func NewNodeUpdateClient(cc grpc.ClientConnInterface) NodeUpdateClient {
 	return &nodeUpdateClient{cc}
 }
 
-func (c *nodeUpdateClient) SetPredecessor(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *nodeUpdateClient) SetPredecessor(ctx context.Context, in *NodeInfoMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, NodeUpdate_SetPredecessor_FullMethodName, in, out, cOpts...)
@@ -1001,7 +1001,7 @@ func (c *nodeUpdateClient) SetPredecessor(ctx context.Context, in *NodeInfo, opt
 	return out, nil
 }
 
-func (c *nodeUpdateClient) SetSuccessor(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *nodeUpdateClient) SetSuccessor(ctx context.Context, in *NodeInfoMessage, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, NodeUpdate_SetSuccessor_FullMethodName, in, out, cOpts...)
@@ -1018,9 +1018,9 @@ func (c *nodeUpdateClient) SetSuccessor(ctx context.Context, in *NodeInfo, opts 
 // API for control plane to call nodes (control plane -> node)
 type NodeUpdateServer interface {
 	// Inform a node about its new predecessor
-	SetPredecessor(context.Context, *NodeInfo) (*emptypb.Empty, error)
+	SetPredecessor(context.Context, *NodeInfoMessage) (*emptypb.Empty, error)
 	// Inform a node about its new successor
-	SetSuccessor(context.Context, *NodeInfo) (*emptypb.Empty, error)
+	SetSuccessor(context.Context, *NodeInfoMessage) (*emptypb.Empty, error)
 	mustEmbedUnimplementedNodeUpdateServer()
 }
 
@@ -1031,10 +1031,10 @@ type NodeUpdateServer interface {
 // pointer dereference when methods are called.
 type UnimplementedNodeUpdateServer struct{}
 
-func (UnimplementedNodeUpdateServer) SetPredecessor(context.Context, *NodeInfo) (*emptypb.Empty, error) {
+func (UnimplementedNodeUpdateServer) SetPredecessor(context.Context, *NodeInfoMessage) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetPredecessor not implemented")
 }
-func (UnimplementedNodeUpdateServer) SetSuccessor(context.Context, *NodeInfo) (*emptypb.Empty, error) {
+func (UnimplementedNodeUpdateServer) SetSuccessor(context.Context, *NodeInfoMessage) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetSuccessor not implemented")
 }
 func (UnimplementedNodeUpdateServer) mustEmbedUnimplementedNodeUpdateServer() {}
@@ -1059,7 +1059,7 @@ func RegisterNodeUpdateServer(s grpc.ServiceRegistrar, srv NodeUpdateServer) {
 }
 
 func _NodeUpdate_SetPredecessor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeInfo)
+	in := new(NodeInfoMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1071,13 +1071,13 @@ func _NodeUpdate_SetPredecessor_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: NodeUpdate_SetPredecessor_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeUpdateServer).SetPredecessor(ctx, req.(*NodeInfo))
+		return srv.(NodeUpdateServer).SetPredecessor(ctx, req.(*NodeInfoMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _NodeUpdate_SetSuccessor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeInfo)
+	in := new(NodeInfoMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1089,7 +1089,7 @@ func _NodeUpdate_SetSuccessor_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: NodeUpdate_SetSuccessor_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeUpdateServer).SetSuccessor(ctx, req.(*NodeInfo))
+		return srv.(NodeUpdateServer).SetSuccessor(ctx, req.(*NodeInfoMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1115,9 +1115,9 @@ var NodeUpdate_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChainReplication_ReplicateEvent_FullMethodName        = "/razpravljalnica.ChainReplication/ReplicateEvent"
-	ChainReplication_AcknowledgeEvent_FullMethodName      = "/razpravljalnica.ChainReplication/AcknowledgeEvent"
-	ChainReplication_GetLastSequenceNumber_FullMethodName = "/razpravljalnica.ChainReplication/GetLastSequenceNumber"
+	ChainReplication_ReplicateEvent_FullMethodName         = "/razpravljalnica.ChainReplication/ReplicateEvent"
+	ChainReplication_AcknowledgeEvent_FullMethodName       = "/razpravljalnica.ChainReplication/AcknowledgeEvent"
+	ChainReplication_GetLastSequenceNumbers_FullMethodName = "/razpravljalnica.ChainReplication/GetLastSequenceNumbers"
 )
 
 // ChainReplicationClient is the client API for ChainReplication service.
@@ -1129,8 +1129,8 @@ type ChainReplicationClient interface {
 	// Acknowledge the event with given sequence number was applied by the TAIL
 	// (used for propagating ACKs back to HEAD)
 	AcknowledgeEvent(ctx context.Context, in *AcknowledgeEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Ask the node for its latest sequence number
-	GetLastSequenceNumber(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LastSequenceNumberResponse, error)
+	// Ask the node for its latest sequence number and latest acknowledged sequence number
+	GetLastSequenceNumbers(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LastSequenceNumbersResponse, error)
 }
 
 type chainReplicationClient struct {
@@ -1161,10 +1161,10 @@ func (c *chainReplicationClient) AcknowledgeEvent(ctx context.Context, in *Ackno
 	return out, nil
 }
 
-func (c *chainReplicationClient) GetLastSequenceNumber(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LastSequenceNumberResponse, error) {
+func (c *chainReplicationClient) GetLastSequenceNumbers(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LastSequenceNumbersResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(LastSequenceNumberResponse)
-	err := c.cc.Invoke(ctx, ChainReplication_GetLastSequenceNumber_FullMethodName, in, out, cOpts...)
+	out := new(LastSequenceNumbersResponse)
+	err := c.cc.Invoke(ctx, ChainReplication_GetLastSequenceNumbers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1180,8 +1180,8 @@ type ChainReplicationServer interface {
 	// Acknowledge the event with given sequence number was applied by the TAIL
 	// (used for propagating ACKs back to HEAD)
 	AcknowledgeEvent(context.Context, *AcknowledgeEventRequest) (*emptypb.Empty, error)
-	// Ask the node for its latest sequence number
-	GetLastSequenceNumber(context.Context, *emptypb.Empty) (*LastSequenceNumberResponse, error)
+	// Ask the node for its latest sequence number and latest acknowledged sequence number
+	GetLastSequenceNumbers(context.Context, *emptypb.Empty) (*LastSequenceNumbersResponse, error)
 	mustEmbedUnimplementedChainReplicationServer()
 }
 
@@ -1198,8 +1198,8 @@ func (UnimplementedChainReplicationServer) ReplicateEvent(context.Context, *Even
 func (UnimplementedChainReplicationServer) AcknowledgeEvent(context.Context, *AcknowledgeEventRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method AcknowledgeEvent not implemented")
 }
-func (UnimplementedChainReplicationServer) GetLastSequenceNumber(context.Context, *emptypb.Empty) (*LastSequenceNumberResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetLastSequenceNumber not implemented")
+func (UnimplementedChainReplicationServer) GetLastSequenceNumbers(context.Context, *emptypb.Empty) (*LastSequenceNumbersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetLastSequenceNumbers not implemented")
 }
 func (UnimplementedChainReplicationServer) mustEmbedUnimplementedChainReplicationServer() {}
 func (UnimplementedChainReplicationServer) testEmbeddedByValue()                          {}
@@ -1258,20 +1258,20 @@ func _ChainReplication_AcknowledgeEvent_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ChainReplication_GetLastSequenceNumber_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ChainReplication_GetLastSequenceNumbers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChainReplicationServer).GetLastSequenceNumber(ctx, in)
+		return srv.(ChainReplicationServer).GetLastSequenceNumbers(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChainReplication_GetLastSequenceNumber_FullMethodName,
+		FullMethod: ChainReplication_GetLastSequenceNumbers_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainReplicationServer).GetLastSequenceNumber(ctx, req.(*emptypb.Empty))
+		return srv.(ChainReplicationServer).GetLastSequenceNumbers(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1292,8 +1292,8 @@ var ChainReplication_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChainReplication_AcknowledgeEvent_Handler,
 		},
 		{
-			MethodName: "GetLastSequenceNumber",
-			Handler:    _ChainReplication_GetLastSequenceNumber_Handler,
+			MethodName: "GetLastSequenceNumbers",
+			Handler:    _ChainReplication_GetLastSequenceNumbers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

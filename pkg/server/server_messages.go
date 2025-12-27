@@ -28,8 +28,10 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 		return nil, err
 	}
 
-	n.logApplyEvent(event)
 	// We can now safely commit the message to storage with the event timestamp
+	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
+	n.logApplyEvent(event)
+
 	message, err := n.storage.PostMessage(req.TopicId, req.UserId, req.Text, event.EventAt)
 	if err != nil {
 		return nil, handleStorageError(err)
@@ -59,9 +61,10 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 	if err := n.replicateAndWaitForAck(event); err != nil {
 		return nil, err
 	}
-
 	// We can now safely commit the message update to storage
+	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 	n.logApplyEvent(event)
+
 	message, err := n.storage.UpdateMessage(req.TopicId, req.UserId, req.MessageId, req.Text)
 	if err != nil {
 		return nil, handleStorageError(err)
@@ -88,8 +91,10 @@ func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 		return nil, err
 	}
 
-	n.logApplyEvent(event)
 	// We can now safely commit the message deletion to storage
+	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
+	n.logApplyEvent(event)
+
 	err := n.storage.DeleteMessage(req.TopicId, req.UserId, req.MessageId)
 	if err != nil {
 		return nil, handleStorageError(err)
@@ -117,8 +122,10 @@ func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 		return nil, err
 	}
 
-	n.logApplyEvent(event)
 	// We can now safely commit the like to storage
+	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
+	n.logApplyEvent(event)
+
 	message, err := n.storage.LikeMessage(req.TopicId, req.UserId, req.MessageId)
 	if err != nil {
 		return nil, handleStorageError(err)

@@ -11,9 +11,14 @@ import (
 func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventRequest) (*emptypb.Empty, error) {
 	// 1. Acknowledge the event in the buffer and retrieve it
 	event := n.eventBuffer.AcknowledgeEvent(req.SequenceNumber)
+
+	// Apply it to storage
+	_ = n.applyEvent(event)
+
 	n.logInfoEvent(event, "ACK received from successor")
 
 	// If this is HEAD, send success to the waiting client
+	// TODO: Check if we are syncing here (then we shouldn't signal back to previous nodes)
 	if n.IsHead() {
 		// TODO: The error cannot be non-nil?
 		n.ackSync.SignalAck(req.SequenceNumber, nil)
@@ -37,6 +42,10 @@ func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventReq
 }
 
 func (n *Node) sendAckToPredecessor(event *pb.Event) error {
+	if n.IsHead() {
+		return nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

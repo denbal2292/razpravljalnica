@@ -23,7 +23,9 @@ func (n *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb
 	}
 
 	// We can now safely commit the topic to storage
+	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 	n.logApplyEvent(event)
+
 	topic, err := n.storage.CreateTopic(req.Name)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

@@ -205,15 +205,20 @@ message RegisterNodeRequest {
 // API for control plane to call nodes (control plane -> node)
 service NodeUpdate {
   // Inform a node about its new predecessor
-  rpc SetPredecessor(NodeInfo) returns (google.protobuf.Empty);
+  rpc SetPredecessor(NodeInfoMessage) returns (google.protobuf.Empty);
 
   // Inform a node about its new successor
-  rpc SetSuccessor(NodeInfo) returns (google.protobuf.Empty);
+  rpc SetSuccessor(NodeInfoMessage) returns (google.protobuf.Empty);
 }
 
 message NeighborsInfo {
   NodeInfo predecessor = 1; // nil means no predecessor (HEAD)
   NodeInfo successor = 2; // nil means no successor (TAIL)
+}
+
+// Wrap this into a seperate message to allow for nil NodeInfo values
+message NodeInfoMessage {
+  NodeInfo node = 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -228,8 +233,8 @@ service ChainReplication {
   // (used for propagating ACKs back to HEAD)
   rpc AcknowledgeEvent(AcknowledgeEventRequest) returns (google.protobuf.Empty);
 
-  // Ask the node for its latest sequence number
-  rpc GetLastSequenceNumber(google.protobuf.Empty) returns (LastSequenceNumberResponse);
+  // Ask the node for its latest sequence number and latest acknowledged sequence number
+  rpc GetLastSequenceNumbers(google.protobuf.Empty) returns (LastSequenceNumbersResponse);
 }
  
 message Event {
@@ -247,13 +252,9 @@ message Event {
   CreateTopicRequest create_topic = 9; // set for OP_CREATE_TOPIC
 }
 
-// TODO: Maybe we should add some kind of token like in subscriptions to authorize the sync?
-message SyncEventsRequest {
-  int64 from_sequence_number = 1; // starting sequence number
-}
-
-message LastSequenceNumberResponse {
-  int64 sequence_number = 1;
+message LastSequenceNumbersResponse {
+  int64 last_sequence_number = 1;
+  int64 acknowledged_sequence_number = 2;
 }
 
 message AcknowledgeEventRequest {

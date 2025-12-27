@@ -28,17 +28,30 @@ func (n *Node) createClientConnection(address string) (*NodeConnection, error) {
 }
 
 // gRPC method to set the predecessor node
-func (n *Node) SetPredecessor(context context.Context, pred *pb.NodeInfo) (*emptypb.Empty, error) {
-	n.logger.Info("SetPredecessor called - data syncing not implemented", "node_info", pred)
+func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) (*emptypb.Empty, error) {
+	pred := predMsg.Node
+
+	n.logger.Info("SetPredecessor called", "node_info", pred)
 	n.setPredecessor(pred)
 
 	return &emptypb.Empty{}, nil
 }
 
 // gRPC method to set the successor node
-func (n *Node) SetSuccessor(context context.Context, succ *pb.NodeInfo) (*emptypb.Empty, error) {
-	n.logger.Info("SetSuccessor called - data syncing not implemented", "node_info", succ)
+func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*emptypb.Empty, error) {
+	succ := succMsg.Node
+
+	n.logger.Info("SetSuccessor called", "node_info", succ)
 	n.setSuccessor(succ)
+
+	if succ == nil {
+		n.logger.Info("This node is TAIL, applying all unacknowledged events")
+		go n.applyAllUnacknowledgedEvents()
+	} else {
+		n.logger.Info("Starting sync with successor after SetSuccessor")
+		// Perform sync in a goroutine to avoid blocking the RPC handler
+		go n.syncWithSuccessor()
+	}
 
 	return &emptypb.Empty{}, nil
 }

@@ -21,8 +21,10 @@ func (n *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.U
 		return nil, err
 	}
 
-	n.logApplyEvent(event)
 	// We can now safely commit the user to storage
+	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
+	n.logApplyEvent(event)
+
 	user, err := n.storage.CreateUser(req.Name)
 	if err != nil {
 		return nil, handleStorageError(err)

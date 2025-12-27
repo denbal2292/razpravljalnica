@@ -70,6 +70,7 @@ func (n *Node) ReplicateEvent(ctx context.Context, event *pb.Event) (*emptypb.Em
 	if n.IsTail() {
 		// Apply event and send ACK back
 		// NOTE: Storage errors are not a part of replication protocols
+		n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 		_ = n.applyEvent(event)
 
 		go func() {

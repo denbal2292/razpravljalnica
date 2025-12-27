@@ -83,24 +83,24 @@ func (cp *ControlPlane) reconnectNeighbors(pred *NodeInfo, succ *NodeInfo) {
 	if pred != nil && succ != nil {
 		// Middle node died
 		// Predecessor is now connected to successor of the dead node
-		if _, err := pred.Client.SetSuccessor(context.Background(), succ.Info); err != nil {
+		if _, err := pred.Client.SetSuccessor(context.Background(), &pb.NodeInfoMessage{Node: succ.Info}); err != nil {
 			log.Printf("Error updating predecessor %s: %v", pred.Info.NodeId, err)
 		}
 
 		// Successor is now connected to predecessor of the dead node
-		if _, err := succ.Client.SetPredecessor(context.Background(), pred.Info); err != nil {
+		if _, err := succ.Client.SetPredecessor(context.Background(), &pb.NodeInfoMessage{Node: pred.Info}); err != nil {
 			log.Printf("Error updating successor %s: %v", succ.Info.NodeId, err)
 		}
 
 	} else if pred != nil {
 		// TAIL node died -> predecessor becomes new TAIL
-		if _, err := pred.Client.SetSuccessor(context.Background(), nil); err != nil {
+		if _, err := pred.Client.SetSuccessor(context.Background(), &pb.NodeInfoMessage{Node: nil}); err != nil {
 			log.Printf("Error updating predecessor %s to become TAIL: %v", pred.Info.NodeId, err)
 		}
 
 	} else if succ != nil {
 		// HEAD node died -> successor becomes new HEAD
-		if _, err := succ.Client.SetPredecessor(context.Background(), nil); err != nil {
+		if _, err := succ.Client.SetPredecessor(context.Background(), &pb.NodeInfoMessage{Node: nil}); err != nil {
 			log.Printf("Error updating successor %s to become HEAD: %v", succ.Info.NodeId, err)
 		}
 	} else {

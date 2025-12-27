@@ -32,7 +32,7 @@ type Node struct {
 	eventBuffer *EventBuffer
 	ackSync     *AckSynchronization // for waiting for ACKs from predecessor
 
-	mu          sync.RWMutex    // protects predecessor and successor
+	neighborMu  sync.RWMutex    // protects predecessor and successor
 	predecessor *NodeConnection // nil if HEAD
 	successor   *NodeConnection // nil if TAIL
 
@@ -98,13 +98,9 @@ func (n *Node) connectToControlPlane() {
 		n.logger.Info("No predecessor (this node is HEAD)")
 	}
 
+	// This should never happen (new node is always TAIL at registration)
 	if neighbors.Successor != nil {
-		n.setSuccessor(neighbors.Successor)
-
-		n.logger.Info("Set successor",
-			"node_id", neighbors.Successor.NodeId,
-			"address", neighbors.Successor.Address,
-		)
+		panic("New node cannot have a successor at registration")
 	} else {
 		n.logger.Info("No successor (this node is TAIL)")
 	}

@@ -1300,6 +1300,51 @@ func (x *NeighborsInfo) GetSuccessor() *NodeInfo {
 	return nil
 }
 
+// Wrap this into a seperate message to allow for nil NodeInfo values
+type NodeInfoMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Node          *NodeInfo              `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NodeInfoMessage) Reset() {
+	*x = NodeInfoMessage{}
+	mi := &file_razpravljalnica_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NodeInfoMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeInfoMessage) ProtoMessage() {}
+
+func (x *NodeInfoMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_razpravljalnica_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeInfoMessage.ProtoReflect.Descriptor instead.
+func (*NodeInfoMessage) Descriptor() ([]byte, []int) {
+	return file_razpravljalnica_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *NodeInfoMessage) GetNode() *NodeInfo {
+	if x != nil {
+		return x.Node
+	}
+	return nil
+}
+
 type Event struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	SequenceNumber int64                  `protobuf:"varint,1,opt,name=sequence_number,json=sequenceNumber,proto3" json:"sequence_number,omitempty"`
@@ -1319,7 +1364,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_razpravljalnica_proto_msgTypes[22]
+	mi := &file_razpravljalnica_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1331,7 +1376,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_razpravljalnica_proto_msgTypes[22]
+	mi := &file_razpravljalnica_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1344,7 +1389,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_razpravljalnica_proto_rawDescGZIP(), []int{22}
+	return file_razpravljalnica_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Event) GetSequenceNumber() int64 {
@@ -1410,29 +1455,29 @@ func (x *Event) GetCreateTopic() *CreateTopicRequest {
 	return nil
 }
 
-// TODO: Maybe we should add some kind of token like in subscriptions to authorize the sync?
-type SyncEventsRequest struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	FromSequenceNumber int64                  `protobuf:"varint,1,opt,name=from_sequence_number,json=fromSequenceNumber,proto3" json:"from_sequence_number,omitempty"` // starting sequence number
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+type LastSequenceNumbersResponse struct {
+	state                      protoimpl.MessageState `protogen:"open.v1"`
+	LastSequenceNumber         int64                  `protobuf:"varint,1,opt,name=last_sequence_number,json=lastSequenceNumber,proto3" json:"last_sequence_number,omitempty"`
+	AcknowledgedSequenceNumber int64                  `protobuf:"varint,2,opt,name=acknowledged_sequence_number,json=acknowledgedSequenceNumber,proto3" json:"acknowledged_sequence_number,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
-func (x *SyncEventsRequest) Reset() {
-	*x = SyncEventsRequest{}
-	mi := &file_razpravljalnica_proto_msgTypes[23]
+func (x *LastSequenceNumbersResponse) Reset() {
+	*x = LastSequenceNumbersResponse{}
+	mi := &file_razpravljalnica_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SyncEventsRequest) String() string {
+func (x *LastSequenceNumbersResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SyncEventsRequest) ProtoMessage() {}
+func (*LastSequenceNumbersResponse) ProtoMessage() {}
 
-func (x *SyncEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_razpravljalnica_proto_msgTypes[23]
+func (x *LastSequenceNumbersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_razpravljalnica_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1443,58 +1488,21 @@ func (x *SyncEventsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SyncEventsRequest.ProtoReflect.Descriptor instead.
-func (*SyncEventsRequest) Descriptor() ([]byte, []int) {
-	return file_razpravljalnica_proto_rawDescGZIP(), []int{23}
+// Deprecated: Use LastSequenceNumbersResponse.ProtoReflect.Descriptor instead.
+func (*LastSequenceNumbersResponse) Descriptor() ([]byte, []int) {
+	return file_razpravljalnica_proto_rawDescGZIP(), []int{24}
 }
 
-func (x *SyncEventsRequest) GetFromSequenceNumber() int64 {
+func (x *LastSequenceNumbersResponse) GetLastSequenceNumber() int64 {
 	if x != nil {
-		return x.FromSequenceNumber
+		return x.LastSequenceNumber
 	}
 	return 0
 }
 
-type LastSequenceNumberResponse struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	SequenceNumber int64                  `protobuf:"varint,1,opt,name=sequence_number,json=sequenceNumber,proto3" json:"sequence_number,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *LastSequenceNumberResponse) Reset() {
-	*x = LastSequenceNumberResponse{}
-	mi := &file_razpravljalnica_proto_msgTypes[24]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *LastSequenceNumberResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LastSequenceNumberResponse) ProtoMessage() {}
-
-func (x *LastSequenceNumberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_razpravljalnica_proto_msgTypes[24]
+func (x *LastSequenceNumbersResponse) GetAcknowledgedSequenceNumber() int64 {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LastSequenceNumberResponse.ProtoReflect.Descriptor instead.
-func (*LastSequenceNumberResponse) Descriptor() ([]byte, []int) {
-	return file_razpravljalnica_proto_rawDescGZIP(), []int{24}
-}
-
-func (x *LastSequenceNumberResponse) GetSequenceNumber() int64 {
-	if x != nil {
-		return x.SequenceNumber
+		return x.AcknowledgedSequenceNumber
 	}
 	return 0
 }
@@ -1627,7 +1635,9 @@ const file_razpravljalnica_proto_rawDesc = "" +
 	"\x04node\x18\x01 \x01(\v2\x19.razpravljalnica.NodeInfoR\x04node\"\x85\x01\n" +
 	"\rNeighborsInfo\x12;\n" +
 	"\vpredecessor\x18\x01 \x01(\v2\x19.razpravljalnica.NodeInfoR\vpredecessor\x127\n" +
-	"\tsuccessor\x18\x02 \x01(\v2\x19.razpravljalnica.NodeInfoR\tsuccessor\"\xc9\x04\n" +
+	"\tsuccessor\x18\x02 \x01(\v2\x19.razpravljalnica.NodeInfoR\tsuccessor\"@\n" +
+	"\x0fNodeInfoMessage\x12-\n" +
+	"\x04node\x18\x01 \x01(\v2\x19.razpravljalnica.NodeInfoR\x04node\"\xc9\x04\n" +
 	"\x05Event\x12'\n" +
 	"\x0fsequence_number\x18\x01 \x01(\x03R\x0esequenceNumber\x12'\n" +
 	"\x02op\x18\x02 \x01(\x0e2\x17.razpravljalnica.OpTypeR\x02op\x125\n" +
@@ -1638,11 +1648,10 @@ const file_razpravljalnica_proto_rawDesc = "" +
 	"\x0eupdate_message\x18\a \x01(\v2%.razpravljalnica.UpdateMessageRequestR\rupdateMessage\x12C\n" +
 	"\vcreate_user\x18\b \x01(\v2\".razpravljalnica.CreateUserRequestR\n" +
 	"createUser\x12F\n" +
-	"\fcreate_topic\x18\t \x01(\v2#.razpravljalnica.CreateTopicRequestR\vcreateTopic\"E\n" +
-	"\x11SyncEventsRequest\x120\n" +
-	"\x14from_sequence_number\x18\x01 \x01(\x03R\x12fromSequenceNumber\"E\n" +
-	"\x1aLastSequenceNumberResponse\x12'\n" +
-	"\x0fsequence_number\x18\x01 \x01(\x03R\x0esequenceNumber\"B\n" +
+	"\fcreate_topic\x18\t \x01(\v2#.razpravljalnica.CreateTopicRequestR\vcreateTopic\"\x91\x01\n" +
+	"\x1bLastSequenceNumbersResponse\x120\n" +
+	"\x14last_sequence_number\x18\x01 \x01(\x03R\x12lastSequenceNumber\x12@\n" +
+	"\x1cacknowledged_sequence_number\x18\x02 \x01(\x03R\x1aacknowledgedSequenceNumber\"B\n" +
 	"\x17AcknowledgeEventRequest\x12'\n" +
 	"\x0fsequence_number\x18\x01 \x01(\x03R\x0esequenceNumber*i\n" +
 	"\x06OpType\x12\v\n" +
@@ -1673,15 +1682,15 @@ const file_razpravljalnica_proto_rawDesc = "" +
 	"\fControlPlane\x12>\n" +
 	"\tHeartbeat\x12\x19.razpravljalnica.NodeInfo\x1a\x16.google.protobuf.Empty\x12I\n" +
 	"\fRegisterNode\x12\x19.razpravljalnica.NodeInfo\x1a\x1e.razpravljalnica.NeighborsInfo\x12C\n" +
-	"\x0eUnregisterNode\x12\x19.razpravljalnica.NodeInfo\x1a\x16.google.protobuf.Empty2\x94\x01\n" +
+	"\x0eUnregisterNode\x12\x19.razpravljalnica.NodeInfo\x1a\x16.google.protobuf.Empty2\xa2\x01\n" +
 	"\n" +
-	"NodeUpdate\x12C\n" +
-	"\x0eSetPredecessor\x12\x19.razpravljalnica.NodeInfo\x1a\x16.google.protobuf.Empty\x12A\n" +
-	"\fSetSuccessor\x12\x19.razpravljalnica.NodeInfo\x1a\x16.google.protobuf.Empty2\x88\x02\n" +
+	"NodeUpdate\x12J\n" +
+	"\x0eSetPredecessor\x12 .razpravljalnica.NodeInfoMessage\x1a\x16.google.protobuf.Empty\x12H\n" +
+	"\fSetSuccessor\x12 .razpravljalnica.NodeInfoMessage\x1a\x16.google.protobuf.Empty2\x8a\x02\n" +
 	"\x10ChainReplication\x12@\n" +
 	"\x0eReplicateEvent\x12\x16.razpravljalnica.Event\x1a\x16.google.protobuf.Empty\x12T\n" +
-	"\x10AcknowledgeEvent\x12(.razpravljalnica.AcknowledgeEventRequest\x1a\x16.google.protobuf.Empty\x12\\\n" +
-	"\x15GetLastSequenceNumber\x12\x16.google.protobuf.Empty\x1a+.razpravljalnica.LastSequenceNumberResponseB\x12Z\x10/razpravljalnicab\x06proto3"
+	"\x10AcknowledgeEvent\x12(.razpravljalnica.AcknowledgeEventRequest\x1a\x16.google.protobuf.Empty\x12^\n" +
+	"\x16GetLastSequenceNumbers\x12\x16.google.protobuf.Empty\x1a,.razpravljalnica.LastSequenceNumbersResponseB\x12Z\x10/razpravljalnicab\x06proto3"
 
 var (
 	file_razpravljalnica_proto_rawDescOnce sync.Once
@@ -1698,35 +1707,35 @@ func file_razpravljalnica_proto_rawDescGZIP() []byte {
 var file_razpravljalnica_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_razpravljalnica_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_razpravljalnica_proto_goTypes = []any{
-	(OpType)(0),                        // 0: razpravljalnica.OpType
-	(*User)(nil),                       // 1: razpravljalnica.User
-	(*Topic)(nil),                      // 2: razpravljalnica.Topic
-	(*Message)(nil),                    // 3: razpravljalnica.Message
-	(*Like)(nil),                       // 4: razpravljalnica.Like
-	(*NodeInfo)(nil),                   // 5: razpravljalnica.NodeInfo
-	(*CreateUserRequest)(nil),          // 6: razpravljalnica.CreateUserRequest
-	(*CreateTopicRequest)(nil),         // 7: razpravljalnica.CreateTopicRequest
-	(*PostMessageRequest)(nil),         // 8: razpravljalnica.PostMessageRequest
-	(*DeleteMessageRequest)(nil),       // 9: razpravljalnica.DeleteMessageRequest
-	(*UpdateMessageRequest)(nil),       // 10: razpravljalnica.UpdateMessageRequest
-	(*LikeMessageRequest)(nil),         // 11: razpravljalnica.LikeMessageRequest
-	(*ListTopicsResponse)(nil),         // 12: razpravljalnica.ListTopicsResponse
-	(*GetMessagesRequest)(nil),         // 13: razpravljalnica.GetMessagesRequest
-	(*GetMessagesResponse)(nil),        // 14: razpravljalnica.GetMessagesResponse
-	(*SubscribeTopicRequest)(nil),      // 15: razpravljalnica.SubscribeTopicRequest
-	(*SubscriptionNodeRequest)(nil),    // 16: razpravljalnica.SubscriptionNodeRequest
-	(*SubscriptionNodeResponse)(nil),   // 17: razpravljalnica.SubscriptionNodeResponse
-	(*MessageEvent)(nil),               // 18: razpravljalnica.MessageEvent
-	(*GetUserRequest)(nil),             // 19: razpravljalnica.GetUserRequest
-	(*GetClusterStateResponse)(nil),    // 20: razpravljalnica.GetClusterStateResponse
-	(*RegisterNodeRequest)(nil),        // 21: razpravljalnica.RegisterNodeRequest
-	(*NeighborsInfo)(nil),              // 22: razpravljalnica.NeighborsInfo
-	(*Event)(nil),                      // 23: razpravljalnica.Event
-	(*SyncEventsRequest)(nil),          // 24: razpravljalnica.SyncEventsRequest
-	(*LastSequenceNumberResponse)(nil), // 25: razpravljalnica.LastSequenceNumberResponse
-	(*AcknowledgeEventRequest)(nil),    // 26: razpravljalnica.AcknowledgeEventRequest
-	(*timestamppb.Timestamp)(nil),      // 27: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),              // 28: google.protobuf.Empty
+	(OpType)(0),                         // 0: razpravljalnica.OpType
+	(*User)(nil),                        // 1: razpravljalnica.User
+	(*Topic)(nil),                       // 2: razpravljalnica.Topic
+	(*Message)(nil),                     // 3: razpravljalnica.Message
+	(*Like)(nil),                        // 4: razpravljalnica.Like
+	(*NodeInfo)(nil),                    // 5: razpravljalnica.NodeInfo
+	(*CreateUserRequest)(nil),           // 6: razpravljalnica.CreateUserRequest
+	(*CreateTopicRequest)(nil),          // 7: razpravljalnica.CreateTopicRequest
+	(*PostMessageRequest)(nil),          // 8: razpravljalnica.PostMessageRequest
+	(*DeleteMessageRequest)(nil),        // 9: razpravljalnica.DeleteMessageRequest
+	(*UpdateMessageRequest)(nil),        // 10: razpravljalnica.UpdateMessageRequest
+	(*LikeMessageRequest)(nil),          // 11: razpravljalnica.LikeMessageRequest
+	(*ListTopicsResponse)(nil),          // 12: razpravljalnica.ListTopicsResponse
+	(*GetMessagesRequest)(nil),          // 13: razpravljalnica.GetMessagesRequest
+	(*GetMessagesResponse)(nil),         // 14: razpravljalnica.GetMessagesResponse
+	(*SubscribeTopicRequest)(nil),       // 15: razpravljalnica.SubscribeTopicRequest
+	(*SubscriptionNodeRequest)(nil),     // 16: razpravljalnica.SubscriptionNodeRequest
+	(*SubscriptionNodeResponse)(nil),    // 17: razpravljalnica.SubscriptionNodeResponse
+	(*MessageEvent)(nil),                // 18: razpravljalnica.MessageEvent
+	(*GetUserRequest)(nil),              // 19: razpravljalnica.GetUserRequest
+	(*GetClusterStateResponse)(nil),     // 20: razpravljalnica.GetClusterStateResponse
+	(*RegisterNodeRequest)(nil),         // 21: razpravljalnica.RegisterNodeRequest
+	(*NeighborsInfo)(nil),               // 22: razpravljalnica.NeighborsInfo
+	(*NodeInfoMessage)(nil),             // 23: razpravljalnica.NodeInfoMessage
+	(*Event)(nil),                       // 24: razpravljalnica.Event
+	(*LastSequenceNumbersResponse)(nil), // 25: razpravljalnica.LastSequenceNumbersResponse
+	(*AcknowledgeEventRequest)(nil),     // 26: razpravljalnica.AcknowledgeEventRequest
+	(*timestamppb.Timestamp)(nil),       // 27: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),               // 28: google.protobuf.Empty
 }
 var file_razpravljalnica_proto_depIdxs = []int32{
 	27, // 0: razpravljalnica.Message.created_at:type_name -> google.protobuf.Timestamp
@@ -1741,59 +1750,60 @@ var file_razpravljalnica_proto_depIdxs = []int32{
 	5,  // 9: razpravljalnica.RegisterNodeRequest.node:type_name -> razpravljalnica.NodeInfo
 	5,  // 10: razpravljalnica.NeighborsInfo.predecessor:type_name -> razpravljalnica.NodeInfo
 	5,  // 11: razpravljalnica.NeighborsInfo.successor:type_name -> razpravljalnica.NodeInfo
-	0,  // 12: razpravljalnica.Event.op:type_name -> razpravljalnica.OpType
-	27, // 13: razpravljalnica.Event.event_at:type_name -> google.protobuf.Timestamp
-	8,  // 14: razpravljalnica.Event.post_message:type_name -> razpravljalnica.PostMessageRequest
-	11, // 15: razpravljalnica.Event.like_message:type_name -> razpravljalnica.LikeMessageRequest
-	9,  // 16: razpravljalnica.Event.delete_message:type_name -> razpravljalnica.DeleteMessageRequest
-	10, // 17: razpravljalnica.Event.update_message:type_name -> razpravljalnica.UpdateMessageRequest
-	6,  // 18: razpravljalnica.Event.create_user:type_name -> razpravljalnica.CreateUserRequest
-	7,  // 19: razpravljalnica.Event.create_topic:type_name -> razpravljalnica.CreateTopicRequest
-	6,  // 20: razpravljalnica.MessageBoardWrites.CreateUser:input_type -> razpravljalnica.CreateUserRequest
-	7,  // 21: razpravljalnica.MessageBoardWrites.CreateTopic:input_type -> razpravljalnica.CreateTopicRequest
-	8,  // 22: razpravljalnica.MessageBoardWrites.PostMessage:input_type -> razpravljalnica.PostMessageRequest
-	10, // 23: razpravljalnica.MessageBoardWrites.UpdateMessage:input_type -> razpravljalnica.UpdateMessageRequest
-	9,  // 24: razpravljalnica.MessageBoardWrites.DeleteMessage:input_type -> razpravljalnica.DeleteMessageRequest
-	11, // 25: razpravljalnica.MessageBoardWrites.LikeMessage:input_type -> razpravljalnica.LikeMessageRequest
-	28, // 26: razpravljalnica.MessageBoardReads.ListTopics:input_type -> google.protobuf.Empty
-	19, // 27: razpravljalnica.MessageBoardReads.GetUser:input_type -> razpravljalnica.GetUserRequest
-	13, // 28: razpravljalnica.MessageBoardReads.GetMessages:input_type -> razpravljalnica.GetMessagesRequest
-	15, // 29: razpravljalnica.MessageBoardSubscriptions.SubscribeTopic:input_type -> razpravljalnica.SubscribeTopicRequest
-	16, // 30: razpravljalnica.MessageBoardSubscriptions.GetSubscriptionNode:input_type -> razpravljalnica.SubscriptionNodeRequest
-	28, // 31: razpravljalnica.ClientDiscovery.GetClusterState:input_type -> google.protobuf.Empty
-	5,  // 32: razpravljalnica.ControlPlane.Heartbeat:input_type -> razpravljalnica.NodeInfo
-	5,  // 33: razpravljalnica.ControlPlane.RegisterNode:input_type -> razpravljalnica.NodeInfo
-	5,  // 34: razpravljalnica.ControlPlane.UnregisterNode:input_type -> razpravljalnica.NodeInfo
-	5,  // 35: razpravljalnica.NodeUpdate.SetPredecessor:input_type -> razpravljalnica.NodeInfo
-	5,  // 36: razpravljalnica.NodeUpdate.SetSuccessor:input_type -> razpravljalnica.NodeInfo
-	23, // 37: razpravljalnica.ChainReplication.ReplicateEvent:input_type -> razpravljalnica.Event
-	26, // 38: razpravljalnica.ChainReplication.AcknowledgeEvent:input_type -> razpravljalnica.AcknowledgeEventRequest
-	28, // 39: razpravljalnica.ChainReplication.GetLastSequenceNumber:input_type -> google.protobuf.Empty
-	1,  // 40: razpravljalnica.MessageBoardWrites.CreateUser:output_type -> razpravljalnica.User
-	2,  // 41: razpravljalnica.MessageBoardWrites.CreateTopic:output_type -> razpravljalnica.Topic
-	3,  // 42: razpravljalnica.MessageBoardWrites.PostMessage:output_type -> razpravljalnica.Message
-	3,  // 43: razpravljalnica.MessageBoardWrites.UpdateMessage:output_type -> razpravljalnica.Message
-	28, // 44: razpravljalnica.MessageBoardWrites.DeleteMessage:output_type -> google.protobuf.Empty
-	3,  // 45: razpravljalnica.MessageBoardWrites.LikeMessage:output_type -> razpravljalnica.Message
-	12, // 46: razpravljalnica.MessageBoardReads.ListTopics:output_type -> razpravljalnica.ListTopicsResponse
-	1,  // 47: razpravljalnica.MessageBoardReads.GetUser:output_type -> razpravljalnica.User
-	14, // 48: razpravljalnica.MessageBoardReads.GetMessages:output_type -> razpravljalnica.GetMessagesResponse
-	18, // 49: razpravljalnica.MessageBoardSubscriptions.SubscribeTopic:output_type -> razpravljalnica.MessageEvent
-	17, // 50: razpravljalnica.MessageBoardSubscriptions.GetSubscriptionNode:output_type -> razpravljalnica.SubscriptionNodeResponse
-	20, // 51: razpravljalnica.ClientDiscovery.GetClusterState:output_type -> razpravljalnica.GetClusterStateResponse
-	28, // 52: razpravljalnica.ControlPlane.Heartbeat:output_type -> google.protobuf.Empty
-	22, // 53: razpravljalnica.ControlPlane.RegisterNode:output_type -> razpravljalnica.NeighborsInfo
-	28, // 54: razpravljalnica.ControlPlane.UnregisterNode:output_type -> google.protobuf.Empty
-	28, // 55: razpravljalnica.NodeUpdate.SetPredecessor:output_type -> google.protobuf.Empty
-	28, // 56: razpravljalnica.NodeUpdate.SetSuccessor:output_type -> google.protobuf.Empty
-	28, // 57: razpravljalnica.ChainReplication.ReplicateEvent:output_type -> google.protobuf.Empty
-	28, // 58: razpravljalnica.ChainReplication.AcknowledgeEvent:output_type -> google.protobuf.Empty
-	25, // 59: razpravljalnica.ChainReplication.GetLastSequenceNumber:output_type -> razpravljalnica.LastSequenceNumberResponse
-	40, // [40:60] is the sub-list for method output_type
-	20, // [20:40] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	5,  // 12: razpravljalnica.NodeInfoMessage.node:type_name -> razpravljalnica.NodeInfo
+	0,  // 13: razpravljalnica.Event.op:type_name -> razpravljalnica.OpType
+	27, // 14: razpravljalnica.Event.event_at:type_name -> google.protobuf.Timestamp
+	8,  // 15: razpravljalnica.Event.post_message:type_name -> razpravljalnica.PostMessageRequest
+	11, // 16: razpravljalnica.Event.like_message:type_name -> razpravljalnica.LikeMessageRequest
+	9,  // 17: razpravljalnica.Event.delete_message:type_name -> razpravljalnica.DeleteMessageRequest
+	10, // 18: razpravljalnica.Event.update_message:type_name -> razpravljalnica.UpdateMessageRequest
+	6,  // 19: razpravljalnica.Event.create_user:type_name -> razpravljalnica.CreateUserRequest
+	7,  // 20: razpravljalnica.Event.create_topic:type_name -> razpravljalnica.CreateTopicRequest
+	6,  // 21: razpravljalnica.MessageBoardWrites.CreateUser:input_type -> razpravljalnica.CreateUserRequest
+	7,  // 22: razpravljalnica.MessageBoardWrites.CreateTopic:input_type -> razpravljalnica.CreateTopicRequest
+	8,  // 23: razpravljalnica.MessageBoardWrites.PostMessage:input_type -> razpravljalnica.PostMessageRequest
+	10, // 24: razpravljalnica.MessageBoardWrites.UpdateMessage:input_type -> razpravljalnica.UpdateMessageRequest
+	9,  // 25: razpravljalnica.MessageBoardWrites.DeleteMessage:input_type -> razpravljalnica.DeleteMessageRequest
+	11, // 26: razpravljalnica.MessageBoardWrites.LikeMessage:input_type -> razpravljalnica.LikeMessageRequest
+	28, // 27: razpravljalnica.MessageBoardReads.ListTopics:input_type -> google.protobuf.Empty
+	19, // 28: razpravljalnica.MessageBoardReads.GetUser:input_type -> razpravljalnica.GetUserRequest
+	13, // 29: razpravljalnica.MessageBoardReads.GetMessages:input_type -> razpravljalnica.GetMessagesRequest
+	15, // 30: razpravljalnica.MessageBoardSubscriptions.SubscribeTopic:input_type -> razpravljalnica.SubscribeTopicRequest
+	16, // 31: razpravljalnica.MessageBoardSubscriptions.GetSubscriptionNode:input_type -> razpravljalnica.SubscriptionNodeRequest
+	28, // 32: razpravljalnica.ClientDiscovery.GetClusterState:input_type -> google.protobuf.Empty
+	5,  // 33: razpravljalnica.ControlPlane.Heartbeat:input_type -> razpravljalnica.NodeInfo
+	5,  // 34: razpravljalnica.ControlPlane.RegisterNode:input_type -> razpravljalnica.NodeInfo
+	5,  // 35: razpravljalnica.ControlPlane.UnregisterNode:input_type -> razpravljalnica.NodeInfo
+	23, // 36: razpravljalnica.NodeUpdate.SetPredecessor:input_type -> razpravljalnica.NodeInfoMessage
+	23, // 37: razpravljalnica.NodeUpdate.SetSuccessor:input_type -> razpravljalnica.NodeInfoMessage
+	24, // 38: razpravljalnica.ChainReplication.ReplicateEvent:input_type -> razpravljalnica.Event
+	26, // 39: razpravljalnica.ChainReplication.AcknowledgeEvent:input_type -> razpravljalnica.AcknowledgeEventRequest
+	28, // 40: razpravljalnica.ChainReplication.GetLastSequenceNumbers:input_type -> google.protobuf.Empty
+	1,  // 41: razpravljalnica.MessageBoardWrites.CreateUser:output_type -> razpravljalnica.User
+	2,  // 42: razpravljalnica.MessageBoardWrites.CreateTopic:output_type -> razpravljalnica.Topic
+	3,  // 43: razpravljalnica.MessageBoardWrites.PostMessage:output_type -> razpravljalnica.Message
+	3,  // 44: razpravljalnica.MessageBoardWrites.UpdateMessage:output_type -> razpravljalnica.Message
+	28, // 45: razpravljalnica.MessageBoardWrites.DeleteMessage:output_type -> google.protobuf.Empty
+	3,  // 46: razpravljalnica.MessageBoardWrites.LikeMessage:output_type -> razpravljalnica.Message
+	12, // 47: razpravljalnica.MessageBoardReads.ListTopics:output_type -> razpravljalnica.ListTopicsResponse
+	1,  // 48: razpravljalnica.MessageBoardReads.GetUser:output_type -> razpravljalnica.User
+	14, // 49: razpravljalnica.MessageBoardReads.GetMessages:output_type -> razpravljalnica.GetMessagesResponse
+	18, // 50: razpravljalnica.MessageBoardSubscriptions.SubscribeTopic:output_type -> razpravljalnica.MessageEvent
+	17, // 51: razpravljalnica.MessageBoardSubscriptions.GetSubscriptionNode:output_type -> razpravljalnica.SubscriptionNodeResponse
+	20, // 52: razpravljalnica.ClientDiscovery.GetClusterState:output_type -> razpravljalnica.GetClusterStateResponse
+	28, // 53: razpravljalnica.ControlPlane.Heartbeat:output_type -> google.protobuf.Empty
+	22, // 54: razpravljalnica.ControlPlane.RegisterNode:output_type -> razpravljalnica.NeighborsInfo
+	28, // 55: razpravljalnica.ControlPlane.UnregisterNode:output_type -> google.protobuf.Empty
+	28, // 56: razpravljalnica.NodeUpdate.SetPredecessor:output_type -> google.protobuf.Empty
+	28, // 57: razpravljalnica.NodeUpdate.SetSuccessor:output_type -> google.protobuf.Empty
+	28, // 58: razpravljalnica.ChainReplication.ReplicateEvent:output_type -> google.protobuf.Empty
+	28, // 59: razpravljalnica.ChainReplication.AcknowledgeEvent:output_type -> google.protobuf.Empty
+	25, // 60: razpravljalnica.ChainReplication.GetLastSequenceNumbers:output_type -> razpravljalnica.LastSequenceNumbersResponse
+	41, // [41:61] is the sub-list for method output_type
+	21, // [21:41] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_razpravljalnica_proto_init() }

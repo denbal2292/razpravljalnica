@@ -46,7 +46,7 @@ func (cp *ControlPlane) RegisterNode(ctx context.Context, nodeInfo *pb.NodeInfo)
 	tailNode := cp.nodes[len(cp.nodes)-1]
 
 	// Update its successor to point to the new node
-	tailNode.Client.SetSuccessor(ctx, nodeInfo) // Inform old TAIL about new successor
+	tailNode.Client.SetSuccessor(ctx, &pb.NodeInfoMessage{Node: newNode.Info}) // Inform old TAIL about new successor
 
 	// New node's predecessor is the old TAIL
 	cp.nodes = append(cp.nodes, newNode)

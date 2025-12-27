@@ -8,12 +8,18 @@ import (
 
 // A method which actually sets the successor connection
 func (n *Node) setSuccessor(nodeInfo *pb.NodeInfo) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
+	n.neighborMu.Lock()
+	defer n.neighborMu.Unlock()
 
 	// 1. Try to close existing connection if any
 	if n.successor != nil {
 		n.successor.conn.Close()
+	}
+
+	// If nil, just set to nil and return
+	if nodeInfo == nil {
+		n.successor = nil
+		return
 	}
 
 	// 2. Create new connection
@@ -28,12 +34,18 @@ func (n *Node) setSuccessor(nodeInfo *pb.NodeInfo) {
 
 // A method which actually sets the predecessor connection
 func (n *Node) setPredecessor(nodeInfo *pb.NodeInfo) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
+	n.neighborMu.Lock()
+	defer n.neighborMu.Unlock()
 
 	// 1. Try to close existing connection if any
 	if n.predecessor != nil {
 		n.predecessor.conn.Close()
+	}
+
+	// If nil, just set to nil and return
+	if nodeInfo == nil {
+		n.predecessor = nil
+		return
 	}
 
 	// 2. Create new connection
@@ -47,22 +59,22 @@ func (n *Node) setPredecessor(nodeInfo *pb.NodeInfo) {
 }
 
 func (n *Node) IsHead() bool {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
+	n.neighborMu.RLock()
+	defer n.neighborMu.RUnlock()
 
 	return n.predecessor == nil
 }
 
 func (n *Node) IsTail() bool {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
+	n.neighborMu.RLock()
+	defer n.neighborMu.RUnlock()
 
 	return n.successor == nil
 }
 
 func (n *Node) getSuccessorClient() pb.ChainReplicationClient {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
+	n.neighborMu.RLock()
+	defer n.neighborMu.RUnlock()
 
 	if n.successor == nil {
 		return nil
@@ -72,8 +84,8 @@ func (n *Node) getSuccessorClient() pb.ChainReplicationClient {
 }
 
 func (n *Node) getPredecessorClient() pb.ChainReplicationClient {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
+	n.neighborMu.RLock()
+	defer n.neighborMu.RUnlock()
 
 	if n.predecessor == nil {
 		return nil

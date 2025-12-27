@@ -142,10 +142,22 @@ func (eb *EventBuffer) AcknowledgeEvent(sequenceNumber int64) *pb.Event {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
-	if sequenceNumber == eb.lastConfirmed+1 {
+	if sequenceNumber == eb.lastConfirmed+1 && sequenceNumber < int64(len(eb.events)) {
 		eb.lastConfirmed++
+		fmt.Println("Event acknowledged", "sequence_number", sequenceNumber)
 	} else {
 		panic(fmt.Sprintf("out-of-order event acknowledgment: got %d, expected %d", sequenceNumber, eb.lastConfirmed+1))
+	}
+
+	return eb.events[sequenceNumber]
+}
+
+func (eb *EventBuffer) GetEvent(sequenceNumber int64) *pb.Event {
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
+
+	if sequenceNumber < 0 || sequenceNumber >= int64(len(eb.events)) {
+		return nil
 	}
 
 	return eb.events[sequenceNumber]
@@ -156,4 +168,11 @@ func (eb *EventBuffer) GetLastApplied() int64 {
 	defer eb.mu.RUnlock()
 
 	return eb.lastConfirmed
+}
+
+func (eb *EventBuffer) GetLastReceived() int64 {
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
+
+	return eb.nextEventSeq - 1
 }
