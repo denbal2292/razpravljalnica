@@ -13,7 +13,7 @@ func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventReq
 	event := n.eventBuffer.AcknowledgeEvent(req.SequenceNumber)
 
 	if event == nil {
-		n.logger.Error("AcknowledgeEvent called for already acknowledged event", "sequence_number", req.SequenceNumber)
+		n.logger.Warn("AcknowledgeEvent called for already acknowledged event", "sequence_number", req.SequenceNumber)
 		return &emptypb.Empty{}, nil
 	}
 
@@ -22,6 +22,7 @@ func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventReq
 	// If this is HEAD, send success to the waiting client
 	if n.IsHead() {
 		// TODO: The error cannot be non-nil?
+		// TODO: This could be an ACK from propagating to a parent
 		n.ackSync.SignalAck(req.SequenceNumber, nil)
 		n.logInfoEvent(event, "ACK reached HEAD successfuly - sending to client")
 

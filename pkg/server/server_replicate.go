@@ -60,6 +60,14 @@ func (n *Node) forwardEventToSuccessor(event *pb.Event) error {
 // (Don't call)
 // gRPC method that gets called when we receive an event to replicate from the previous node
 func (n *Node) ReplicateEvent(ctx context.Context, event *pb.Event) (*emptypb.Empty, error) {
+	if n.IsSyncing() {
+		// If we're currently syncing, enqueue the event to be processed after sync
+		n.EnqueueEvent(event)
+
+		n.logger.Info("Node is currently syncing, event enqueued", "sequence_number", event.SequenceNumber)
+		return &emptypb.Empty{}, nil
+	}
+
 	// 1. Add the event to the buffer but don't apply it yet since it's not confirmed by the tail
 	n.eventBuffer.AddEvent(event)
 
