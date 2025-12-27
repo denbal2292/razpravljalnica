@@ -42,6 +42,8 @@ func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*
 	succ := succMsg.Node
 
 	n.logger.Info("SetSuccessor called", "node_info", succ)
+
+	n.enterSyncState()
 	n.setSuccessor(succ)
 
 	if succ == nil {

@@ -16,7 +16,7 @@ func (n *Node) GetLastSequenceNumbers(ctx context.Context, empty *emptypb.Empty)
 }
 
 func (n *Node) syncWithSuccessor() {
-	// TODO: Add locking to prevent concurrent writes during sync?
+	defer n.exitSyncState()
 
 	// 1. Get the last applied event number from the successor (it might have newer ACKs from the TAIL)
 	successorClient := n.getSuccessorClient()
@@ -60,7 +60,7 @@ func (n *Node) syncWithSuccessor() {
 		event := n.eventBuffer.GetEvent(seq)
 		n.logInfoEvent(event, "Replicating missing event to successor during sync")
 
-		if err := n.replicateAndWaitForAck(event); err != nil {
+		if err := n.forwardEventToSuccessor(event); err != nil {
 			n.logErrorEvent(event, err, "Failed to replicate missing event to successor during sync")
 			// TODO: Notify control plane about failure?
 		}
@@ -71,6 +71,8 @@ func (n *Node) syncWithSuccessor() {
 
 // Handle transition to TAIL role (called when successor is set to nil)
 func (n *Node) applyAllUnacknowledgedEvents() {
+	defer n.exitSyncState()
+
 	lastReceived := n.eventBuffer.GetLastReceived()
 	n.logger.Info("Becoming new TAIL, acknowledging all events up to last received", "upTo", lastReceived)
 

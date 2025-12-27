@@ -31,6 +31,7 @@ type Node struct {
 	storage     *storage.Storage
 	eventBuffer *EventBuffer
 	ackSync     *AckSynchronization // for waiting for ACKs from predecessor
+	syncQueue   *ServerSyncQueue    // queue of sync requests
 
 	mu          sync.RWMutex    // protects predecessor and successor
 	predecessor *NodeConnection // nil if HEAD
@@ -55,6 +56,7 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 		},
 		controlPlane:      controlPlane,
 		ackSync:           NewAckSynchronization(),
+		syncQueue:         NewServerSyncQueue(),
 		predecessor:       nil,
 		successor:         nil,
 		heartbeatInterval: 5 * time.Second, // TODO: Configurable

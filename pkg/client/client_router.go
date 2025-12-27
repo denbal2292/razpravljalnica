@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 )
 
 const help = `Available commands:
@@ -101,7 +100,7 @@ func loopCommand(client *clientSet, args []string) error {
 			fmt.Printf("Error: %v\n", err)
 		}
 
-		time.Sleep(1 * time.Second)
+		// time.Sleep(100 * time.Millisecond)
 
 		select {
 		case <-sigCh:
