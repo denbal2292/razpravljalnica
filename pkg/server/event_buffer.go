@@ -129,7 +129,7 @@ func (eb *EventBuffer) AddEvent(event *pb.Event) {
 
 	// Ensure events are added in order
 	if event.SequenceNumber != eb.nextEventSeq {
-		panic(fmt.Sprintf("out-of-order event addition: got %d, expected %d", event.SequenceNumber, eb.nextEventSeq))
+		panic(fmt.Errorf("out-of-order event addition: got %d, expected %d", event.SequenceNumber, eb.nextEventSeq))
 	}
 
 	eb.events = append(eb.events, event)

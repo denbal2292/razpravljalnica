@@ -40,7 +40,13 @@ func (n *Node) sendAckToPredecessor(event *pb.Event) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err := n.predecessor.Client.AcknowledgeEvent(ctx, &pb.AcknowledgeEventRequest{
+	predClient := n.getPredecessorClient()
+
+	if predClient == nil {
+		panic("sendAckToPredecessor called with no predecessor")
+	}
+
+	_, err := predClient.AcknowledgeEvent(ctx, &pb.AcknowledgeEventRequest{
 		SequenceNumber: event.SequenceNumber,
 	})
 	return err

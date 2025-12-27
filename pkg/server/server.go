@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/denbal2292/razpravljalnica/pkg/storage"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -30,6 +32,7 @@ type Node struct {
 	eventBuffer *EventBuffer
 	ackSync     *AckSynchronization // for waiting for ACKs from predecessor
 
+	mu          sync.RWMutex    // protects predecessor and successor
 	predecessor *NodeConnection // nil if HEAD
 	successor   *NodeConnection // nil if TAIL
 
@@ -38,7 +41,8 @@ type Node struct {
 
 type NodeConnection struct {
 	// address string
-	Client pb.ChainReplicationClient // gRPC client to the connected node
+	client pb.ChainReplicationClient // gRPC client to the connected node
+	conn   *grpc.ClientConn          // underlying gRPC connection we can close
 }
 
 func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) *Node {
@@ -84,9 +88,8 @@ func (n *Node) connectToControlPlane() {
 	n.logger.Info("Registered node with control plane", "node_id", n.nodeInfo.NodeId, "address", n.nodeInfo.Address)
 
 	if neighbors.Predecessor != nil {
-		n.predecessor = &NodeConnection{
-			Client: n.createClientConnection(neighbors.Predecessor.Address),
-		}
+		n.setPredecessor(neighbors.Predecessor)
+
 		n.logger.Info("Set predecessor",
 			"node_id", neighbors.Predecessor.NodeId,
 			"address", neighbors.Predecessor.Address,
@@ -96,9 +99,8 @@ func (n *Node) connectToControlPlane() {
 	}
 
 	if neighbors.Successor != nil {
-		n.successor = &NodeConnection{
-			Client: n.createClientConnection(neighbors.Successor.Address),
-		}
+		n.setSuccessor(neighbors.Successor)
+
 		n.logger.Info("Set successor",
 			"node_id", neighbors.Successor.NodeId,
 			"address", neighbors.Successor.Address,
@@ -106,14 +108,6 @@ func (n *Node) connectToControlPlane() {
 	} else {
 		n.logger.Info("No successor (this node is TAIL)")
 	}
-}
-
-func (n *Node) IsHead() bool {
-	return n.predecessor == nil
-}
-
-func (n *Node) IsTail() bool {
-	return n.successor == nil
 }
 
 // Apply the given event to the local storage
@@ -149,7 +143,7 @@ func (n *Node) applyEvent(event *pb.Event) error {
 		return err
 
 	default:
-		panic(fmt.Sprintf("unknown event operation: %v", event.Op))
+		panic(fmt.Errorf("unknown event operation: %v", event.Op))
 	}
 }
 

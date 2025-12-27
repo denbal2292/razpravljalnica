@@ -35,7 +35,7 @@ func (as *AckSynchronization) SignalAck(seqNum int64, err error) error {
 		ackChan <- err
 	} else {
 		// TODO: Error handling
-		panic(fmt.Sprintf("ACK channel not found for sequence number %d", seqNum))
+		panic(fmt.Errorf("ACK channel not found for sequence number %d", seqNum))
 	}
 
 	return nil

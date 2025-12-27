@@ -228,11 +228,6 @@ service ChainReplication {
   // (used for propagating ACKs back to HEAD)
   rpc AcknowledgeEvent(AcknowledgeEventRequest) returns (google.protobuf.Empty);
 
-  // TODO: This will have to reworked for syncing down the chain
-  // Request to sync events starting from a given sequence number
-  // Used when a new node joins the chain and needs to catch up 
-  rpc SyncEvents(SyncEventsRequest) returns (stream Event);
-
   // Ask the node for its latest sequence number
   rpc GetLastSequenceNumber(google.protobuf.Empty) returns (LastSequenceNumberResponse);
 }

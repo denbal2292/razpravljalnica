@@ -25,7 +25,7 @@ func (n *Node) replicateAndWaitForAck(event *pb.Event) error {
 	n.logInfoEvent(event, "Replicating event to successor")
 
 	// Forward the event to the next node in the chain
-	if err := n.forwardEventToNextNode(event); err != nil {
+	if err := n.forwardEventToSuccessor(event); err != nil {
 		n.logErrorEvent(event, err, "Failed to replicate to successor")
 		// TODO: Notify control plane about failure
 		return err
@@ -43,11 +43,17 @@ func (n *Node) replicateAndWaitForAck(event *pb.Event) error {
 	return nil
 }
 
-func (n *Node) forwardEventToNextNode(event *pb.Event) error {
+func (n *Node) forwardEventToSuccessor(event *pb.Event) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err := n.successor.Client.ReplicateEvent(ctx, event)
+	succClient := n.getSuccessorClient()
+
+	if succClient == nil {
+		panic("forwardEventToNextNode called with no successor")
+	}
+
+	_, err := succClient.ReplicateEvent(ctx, event)
 	return err
 }
 
@@ -81,7 +87,7 @@ func (n *Node) ReplicateEvent(ctx context.Context, event *pb.Event) (*emptypb.Em
 	// 2. Forward the event to the next node in the chain asynchronously (if not TAIL)
 	// TODO: These goroutines should probably be in a waitgroup to ensure proper shutdown
 	go func() {
-		if err := n.forwardEventToNextNode(event); err != nil {
+		if err := n.forwardEventToSuccessor(event); err != nil {
 			// Log the error but don't return it since this is async
 			n.logErrorEvent(event, err, "Failed to forward event to successor")
 			// TODO: Notify control plane about failure
