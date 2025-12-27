@@ -13,10 +13,15 @@ func main() {
 		50051,
 		"control plane port",
 	)
+	clientType := flag.String(
+		"type",
+		"cli",
+		"Type of client to run (cli or gui)",
+	)
 
 	flag.Parse()
 	controlPlaneAddress := fmt.Sprintf("localhost:%d", *controlPlanePort)
 
 	// Run the client
-	client.RunClient(controlPlaneAddress)
+	client.RunClient(controlPlaneAddress, *clientType)
 }
