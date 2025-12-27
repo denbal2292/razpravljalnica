@@ -20,6 +20,9 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "user_id must be positive")
 	}
 
+	n.enterWriteState()
+	defer n.exitWriteState()
+
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.CreateMessageEvent(req)
 	n.logEventReceived(event)
@@ -29,7 +32,6 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 	}
 
 	// We can now safely commit the message to storage with the event timestamp
-	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 	n.logApplyEvent(event)
 
 	message, err := n.storage.PostMessage(req.TopicId, req.UserId, req.Text, event.EventAt)
@@ -54,6 +56,9 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 		return nil, status.Error(codes.InvalidArgument, "message_id must be positive")
 	}
 
+	n.enterWriteState()
+	defer n.exitWriteState()
+
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.UpdateMessageEvent(req)
 	n.logEventReceived(event)
@@ -62,7 +67,6 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 		return nil, err
 	}
 	// We can now safely commit the message update to storage
-	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 	n.logApplyEvent(event)
 
 	message, err := n.storage.UpdateMessage(req.TopicId, req.UserId, req.MessageId, req.Text)
@@ -84,6 +88,9 @@ func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 		return nil, status.Error(codes.InvalidArgument, "message_id must be positive")
 	}
 
+	n.enterWriteState()
+	defer n.exitWriteState()
+
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.DeleteMessageEvent(req)
 	n.logEventReceived(event)
@@ -92,7 +99,6 @@ func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 	}
 
 	// We can now safely commit the message deletion to storage
-	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 	n.logApplyEvent(event)
 
 	err := n.storage.DeleteMessage(req.TopicId, req.UserId, req.MessageId)
@@ -114,6 +120,9 @@ func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "message_id must be positive")
 	}
 
+	n.enterWriteState()
+	defer n.exitWriteState()
+
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.LikeMessageEvent(req)
 	n.logEventReceived(event)
@@ -123,14 +132,12 @@ func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 	}
 
 	// We can now safely commit the like to storage
-	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 	n.logApplyEvent(event)
 
 	message, err := n.storage.LikeMessage(req.TopicId, req.UserId, req.MessageId)
 	if err != nil {
 		return nil, handleStorageError(err)
 	}
-	n.logApplyEvent(event)
 
 	return message, nil
 }

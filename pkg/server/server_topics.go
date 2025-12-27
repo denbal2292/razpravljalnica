@@ -14,6 +14,9 @@ func (n *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "name cannot be empty")
 	}
 
+	n.enterWriteState()
+	defer n.exitWriteState()
+
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.CreateTopicEvent(req)
 	n.logEventReceived(event)
@@ -22,8 +25,6 @@ func (n *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb
 		return nil, err
 	}
 
-	// We can now safely commit the topic to storage
-	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 	n.logApplyEvent(event)
 
 	topic, err := n.storage.CreateTopic(req.Name)

@@ -16,7 +16,9 @@ func (n *Node) GetLastSequenceNumbers(ctx context.Context, empty *emptypb.Empty)
 }
 
 func (n *Node) syncWithSuccessor() {
-	// 1. TODO: Lock the event buffer to prevent new events from being added during sync
+	// 1. Prevent new events from being added during sync
+	n.enterSyncState()
+	defer n.exitSyncState()
 
 	// 2. Get the last applied event number from the successor (it might have newer ACKs from the TAIL)
 	successorClient := n.getSuccessorClient()

@@ -12,14 +12,10 @@ func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventReq
 	// 1. Acknowledge the event in the buffer and retrieve it
 	event := n.eventBuffer.AcknowledgeEvent(req.SequenceNumber)
 
-	// Apply it to storage
-	_ = n.applyEvent(event)
-
 	n.logInfoEvent(event, "ACK received from successor")
 
 	// If this is HEAD, send success to the waiting client
-	// TODO: Check if we are syncing here (then we shouldn't signal back to previous nodes)
-	if n.IsHead() {
+	if n.IsHead() || n.isSyncing.Load() {
 		// TODO: The error cannot be non-nil?
 		n.ackSync.SignalAck(req.SequenceNumber, nil)
 		n.logInfoEvent(event, "ACK reached HEAD successfuly - sending to client")
@@ -28,6 +24,9 @@ func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventReq
 	}
 
 	// 2. If not HEAD, propagate ACK to predecessor asynchronously
+	// Apply it to storage
+	_ = n.applyEvent(event)
+
 	go func() {
 		if err := n.sendAckToPredecessor(event); err != nil {
 			n.logErrorEvent(event, err, "Failed to propagate ACK to predecessor")

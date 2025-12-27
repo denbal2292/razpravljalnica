@@ -13,6 +13,9 @@ func (n *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.U
 		return nil, status.Error(codes.InvalidArgument, "name cannot be empty")
 	}
 
+	n.enterWriteState()
+	defer n.exitWriteState()
+
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.CreateUserEvent(req)
 	n.logEventReceived(event)
@@ -21,8 +24,6 @@ func (n *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.U
 		return nil, err
 	}
 
-	// We can now safely commit the user to storage
-	n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 	n.logApplyEvent(event)
 
 	user, err := n.storage.CreateUser(req.Name)

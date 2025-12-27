@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -35,6 +36,9 @@ type Node struct {
 	neighborMu  sync.RWMutex    // protects predecessor and successor
 	predecessor *NodeConnection // nil if HEAD
 	successor   *NodeConnection // nil if TAIL
+
+	syncMu    sync.RWMutex // lock = syncing with successor, rlock = writes
+	isSyncing atomic.Bool  // whether we are currently syncing with successor
 
 	logger *slog.Logger // logger for the node
 }
@@ -77,6 +81,24 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 	go n.startHeartbeat()
 
 	return n
+}
+
+func (n *Node) enterSyncState() {
+	n.syncMu.Lock()
+	n.isSyncing.Store(true)
+}
+
+func (n *Node) exitSyncState() {
+	n.syncMu.Unlock()
+	n.isSyncing.Store(false)
+}
+
+func (n *Node) enterWriteState() {
+	n.syncMu.RLock()
+}
+
+func (n *Node) exitWriteState() {
+	n.syncMu.RUnlock()
 }
 
 func (n *Node) connectToControlPlane() {
