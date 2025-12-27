@@ -9,13 +9,20 @@ import (
 )
 
 func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventRequest) (*emptypb.Empty, error) {
+	// During syncing, ACKs are ignored
+	if n.isSyncing.Load() {
+		n.ackSync.SignalAck(req.SequenceNumber, nil)
+		n.logger.Info("ACK received during syncing - ignoring and not propagating", "seq", req.SequenceNumber)
+		return &emptypb.Empty{}, nil
+	}
+
 	// 1. Acknowledge the event in the buffer and retrieve it
 	event := n.eventBuffer.AcknowledgeEvent(req.SequenceNumber)
 
 	n.logInfoEvent(event, "ACK received from successor")
 
 	// If this is HEAD, send success to the waiting client
-	if n.IsHead() || n.isSyncing.Load() {
+	if n.IsHead() {
 		// TODO: The error cannot be non-nil?
 		n.ackSync.SignalAck(req.SequenceNumber, nil)
 		n.logInfoEvent(event, "ACK reached HEAD successfuly - sending to client")
