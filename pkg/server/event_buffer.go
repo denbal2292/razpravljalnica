@@ -142,9 +142,13 @@ func (eb *EventBuffer) AcknowledgeEvent(sequenceNumber int64) *pb.Event {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
+	if sequenceNumber <= eb.lastConfirmed {
+		// Event already acknowledged - return nil
+		return nil
+	}
+
 	if sequenceNumber == eb.lastConfirmed+1 && sequenceNumber < int64(len(eb.events)) {
 		eb.lastConfirmed++
-		fmt.Println("Event acknowledged", "sequence_number", sequenceNumber)
 	} else {
 		panic(fmt.Sprintf("out-of-order event acknowledgment: got %d, expected %d", sequenceNumber, eb.lastConfirmed+1))
 	}

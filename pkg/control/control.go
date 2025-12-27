@@ -27,7 +27,7 @@ func NewControlPlane() *ControlPlane {
 	cb := &ControlPlane{
 		nodes:             make([]*NodeInfo, 0),
 		heartbeatInterval: 5 * time.Second,
-		heartbeatTimeout:  15 * time.Second,
+		heartbeatTimeout:  7 * time.Second,
 	}
 
 	// Start monitoring heartbeats

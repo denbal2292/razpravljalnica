@@ -20,9 +20,6 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "user_id must be positive")
 	}
 
-	n.enterWriteState()
-	defer n.exitWriteState()
-
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.CreateMessageEvent(req)
 	n.logEventReceived(event)
@@ -56,9 +53,6 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 		return nil, status.Error(codes.InvalidArgument, "message_id must be positive")
 	}
 
-	n.enterWriteState()
-	defer n.exitWriteState()
-
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.UpdateMessageEvent(req)
 	n.logEventReceived(event)
@@ -88,9 +82,6 @@ func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 		return nil, status.Error(codes.InvalidArgument, "message_id must be positive")
 	}
 
-	n.enterWriteState()
-	defer n.exitWriteState()
-
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.DeleteMessageEvent(req)
 	n.logEventReceived(event)
@@ -119,9 +110,6 @@ func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 	if req.MessageId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "message_id must be positive")
 	}
-
-	n.enterWriteState()
-	defer n.exitWriteState()
 
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.LikeMessageEvent(req)

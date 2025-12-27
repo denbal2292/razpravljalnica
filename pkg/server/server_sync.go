@@ -16,11 +16,9 @@ func (n *Node) GetLastSequenceNumbers(ctx context.Context, empty *emptypb.Empty)
 }
 
 func (n *Node) syncWithSuccessor() {
-	// 1. Prevent new events from being added during sync
-	n.enterSyncState()
-	defer n.exitSyncState()
+	// TODO: Add locking to prevent concurrent writes during sync?
 
-	// 2. Get the last applied event number from the successor (it might have newer ACKs from the TAIL)
+	// 1. Get the last applied event number from the successor (it might have newer ACKs from the TAIL)
 	successorClient := n.getSuccessorClient()
 	lastSeqResp, err := successorClient.GetLastSequenceNumbers(context.Background(), &emptypb.Empty{})
 
@@ -39,7 +37,7 @@ func (n *Node) syncWithSuccessor() {
 
 	n.logger.Info("Syncing with successor", "from", lastAcked+1, "to", succLastAcked)
 
-	// 3. Apply any ACKs that the successor has but we don't
+	// 2. Apply any ACKs that the successor has but we don't
 	for seq := lastAcked + 1; seq <= succLastAcked; seq++ {
 		event := n.eventBuffer.AcknowledgeEvent(seq)
 
@@ -55,7 +53,7 @@ func (n *Node) syncWithSuccessor() {
 	}
 	n.logger.Info("Sync with successor completed and all ACKs propagated", "upTo", succLastAcked)
 
-	// 4. Send any missing events we have that the successor doesn't
+	// 3. Send any missing events we have that the successor doesn't
 	n.logger.Info("Sending missing events to successor", "from", succLastReceived+1, "to", lastReceived)
 
 	for seq := succLastReceived + 1; seq <= lastReceived; seq++ {

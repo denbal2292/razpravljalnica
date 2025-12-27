@@ -3,6 +3,10 @@ package client
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 const help = `Available commands:
@@ -59,6 +63,8 @@ func route(client *clientSet, command string, args []string) error {
 		return subscribeTopics(client.subscriptions, args)
 	case "getsubscribtionnode":
 		return getSubscriptionNode(client.subscriptions, args)
+	case "loop":
+		return loopCommand(client, args)
 	default:
 		return fmt.Errorf("unknown command: %s\n", command)
 	}
@@ -69,4 +75,40 @@ func route(client *clientSet, command string, args []string) error {
 // Print the help message with available commands
 func printHelp() {
 	fmt.Print(help)
+}
+
+// loopCommand repeatedly executes the given command until interrupted by SIGINT (Ctrl+C).
+func loopCommand(client *clientSet, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: loop <command> [args...]")
+	}
+
+	innerCmd := args[0]
+	innerArgs := args[1:]
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
+	fmt.Println("Looping. Press Ctrl+C to stop...")
+
+	for {
+		err := route(client, innerCmd, innerArgs)
+		if err != nil {
+			if errors.Is(err, ErrExit) {
+				return ErrExit
+			}
+			fmt.Printf("Error: %v\n", err)
+		}
+
+		time.Sleep(1 * time.Second)
+
+		select {
+		case <-sigCh:
+			fmt.Println("\nLoop interrupted by user.")
+			return nil
+		default:
+			// continue looping
+		}
+	}
 }
