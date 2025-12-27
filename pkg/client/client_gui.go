@@ -11,6 +11,7 @@ type guiClient struct {
 	newTopicInput *tview.InputField
 	messageView   *tview.TextView
 	messageInput  *tview.InputField
+	statusBar     *tview.TextView
 
 	// Also keep reference to the connections
 	clients *clientSet
@@ -37,12 +38,17 @@ func newGuiClient(clients *clientSet) *guiClient {
 		newTopicInput: tview.NewInputField(),
 		messageView:   tview.NewTextView(),
 		messageInput:  tview.NewInputField(),
-		clients:       clients,
+		statusBar:     tview.NewTextView(),
+
+		clients: clients,
 	}
 
 	gc.app.EnableMouse(true)
 	gc.setupWidgets()
 	gc.setupLayout()
+
+	// Once it's setup, refresh the topics list
+	gc.refreshTopics()
 
 	return gc
 }
@@ -62,6 +68,20 @@ func (gc *guiClient) setupWidgets() {
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
 		SetFieldWidth(0)
+
+	// Handle new topic creation on Enter key
+	gc.newTopicInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			gc.handleCreateTopic()
+		}
+	})
+
+	// Configure status bar
+	gc.statusBar.
+		SetDynamicColors(true). // Allow inline color changes
+		SetLabel("[white]Status:[-] ").
+		SetText("[green]Povezan").
+		SetTextAlign(tview.AlignLeft)
 
 	// Configure messages view
 	gc.messageView.
@@ -109,7 +129,8 @@ func (gc *guiClient) setupLayout() {
 	// Set the main layout
 	mainLayout := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(messagesScreen, 0, 1, true)
+		AddItem(messagesScreen, 0, 1, true).
+		AddItem(gc.statusBar, 1, 0, false)
 
 	gc.app.SetRoot(mainLayout, true)
 }
