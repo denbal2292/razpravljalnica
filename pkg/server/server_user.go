@@ -22,7 +22,7 @@ func (n *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.U
 	event := n.eventBuffer.CreateUserEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.replicateAndWaitForAck(event); err != nil {
+	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
 		return nil, err
 	}
 

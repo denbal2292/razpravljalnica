@@ -39,19 +39,9 @@ func (n *Node) syncWithSuccessor() {
 
 	// 2. Apply any ACKs that the successor has but we don't
 	for seq := lastAcked + 1; seq <= succLastAcked; seq++ {
-		event := n.eventBuffer.AcknowledgeEvent(seq)
-
-		// Ignore storage errors in the replication protocol
-		_ = n.applyEvent(event)
-
-		if err := n.sendAckToPredecessor(event); err != nil {
-			n.logErrorEvent(event, err, "Failed to propagate ACK to predecessor")
-			// TODO: Notify control plane about failure?
-		} else {
-			// Log successful ACK propagation
-			n.logInfoEvent(event, "ACK propagated to predecessor")
-		}
+		n.handleSyncEventAcknowledgment(seq)
 	}
+
 	n.logger.Info("Sync with successor completed and all ACKs propagated", "upTo", succLastAcked)
 
 	// 3. Send any missing events we have that the successor doesn't
@@ -59,12 +49,7 @@ func (n *Node) syncWithSuccessor() {
 
 	for seq := succLastReceived + 1; seq <= lastReceived; seq++ {
 		event := n.eventBuffer.GetEvent(seq)
-		n.logInfoEvent(event, "Replicating missing event to successor during sync")
-
-		if err := n.forwardEventToSuccessor(event); err != nil {
-			n.logErrorEvent(event, err, "Failed to replicate missing event to successor during sync")
-			// TODO: Notify control plane about failure?
-		}
+		n.handleSyncEventReplication(event)
 	}
 
 	n.logger.Info("All missing events sent to successor during sync", "upTo", lastReceived)
@@ -79,19 +64,7 @@ func (n *Node) applyAllUnacknowledgedEvents() {
 
 	// All events up to last received are now acknowledged
 	for seq := n.eventBuffer.GetLastApplied() + 1; seq <= lastReceived; seq++ {
-		event := n.eventBuffer.AcknowledgeEvent(seq)
-
-		// Ignore storage errors in the replication protocol
-		_ = n.applyEvent(event)
-
-		if err := n.sendAckToPredecessor(event); err != nil {
-			n.logErrorEvent(event, err, "Failed to propagate ACK to predecessor during TAIL transition")
-
-			// TODO: Notify control plane about failure?
-		} else {
-			// Log successful ACK propagation
-			n.logInfoEvent(event, "ACK propagated to predecessor during TAIL transition")
-		}
+		n.handleSyncEventAcknowledgment(seq)
 	}
 
 	n.logger.Info("TAIL transition complete, all events acknowledged up to last received", "upTo", lastReceived)

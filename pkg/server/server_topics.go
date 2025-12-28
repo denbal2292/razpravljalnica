@@ -23,7 +23,7 @@ func (n *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb
 	event := n.eventBuffer.CreateTopicEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.replicateAndWaitForAck(event); err != nil {
+	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
 		return nil, err
 	}
 

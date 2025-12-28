@@ -48,3 +48,16 @@ func (as *AckSynchronization) CloseAckChannel(seqNum int64) {
 
 	delete(as.ackChannels, seqNum)
 }
+
+func (as *AckSynchronization) WaitForAck(seqNum int64) error {
+	as.mu.RLock()
+	ackChan, exists := as.ackChannels[seqNum]
+	as.mu.RUnlock()
+
+	if !exists {
+		panic(fmt.Errorf("ACK channel not found for sequence number %d", seqNum))
+	}
+
+	err := <-ackChan
+	return err
+}

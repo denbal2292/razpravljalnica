@@ -45,6 +45,8 @@ type Node struct {
 	nextEventSeq int64               // next expected event sequence number
 	eventMu      sync.Mutex          // protects eventQueue and nextEventSeq
 
+	syncMu sync.RWMutex // RLock = writing events, Lock = syncing
+
 	logger *slog.Logger // logger for the node
 }
 

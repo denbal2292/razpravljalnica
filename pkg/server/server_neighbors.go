@@ -31,8 +31,8 @@ func (n *Node) createClientConnection(address string) (*NodeConnection, error) {
 func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) (*emptypb.Empty, error) {
 	pred := predMsg.Node
 
-	n.logger.Info("SetPredecessor called", "node_info", pred)
 	n.setPredecessor(pred)
+	n.logger.Info("SetPredecessor called", "node_info", pred)
 
 	return &emptypb.Empty{}, nil
 }
@@ -41,10 +41,10 @@ func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) 
 func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*emptypb.Empty, error) {
 	succ := succMsg.Node
 
-	n.logger.Info("SetSuccessor called", "node_info", succ)
-
 	n.enterSyncState()
 	n.setSuccessor(succ)
+
+	n.logger.Info("SetSuccessor called", "node_info", succ)
 
 	if succ == nil {
 		n.logger.Info("This node is TAIL, applying all unacknowledged events")

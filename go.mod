@@ -3,17 +3,17 @@ module github.com/denbal2292/razpravljalnica
 go 1.25.5
 
 require (
+	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/lmittmann/tint v1.1.2
+	github.com/rivo/tview v0.42.1-0.20250929082832-e113793670e2
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
 )
 
 require (
 	github.com/gdamore/encoding v1.0.1 // indirect
-	github.com/gdamore/tcell/v2 v2.8.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/rivo/tview v0.42.1-0.20250929082832-e113793670e2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	golang.org/x/net v0.46.1-0.20251013234738-63d1a5100f82 // indirect
 	golang.org/x/sys v0.37.0 // indirect

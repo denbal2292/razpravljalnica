@@ -29,7 +29,7 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 	event := n.eventBuffer.CreateMessageEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.replicateAndWaitForAck(event); err != nil {
+	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
 		return nil, err
 	}
 
@@ -67,7 +67,7 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 	event := n.eventBuffer.UpdateMessageEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.replicateAndWaitForAck(event); err != nil {
+	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
 		return nil, err
 	}
 	// We can now safely commit the message update to storage
@@ -100,7 +100,8 @@ func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.DeleteMessageEvent(req)
 	n.logEventReceived(event)
-	if err := n.replicateAndWaitForAck(event); err != nil {
+
+	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
 		return nil, err
 	}
 
@@ -130,7 +131,7 @@ func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 	event := n.eventBuffer.LikeMessageEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.replicateAndWaitForAck(event); err != nil {
+	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
 		return nil, err
 	}
 
