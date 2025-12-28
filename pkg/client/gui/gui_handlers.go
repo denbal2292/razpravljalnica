@@ -83,22 +83,28 @@ func (gc *guiClient) refreshTopics(reloadMessages bool) {
 			return topics.Topics[i].Id > topics.Topics[j].Id
 		})
 
-		// Update the topic IDs list - this probably isn't necessary but
-		// it might increase robustness and clarity of code
-		gc.topicIds = make([]int64, 0, len(topics.Topics))
+		// Build the map and ordered slice of IDs
+		topicsMap := make(map[int64]*pb.Topic, len(topics.Topics))
+		topicsIds := make([]int64, 0, len(topics.Topics))
+		for _, topic := range topics.Topics {
+			topicsMap[topic.Id] = topic
+			topicsIds = append(topicsIds, topic.Id)
+		}
+
 		gc.app.QueueUpdateDraw(func() {
+			gc.topics = topicsMap
+			gc.topicOrder = topicsIds
 			gc.topicsList.Clear()
-			for _, topic := range topics.Topics {
-				gc.topicsList.AddItem(topic.Name, "", 0, nil)
-				gc.topicIds = append(gc.topicIds, topic.Id)
+			for _, topicId := range topicsIds {
+				gc.topicsList.AddItem(gc.topics[topicId].Name, "", 0, nil)
 			}
-			if len(gc.topicIds) > 0 {
+			if len(gc.topicOrder) > 0 {
 				// Set the current topic to the first one if available
-				gc.currentTopicId = gc.topicIds[0]
+				gc.currentTopicId = gc.topicOrder[0]
 			}
 		})
 
-		if reloadMessages && len(gc.topicIds) > 0 {
+		if reloadMessages && len(gc.topicOrder) > 0 {
 			gc.loadMessagesForCurrentTopic()
 		}
 	}()
@@ -162,6 +168,9 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 
 		// Update the message view in the GUI
 		gc.app.QueueUpdateDraw(func() {
+			// Change the title
+			gc.messageView.SetTitle(fmt.Sprintf("Sporočila v [yellow]%s[-]", gc.topics[gc.currentTopicId].Name))
+
 			// Clear the screen before displaying messages
 			gc.messageView.Clear()
 
@@ -212,6 +221,41 @@ func (gc *guiClient) handlePostMessage() {
 		gc.app.QueueUpdateDraw(func() {
 			gc.messageInput.SetText("")
 			gc.loadMessagesForCurrentTopic()
+		})
+	}()
+}
+
+func (gc *guiClient) handleCreateUser() {
+	// Extract the user name from the input field
+	userName := strings.TrimSpace(gc.newUserInput.GetText())
+
+	if userName == "" {
+		gc.displayStatus("Ime uporabnika ne sme biti prazno", "red")
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		defer cancel()
+
+		user, err := gc.clients.Writes.CreateUser(ctx, &pb.CreateUserRequest{
+			Name: userName,
+		})
+
+		if err != nil {
+			gc.displayStatus("Napaka pri ustvarjanju uporabnika", "red")
+			return
+		} else {
+			gc.displayStatus("Uporabnik uspešno ustvarjen", "green")
+		}
+
+		// Set the user ID for future operations
+		gc.userId = user.Id
+
+		// Clear the input field after processing
+		gc.app.QueueUpdateDraw(func() {
+			gc.newUserInput.SetText("")
+			gc.loggedInUserView.SetText(fmt.Sprintf("[green]Prijavljen kot[-]: [yellow]%s[-]", user.Name))
 		})
 	}()
 }

@@ -2,17 +2,20 @@ package gui
 
 import (
 	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
+	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 type guiClient struct {
-	app           *tview.Application
-	topicsList    *tview.List
-	newTopicInput *tview.InputField
-	messageView   *tview.TextView
-	messageInput  *tview.InputField
-	statusBar     *tview.TextView
+	app              *tview.Application
+	topicsList       *tview.List
+	newUserInput     *tview.InputField
+	loggedInUserView *tview.TextView
+	newTopicInput    *tview.InputField
+	messageView      *tview.TextView
+	messageInput     *tview.InputField
+	statusBar        *tview.TextView
 
 	// Keep reference to the connections
 	clients *shared.ClientSet
@@ -22,16 +25,13 @@ type guiClient struct {
 
 	// Current selected topic ID and list of topic IDs
 	currentTopicId int64
-	topicIds       []int64
+	topics         map[int64]*pb.Topic
+	topicOrder     []int64
 }
 
 func StartGUIClient(clients *shared.ClientSet) {
-	app := tview.NewApplication()
-	app.EnableMouse(true)
-
 	// Set initial focus to the input field
 	gc := newGuiClient(clients)
-	gc.app.SetFocus(gc.topicsList)
 
 	if err := gc.app.Run(); err != nil {
 		panic(err)
@@ -41,19 +41,19 @@ func StartGUIClient(clients *shared.ClientSet) {
 func newGuiClient(clients *shared.ClientSet) *guiClient {
 	// Initialize GUI client structure
 	gc := &guiClient{
-		app:           tview.NewApplication(),
-		topicsList:    tview.NewList(),
-		newTopicInput: tview.NewInputField(),
-		messageView:   tview.NewTextView(),
-		messageInput:  tview.NewInputField(),
-		statusBar:     tview.NewTextView(),
+		app:              tview.NewApplication(),
+		newUserInput:     tview.NewInputField(),
+		loggedInUserView: tview.NewTextView(),
+		topicsList:       tview.NewList(),
+		newTopicInput:    tview.NewInputField(),
+		messageView:      tview.NewTextView(),
+		messageInput:     tview.NewInputField(),
+		statusBar:        tview.NewTextView(),
 
-		// Hardcode for now
-		userId:  1,
 		clients: clients,
 	}
-
 	gc.app.EnableMouse(true)
+
 	gc.setupWidgets()
 	gc.setupLayout()
 
@@ -72,10 +72,30 @@ func (gc *guiClient) setupWidgets() {
 		SetTitle("Teme")
 
 	gc.topicsList.SetSelectedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
-		if index >= 0 && index < len(gc.topicIds) {
-			gc.handleSelectTopic(gc.topicIds[index])
+		if index >= 0 && index < len(gc.topics) {
+			topicId := gc.topicOrder[index]
+			gc.handleSelectTopic(topicId)
 		}
 	})
+
+	// Configure new user input
+	gc.newUserInput.
+		SetLabel("Nov uporabnik > ").
+		SetLabelColor(tcell.ColorGreen).
+		SetFieldBackgroundColor(tcell.ColorDarkGrey).
+		SetFieldTextColor(tcell.ColorBlack).
+		SetFieldWidth(0)
+
+	gc.newUserInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			gc.handleCreateUser()
+		}
+	})
+
+	gc.loggedInUserView.
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignRight).
+		SetText("[blue]Nisi prijavljen[-]")
 
 	// Configure new topic input
 	gc.newTopicInput.
@@ -122,38 +142,35 @@ func (gc *guiClient) setupWidgets() {
 	})
 }
 
-// setupLayout arranges the widgets into the main layout
 func (gc *guiClient) setupLayout() {
-	// Layout for topics column
+	// Create a grid layout
+	grid := tview.NewGrid().
+		SetRows(1, 0, 1).     // Header, main area, status bar
+		SetColumns(30, 1, 0). // Topics, spacer, messages
+		SetBorders(false)     // No borders between grid cells
+
 	topicsColumn := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(gc.topicsList, 0, 1, true).
 		AddItem(gc.newTopicInput, 1, 0, false)
 
-	// Layout for messages column
-	messageInputContainer := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(nil, 0, 1, false).
-		AddItem(gc.messageInput, 1, 0, true).
-		AddItem(nil, 0, 1, false)
-
-	// Combine message view and input into messages column
 	messagesColumn := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(gc.messageView, 0, 1, false).
-		AddItem(messageInputContainer, 1, 0, true)
+		AddItem(gc.messageInput, 1, 0, true)
 
-	// Combine topics and messages into the main screen
-	messagesScreen := tview.NewFlex().
-		AddItem(topicsColumn, 30, 1, false).
-		AddItem(nil, 1, 0, false).
-		AddItem(messagesColumn, 0, 3, true)
+	grid.AddItem(gc.newUserInput, 0, 0, 1, 1, 0, 0, false)
+	grid.AddItem(gc.loggedInUserView, 0, 2, 1, 1, 0, 0, false)
 
-	// Set the main layout
-	mainLayout := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(messagesScreen, 0, 1, true).
-		AddItem(gc.statusBar, 1, 0, false)
+	grid.AddItem(topicsColumn, 1, 0, 1, 1, 0, 0, true)
+	grid.AddItem(tview.NewBox(), 1, 1, 1, 1, 0, 0, false)
+	grid.AddItem(messagesColumn, 1, 2, 1, 1, 0, 0, true)
 
-	gc.app.SetRoot(mainLayout, true)
+	// Bottom Row: Status
+	grid.AddItem(gc.statusBar, 2, 0, 1, 3, 0, 0, false)
+
+	// Set the Grid as root
+	gc.app.SetRoot(grid, true)
+
+	gc.app.SetFocus(gc.topicsList)
 }
