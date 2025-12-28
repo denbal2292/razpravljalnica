@@ -1,6 +1,7 @@
-package client
+package gui
 
 import (
+	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -14,7 +15,7 @@ type guiClient struct {
 	statusBar     *tview.TextView
 
 	// Keep reference to the connections
-	clients *clientSet
+	clients *shared.ClientSet
 
 	// Extra information about the client state
 	// Current selected topic ID and list of topic IDs
@@ -22,7 +23,7 @@ type guiClient struct {
 	topicIds       []int64
 }
 
-func startGUIClient(clients *clientSet) {
+func StartGUIClient(clients *shared.ClientSet) {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
 
@@ -35,7 +36,7 @@ func startGUIClient(clients *clientSet) {
 	}
 }
 
-func newGuiClient(clients *clientSet) *guiClient {
+func newGuiClient(clients *shared.ClientSet) *guiClient {
 	// Initialize GUI client structure
 	gc := &guiClient{
 		app:           tview.NewApplication(),

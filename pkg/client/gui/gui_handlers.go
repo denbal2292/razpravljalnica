@@ -1,4 +1,4 @@
-package client
+package gui
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
+	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -18,20 +20,31 @@ func (gc *guiClient) handleCreateTopic() {
 		return
 	}
 
-	// Due to compatibility with the CLI, we accept a slice of strings
-	err := createTopic(gc.clients.writes, []string{topicName})
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		defer cancel()
 
-	if err != nil {
-		gc.displayStatus("Napaka pri ustvarjanju teme", "red")
-	}
+		// We ignore the response - and refetch the topic in order for
+		// the state to be consistent
+		_, err := gc.clients.Writes.CreateTopic(ctx, &pb.CreateTopicRequest{
+			Name: topicName,
+		})
 
-	// Clear the input field after processing
-	gc.newTopicInput.SetText("")
-	// Set focus back to topics list
-	gc.app.SetFocus(gc.topicsList)
+		if err != nil {
+			gc.displayStatus("Napaka pri ustvarjanju teme", "red")
+		} else {
+			gc.displayStatus("Tema uspešno ustvarjena", "green")
+		}
 
-	// Refresh the topics list to show the new topic
-	gc.refreshTopics()
+		// Clear the input field after processing
+		gc.newTopicInput.SetText("")
+		// Set focus back to topics list
+		gc.app.SetFocus(gc.topicsList)
+
+		// Refresh the topics list to show the new topic
+		gc.refreshTopics()
+
+	}()
 }
 
 // displayStatus updates the status bar with a message and color for 3s
@@ -52,11 +65,10 @@ func (gc *guiClient) displayStatus(message string, color string) {
 
 func (gc *guiClient) refreshTopics() {
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 		defer cancel()
 
-		topics, err := gc.clients.reads.ListTopics(ctx, &emptypb.Empty{})
-
+		topics, err := gc.clients.Reads.ListTopics(ctx, &emptypb.Empty{})
 		if err != nil {
 			go gc.displayStatus("Napaka pri pridobivanju tem", "red")
 			return

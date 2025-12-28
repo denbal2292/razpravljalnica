@@ -2,9 +2,11 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	"github.com/denbal2292/razpravljalnica/pkg/client/cli"
+	"github.com/denbal2292/razpravljalnica/pkg/client/gui"
+	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 
 	"google.golang.org/grpc"
@@ -12,52 +14,35 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// ServerAddresses holds the addresses for HEAD and TAIL servers - this
-// might be useful later when we add more complex functionality (subscriptions)
-// ClientSet holds gRPC clients for different services
-type clientSet struct {
-	// Connections
-	controlConn *grpc.ClientConn
-	headConn    *grpc.ClientConn
-	tailConn    *grpc.ClientConn
-
-	// Clients
-	reads         pb.MessageBoardReadsClient
-	writes        pb.MessageBoardWritesClient
-	subscriptions pb.MessageBoardSubscriptionsClient
-}
-
-// Custom exit error to signal client termination
-var errExit = errors.New("exit")
-
 // Initialize a new client instance
 func RunClient(controlPlaneAddress, clientType string) {
 	fmt.Println("Connecting to control plane at", controlPlaneAddress)
 
 	clients, err := newClientSet(controlPlaneAddress)
-	defer clients.close()
-
 	if err != nil {
 		fmt.Println("Failed to create client:", err)
+		clients.Close()
 		return
 	}
+	defer clients.Close()
+
 	fmt.Println("Successfully connected to the server.")
 
 	// Start CLI client
 	switch clientType {
 	case "cli":
-		startCLIClient(clients)
+		cli.StartCLIClient(clients)
 	case "gui":
-		startGUIClient(clients)
+		gui.StartGUIClient(clients)
 	default:
 		fmt.Println("Unknown client type:", clientType)
 	}
 }
 
 // newClientSet incrementally builds the client set
-func newClientSet(controlPlaneUrl string) (*clientSet, error) {
+func newClientSet(controlPlaneUrl string) (*shared.ClientSet, error) {
 	// Establish control plane connection
-	clients := &clientSet{}
+	clients := &shared.ClientSet{}
 
 	connControlPlane, err := grpc.NewClient(
 		controlPlaneUrl,
@@ -66,7 +51,7 @@ func newClientSet(controlPlaneUrl string) (*clientSet, error) {
 	if err != nil {
 		return clients, err
 	}
-	clients.controlConn = connControlPlane
+	clients.ControlConn = connControlPlane
 
 	// Get HEAD and TAIL addresses
 	headAddr, tailAddr, err := getHeadAndTailAddresses(connControlPlane)
@@ -82,7 +67,7 @@ func newClientSet(controlPlaneUrl string) (*clientSet, error) {
 	if err != nil {
 		return clients, err
 	}
-	clients.headConn = connHead
+	clients.HeadConn = connHead
 
 	// Establish TAIL connection
 	connTail, err := grpc.NewClient(
@@ -92,33 +77,21 @@ func newClientSet(controlPlaneUrl string) (*clientSet, error) {
 	if err != nil {
 		return clients, err
 	}
-	clients.tailConn = connTail
+	clients.TailConn = connTail
 
 	// Create gRPC clients for all services
-	clients.writes = pb.NewMessageBoardWritesClient(connHead)
-	clients.reads = pb.NewMessageBoardReadsClient(connTail)
-	clients.subscriptions = pb.NewMessageBoardSubscriptionsClient(connHead)
+	clients.Writes = pb.NewMessageBoardWritesClient(connHead)
+	clients.Reads = pb.NewMessageBoardReadsClient(connTail)
+	clients.Subscriptions = pb.NewMessageBoardSubscriptionsClient(connHead)
 
 	return clients, nil
-}
-
-func (c *clientSet) close() {
-	if c.controlConn != nil {
-		c.controlConn.Close()
-	}
-	if c.headConn != nil {
-		c.headConn.Close()
-	}
-	if c.tailConn != nil {
-		c.tailConn.Close()
-	}
 }
 
 // This might be useful later as a helper function upon server failure
 func getHeadAndTailAddresses(controlPlaneConn *grpc.ClientConn) (headAddr, tailAddr string, err error) {
 	controlPlaneClient := pb.NewClientDiscoveryClient(controlPlaneConn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	// Get addresses of HEAD and TAIL servers from the control plane

@@ -1,4 +1,4 @@
-package client
+package cli
 
 import (
 	"context"
@@ -6,11 +6,12 @@ import (
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 )
 
 func listTopics(grpcClient pb.MessageBoardReadsClient, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	topics, err := grpcClient.ListTopics(ctx, &emptypb.Empty{})
@@ -42,7 +43,7 @@ func getUser(grpcClient pb.MessageBoardReadsClient, args []string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	user, err := grpcClient.GetUser(ctx, &pb.GetUserRequest{
@@ -78,7 +79,7 @@ func getMessages(grpcClient pb.MessageBoardReadsClient, args []string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	messagesResp, err := grpcClient.GetMessages(ctx, &pb.GetMessagesRequest{

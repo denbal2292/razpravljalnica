@@ -1,4 +1,4 @@
-package client
+package cli
 
 import (
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
