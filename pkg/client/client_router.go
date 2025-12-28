@@ -30,16 +30,13 @@ Subscription operations:
   getsubscribtionnode <user_id> <topic_id>... - Get subscription node info
 `
 
-// Custom exit error to signal client termination
-var ErrExit = errors.New("exit")
-
 // Route the command to the appropriate client method
 func route(client *clientSet, command string, args []string) error {
 	switch command {
 	case "help", "h":
 		printHelp()
 	case "exit", "quit", "q":
-		return ErrExit
+		return errExit
 	case "createuser":
 		return createUser(client.writes, args)
 	case "createtopic":
@@ -94,8 +91,8 @@ func loopCommand(client *clientSet, args []string) error {
 	for {
 		err := route(client, innerCmd, innerArgs)
 		if err != nil {
-			if errors.Is(err, ErrExit) {
-				return ErrExit
+			if errors.Is(err, errExit) {
+				return errExit
 			}
 			fmt.Printf("Error: %v\n", err)
 		}

@@ -1,12 +1,9 @@
 package client
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 
@@ -30,8 +27,11 @@ type clientSet struct {
 	subscriptions pb.MessageBoardSubscriptionsClient
 }
 
+// Custom exit error to signal client termination
+var errExit = errors.New("exit")
+
 // Initialize a new client instance
-func RunClient(controlPlaneAddress string) {
+func RunClient(controlPlaneAddress, clientType string) {
 	fmt.Println("Connecting to control plane at", controlPlaneAddress)
 
 	clients, err := newClientSet(controlPlaneAddress)
@@ -43,34 +43,14 @@ func RunClient(controlPlaneAddress string) {
 	}
 	fmt.Println("Successfully connected to the server.")
 
-	// Simple REPL loop
-	// Useful for proper line reading
-	scanner := bufio.NewScanner(os.Stdin)
-	for {
-		// Read the command
-		fmt.Print("> ")
-		if !scanner.Scan() {
-			break
-		}
-
-		// Trim leading and trailing space and ignore empty input
-		input := strings.TrimSpace(scanner.Text())
-		if input == "" {
-			continue
-		}
-
-		// Split the input into fields
-		fields := strings.Fields(input)
-		command := fields[0]
-		args := fields[1:]
-
-		if err := route(clients, command, args); err != nil {
-			if errors.Is(err, ErrExit) {
-				// Client decided to exit
-				break
-			}
-			fmt.Printf("Error: %v\n", err)
-		}
+	// Start CLI client
+	switch clientType {
+	case "cli":
+		startCLIClient(clients)
+	case "gui":
+		startGUIClient(clients)
+	default:
+		fmt.Println("Unknown client type:", clientType)
 	}
 }
 

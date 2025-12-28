@@ -26,7 +26,7 @@ run-server:
 	go run ./cmd/server/ $(ARGS)
 
 # Pass additional arguments to the client via ARGS variable -
-# e.g., make run-client ARGS="--control-port 50051"
+# e.g., make run-client ARGS="--control-port 50051 --type gui"
 run-client:
 	go run ./cmd/client/ $(ARGS)
 
