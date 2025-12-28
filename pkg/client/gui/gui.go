@@ -18,6 +18,8 @@ type guiClient struct {
 	clients *shared.ClientSet
 
 	// Extra information about the client state
+	userId int64
+
 	// Current selected topic ID and list of topic IDs
 	currentTopicId int64
 	topicIds       []int64
@@ -46,6 +48,8 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 		messageInput:  tview.NewInputField(),
 		statusBar:     tview.NewTextView(),
 
+		// Hardcode for now
+		userId:  1,
 		clients: clients,
 	}
 
@@ -54,7 +58,7 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 	gc.setupLayout()
 
 	// Once it's setup, refresh the topics list
-	gc.refreshTopics()
+	gc.refreshTopics(true)
 
 	return gc
 }
@@ -97,7 +101,7 @@ func (gc *guiClient) setupWidgets() {
 
 	// Configure messages view
 	gc.messageView.
-		SetDynamicColors(false).
+		SetDynamicColors(true).
 		SetWordWrap(true).
 		SetBorder(true).
 		SetTitle("Sporočila")
@@ -109,6 +113,13 @@ func (gc *guiClient) setupWidgets() {
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
 		SetFieldWidth(0)
+
+	// Handle message posting on Enter key
+	gc.messageInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			gc.handlePostMessage()
+		}
+	})
 }
 
 // setupLayout arranges the widgets into the main layout
