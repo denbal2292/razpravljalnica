@@ -22,7 +22,7 @@ func (n *Node) replicateAndWaitForAck(event *pb.Event) error {
 	defer n.ackSync.CloseAckChannel(event.SequenceNumber)
 
 	// Log the replication attempt
-	n.logInfoEvent(event, "Replicating event to successor")
+	// n.logInfoEvent(event, "Replicating event to successor")
 
 	// Forward the event to the next node in the chain
 	if err := n.forwardEventToSuccessor(event); err != nil {
@@ -86,7 +86,7 @@ func (n *Node) ReplicateEvent(ctx context.Context, event *pb.Event) (*emptypb.Em
 				n.logErrorEvent(event, err, "Failed to propagate ACK to predecessor")
 			} else {
 				// Log successful ACK propagation
-				n.logInfoEvent(event, "ACK propagated to predecessor")
+				// n.logInfoEvent(event, "ACK propagated to predecessor")
 			}
 		}()
 

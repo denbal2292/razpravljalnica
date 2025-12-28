@@ -51,17 +51,18 @@ func (n *Node) exitSyncState() {
 	for _, event := range n.syncQueue.syncQueue {
 		n.logInfoEvent(event, "Processing queued event after sync")
 
-		// Apply the event locally and ignore errors
+		// Add the event to the event buffer
 		n.eventBuffer.AddEvent(event)
-		_ = n.applyEvent(event)
 
-		// Acknowledge the event to predecessor
+		// Forward the event to successor
 		if err := n.forwardEventToSuccessor(event); err != nil {
 			n.logErrorEvent(event, err, "Failed to propagate queued event to successor after sync")
 		} else {
 			n.logInfoEvent(event, "Queued event propagated to successor after sync")
 		}
 	}
+
+	n.logger.Info("All queued events processed after sync", "count", len(n.syncQueue.syncQueue))
 
 	// Mark as not syncing and clear the sync queue
 	n.syncQueue.isSyncing = false
