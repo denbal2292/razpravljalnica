@@ -180,3 +180,10 @@ func (eb *EventBuffer) GetLastReceived() int64 {
 
 	return eb.nextEventSeq - 1
 }
+
+func (eb *EventBuffer) GetNextEventSeq() int64 {
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
+
+	return eb.nextEventSeq
+}

@@ -41,6 +41,10 @@ type Node struct {
 	nextAckSeq int64               // next sequence number to ACK
 	ackMu      sync.Mutex          // protects ackQueue and nextAckSeq
 
+	eventQueue   map[int64]*pb.Event // events received out of order
+	nextEventSeq int64               // next expected event sequence number
+	eventMu      sync.Mutex          // protects eventQueue and nextEventSeq
+
 	logger *slog.Logger // logger for the node
 }
 
@@ -64,6 +68,9 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 		ackQueue:          make(map[int64]*pb.Event),
 		nextAckSeq:        0,
 		ackMu:             sync.Mutex{},
+		eventQueue:        make(map[int64]*pb.Event),
+		nextEventSeq:      0,
+		eventMu:           sync.Mutex{},
 		predecessor:       nil,
 		successor:         nil,
 		heartbeatInterval: 5 * time.Second, // TODO: Configurable
