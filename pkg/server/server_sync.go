@@ -39,7 +39,7 @@ func (n *Node) syncWithSuccessor() {
 
 	// 2. Apply any ACKs that the successor has but we don't
 	for seq := lastAcked + 1; seq <= succLastAcked; seq++ {
-		n.handleSyncEventAcknowledgment(seq)
+		n.handleEventAcknowledgment(seq)
 	}
 
 	n.logger.Info("Sync with successor completed and all ACKs propagated", "upTo", succLastAcked)
@@ -64,7 +64,7 @@ func (n *Node) applyAllUnacknowledgedEvents() {
 
 	// All events up to last received are now acknowledged
 	for seq := n.eventBuffer.GetLastApplied() + 1; seq <= lastReceived; seq++ {
-		n.handleSyncEventAcknowledgment(seq)
+		n.handleEventAcknowledgment(seq)
 	}
 
 	n.logger.Info("TAIL transition complete, all events acknowledged up to last received", "upTo", lastReceived)

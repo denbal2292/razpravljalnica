@@ -10,26 +10,6 @@ import (
 )
 
 func (n *Node) handleEventAcknowledgment(seqNum int64) {
-	n.syncMu.RLock()
-
-	// 1. Acknowledge the event in the buffer and retrieve it
-	event := n.eventBuffer.AcknowledgeEvent(seqNum)
-
-	// 2. If event is nil, it was already acknowledged (repeated ACKs from syncing)
-	if event == nil {
-		n.logger.Warn("Received ACK for already acknowledged event", "sequence_number", seqNum, "last_applied", n.eventBuffer.GetLastApplied())
-		n.syncMu.RUnlock()
-		return
-	}
-
-	go func() {
-		defer n.syncMu.RUnlock()
-
-		n.doSendAllUnacknowledged(event)
-	}()
-}
-
-func (n *Node) handleSyncEventAcknowledgment(seqNum int64) {
 	// 1. Acknowledge the event in the buffer and retrieve it
 	event := n.eventBuffer.AcknowledgeEvent(seqNum)
 
@@ -39,7 +19,7 @@ func (n *Node) handleSyncEventAcknowledgment(seqNum int64) {
 		return
 	}
 
-	n.doSendAllUnacknowledged(event)
+	go n.doSendAllUnacknowledged(event)
 }
 
 func (n *Node) doSendAllUnacknowledged(event *pb.Event) {
