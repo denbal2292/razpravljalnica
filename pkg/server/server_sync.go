@@ -35,7 +35,7 @@ func (n *Node) syncWithSuccessor() {
 	lastAcked := n.eventBuffer.GetLastApplied()
 	lastReceived := n.eventBuffer.GetLastReceived()
 
-	n.logger.Info("Syncing with successor", "from", lastAcked+1, "to", succLastAcked)
+	n.logger.Info("Syncing ACKs with successor", "from", lastAcked, "to", succLastAcked)
 
 	// 2. Apply any ACKs that the successor has but we don't
 	for seq := lastAcked + 1; seq <= succLastAcked; seq++ {
@@ -46,6 +46,7 @@ func (n *Node) syncWithSuccessor() {
 
 		if err := n.sendAckToPredecessor(event); err != nil {
 			n.logErrorEvent(event, err, "Failed to propagate ACK to predecessor")
+			// TODO: Notify control plane about failure?
 		} else {
 			// Log successful ACK propagation
 			n.logInfoEvent(event, "ACK propagated to predecessor")

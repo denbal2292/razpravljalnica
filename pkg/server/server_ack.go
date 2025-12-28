@@ -24,7 +24,7 @@ func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventReq
 		// TODO: The error cannot be non-nil?
 		// TODO: This could be an ACK from propagating to a parent and not actually for the client
 		n.ackSync.SignalAck(req.SequenceNumber, nil)
-		// n.logInfoEvent(event, "ACK reached HEAD successfuly - sending to client")
+		n.logInfoEvent(event, "ACK reached HEAD successfuly - sending to client")
 
 		return &emptypb.Empty{}, nil
 	}
@@ -36,10 +36,15 @@ func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventReq
 	go func() {
 		if err := n.sendAckToPredecessor(event); err != nil {
 			n.logErrorEvent(event, err, "Failed to propagate ACK to predecessor")
-
 			// TODO: Notify control plane about failure
+		} else {
+			// Log successful ACK propagation
+			n.logInfoEvent(event, "ACK propagated to predecessor")
 		}
 	}()
+
+	// Update nextEventSeq if this is the tail node
+	n.updateNextEventSeqIfTail(event)
 
 	// 3. Return success
 	return &emptypb.Empty{}, nil
@@ -49,6 +54,7 @@ func (n *Node) sendAckToPredecessor(event *pb.Event) error {
 	n.ackMu.Lock()
 	defer n.ackMu.Unlock()
 
+	// TODO: ACKs can be applied without calling this - so it crashes
 	// Check if the event sequence number matches the expected next ACK
 	if event.SequenceNumber == n.nextAckSeq {
 		// Send ACK immediately
@@ -76,6 +82,7 @@ func (n *Node) sendAckToPredecessor(event *pb.Event) error {
 			n.nextAckSeq++
 		}
 	} else {
+		n.logger.Info("Buffering out-of-order ACK", "sequence_number", event.SequenceNumber, "expected_sequence_number", n.nextAckSeq)
 		// Buffer the ACK for later sending (some ACKs are out of order)
 		n.ackQueue[event.SequenceNumber] = event
 	}
@@ -101,4 +108,16 @@ func (n *Node) sendAck(event *pb.Event) error {
 		SequenceNumber: event.SequenceNumber,
 	})
 	return err
+}
+
+func (n *Node) updateNextEventSeqIfTail(event *pb.Event) {
+	if n.IsTail() {
+		n.eventMu.Lock()
+		defer n.eventMu.Unlock()
+
+		if event.SequenceNumber >= n.nextEventSeq {
+			n.nextEventSeq = event.SequenceNumber + 1
+			n.logger.Info("Updated nextEventSeq in tail", "nextEventSeq", n.nextEventSeq)
+		}
+	}
 }

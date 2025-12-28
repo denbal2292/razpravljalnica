@@ -54,11 +54,20 @@ func (n *Node) exitSyncState() {
 		// Add the event to the event buffer
 		n.eventBuffer.AddEvent(event)
 
-		// Forward the event to successor
-		if err := n.forwardEventToSuccessor(event); err != nil {
-			n.logErrorEvent(event, err, "Failed to propagate queued event to successor after sync")
+		if n.IsTail() {
+			// If this is the tail, we can ACK immediately
+			n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
+			n.applyEvent(event)
+			n.sendAckToPredecessor(event)
+
+			n.logInfoEvent(event, "ACK sent for queued event at tail after sync")
 		} else {
-			n.logInfoEvent(event, "Queued event propagated to successor after sync")
+			// Forward the event to successor
+			if err := n.forwardEventToSuccessor(event); err != nil {
+				n.logErrorEvent(event, err, "Failed to propagate queued event to successor after sync")
+			} else {
+				n.logInfoEvent(event, "Queued event propagated to successor after sync")
+			}
 		}
 	}
 
