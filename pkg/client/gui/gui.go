@@ -1,6 +1,7 @@
-package client
+package gui
 
 import (
+	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -14,15 +15,17 @@ type guiClient struct {
 	statusBar     *tview.TextView
 
 	// Keep reference to the connections
-	clients *clientSet
+	clients *shared.ClientSet
 
 	// Extra information about the client state
+	userId int64
+
 	// Current selected topic ID and list of topic IDs
 	currentTopicId int64
 	topicIds       []int64
 }
 
-func startGUIClient(clients *clientSet) {
+func StartGUIClient(clients *shared.ClientSet) {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
 
@@ -35,7 +38,7 @@ func startGUIClient(clients *clientSet) {
 	}
 }
 
-func newGuiClient(clients *clientSet) *guiClient {
+func newGuiClient(clients *shared.ClientSet) *guiClient {
 	// Initialize GUI client structure
 	gc := &guiClient{
 		app:           tview.NewApplication(),
@@ -45,6 +48,8 @@ func newGuiClient(clients *clientSet) *guiClient {
 		messageInput:  tview.NewInputField(),
 		statusBar:     tview.NewTextView(),
 
+		// Hardcode for now
+		userId:  1,
 		clients: clients,
 	}
 
@@ -53,7 +58,7 @@ func newGuiClient(clients *clientSet) *guiClient {
 	gc.setupLayout()
 
 	// Once it's setup, refresh the topics list
-	gc.refreshTopics()
+	gc.refreshTopics(true)
 
 	return gc
 }
@@ -96,7 +101,7 @@ func (gc *guiClient) setupWidgets() {
 
 	// Configure messages view
 	gc.messageView.
-		SetDynamicColors(false).
+		SetDynamicColors(true).
 		SetWordWrap(true).
 		SetBorder(true).
 		SetTitle("Sporočila")
@@ -108,6 +113,13 @@ func (gc *guiClient) setupWidgets() {
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
 		SetFieldWidth(0)
+
+	// Handle message posting on Enter key
+	gc.messageInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			gc.handlePostMessage()
+		}
+	})
 }
 
 // setupLayout arranges the widgets into the main layout

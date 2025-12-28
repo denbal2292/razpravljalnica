@@ -1,10 +1,11 @@
-package client
+package cli
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
+	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 )
 
@@ -15,7 +16,7 @@ func createUser(grpcClient pb.MessageBoardWritesClient, args []string) error {
 
 	username := strings.Join(args, " ")
 	// Set a timeout for the request
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	// Potentially the operation can completel before timeout - we release
 	// resources associated with the context
 	defer cancel()
@@ -40,7 +41,7 @@ func createTopic(grpcClient pb.MessageBoardWritesClient, args []string) error {
 
 	topicName := strings.Join(args, " ")
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	_, err := grpcClient.CreateTopic(ctx, &pb.CreateTopicRequest{
@@ -71,7 +72,7 @@ func postMessage(grpcClient pb.MessageBoardWritesClient, args []string) error {
 
 	content := strings.Join(args[2:], " ")
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	_, err = grpcClient.PostMessage(ctx, &pb.PostMessageRequest{
@@ -108,7 +109,7 @@ func updateMessage(grpcClient pb.MessageBoardWritesClient, args []string) error 
 	}
 
 	text := strings.Join(args[3:], " ")
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	_, err = grpcClient.UpdateMessage(ctx, &pb.UpdateMessageRequest{
@@ -145,7 +146,7 @@ func deleteMessage(grpcClient pb.MessageBoardWritesClient, args []string) error 
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	_, err = grpcClient.DeleteMessage(ctx, &pb.DeleteMessageRequest{
@@ -181,7 +182,7 @@ func likeMessage(grpcClient pb.MessageBoardWritesClient, args []string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	_, err = grpcClient.LikeMessage(ctx, &pb.LikeMessageRequest{

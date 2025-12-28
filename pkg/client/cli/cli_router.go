@@ -1,4 +1,4 @@
-package client
+package cli
 
 import (
 	"errors"
@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 )
 
 const help = `Available commands:
@@ -31,34 +33,34 @@ Subscription operations:
 `
 
 // Route the command to the appropriate client method
-func route(client *clientSet, command string, args []string) error {
+func route(client *shared.ClientSet, command string, args []string) error {
 	switch command {
 	case "help", "h":
 		printHelp()
 	case "exit", "quit", "q":
 		return errExit
 	case "createuser":
-		return createUser(client.writes, args)
+		return createUser(client.Writes, args)
 	case "createtopic":
-		return createTopic(client.writes, args)
+		return createTopic(client.Writes, args)
 	case "post":
-		return postMessage(client.writes, args)
+		return postMessage(client.Writes, args)
 	case "update":
-		return updateMessage(client.writes, args)
+		return updateMessage(client.Writes, args)
 	case "delete":
-		return deleteMessage(client.writes, args)
+		return deleteMessage(client.Writes, args)
 	case "like":
-		return likeMessage(client.writes, args)
+		return likeMessage(client.Writes, args)
 	case "topics":
-		return listTopics(client.reads, args)
+		return listTopics(client.Reads, args)
 	case "messages":
-		return getMessages(client.reads, args)
+		return getMessages(client.Reads, args)
 	case "user":
-		return getUser(client.reads, args)
+		return getUser(client.Reads, args)
 	case "subscribe":
-		return subscribeTopics(client.subscriptions, args)
-	case "getsubscribtionnode":
-		return getSubscriptionNode(client.subscriptions, args)
+		return subscribeTopics(client.Subscriptions, args)
+	case "getsubscriptionnode":
+		return getSubscriptionNode(client.Subscriptions, args)
 	case "loop":
 		return loopCommand(client, args)
 	default:
@@ -74,7 +76,7 @@ func printHelp() {
 }
 
 // loopCommand repeatedly executes the given command until interrupted by SIGINT (Ctrl+C).
-func loopCommand(client *clientSet, args []string) error {
+func loopCommand(client *shared.ClientSet, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("usage: loop <command> [args...]")
 	}

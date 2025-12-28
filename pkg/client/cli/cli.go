@@ -1,4 +1,4 @@
-package client
+package cli
 
 import (
 	"bufio"
@@ -6,9 +6,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 )
 
-func startCLIClient(clients *clientSet) {
+// Custom exit error to signal client termination
+var errExit = errors.New("exit")
+
+func StartCLIClient(clients *shared.ClientSet) {
 	// Simple REPL loop
 	// Useful for proper line reading
 	scanner := bufio.NewScanner(os.Stdin)
