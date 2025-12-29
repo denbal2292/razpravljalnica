@@ -183,9 +183,9 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 					continue
 				}
 
-				// Currently timestamp isn't yet supported
-				// timestamp := message.CreatedAt.AsTime().Format("02-01-2006 15:04")
-				messageLine := fmt.Sprintf("[yellow]%s[-]: %s ([green]Všečki: %d[-])\n", user.Name, message.Text, message.Likes)
+				// TODO: Make this nicer?
+				timestamp := message.CreatedAt.AsTime().Local().Format("02-01-2006 15:04")
+				messageLine := fmt.Sprintf("[yellow]%s[-]: %s ([green]Všečki: %d[-]) [%s]\n", user.Name, message.Text, message.Likes, timestamp)
 				gc.messageView.Write([]byte(messageLine))
 			}
 		})

@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type EventBuffer struct {
@@ -30,6 +31,7 @@ func (eb *EventBuffer) CreateMessageEvent(message *pb.PostMessageRequest) *pb.Ev
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
 		Op:             pb.OpType_OP_POST,
+		EventAt:        timestamppb.Now(),
 		PostMessage:    message,
 	}
 
@@ -47,6 +49,7 @@ func (eb *EventBuffer) UpdateMessageEvent(message *pb.UpdateMessageRequest) *pb.
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
 		Op:             pb.OpType_OP_UPDATE,
+		EventAt:        timestamppb.Now(),
 		UpdateMessage:  message,
 	}
 
@@ -63,6 +66,7 @@ func (eb *EventBuffer) DeleteMessageEvent(message *pb.DeleteMessageRequest) *pb.
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
 		Op:             pb.OpType_OP_DELETE,
+		EventAt:        timestamppb.Now(),
 		DeleteMessage:  message,
 	}
 
@@ -80,6 +84,7 @@ func (eb *EventBuffer) LikeMessageEvent(like *pb.LikeMessageRequest) *pb.Event {
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
 		Op:             pb.OpType_OP_LIKE,
+		EventAt:        timestamppb.Now(),
 		LikeMessage:    like,
 	}
 
@@ -97,6 +102,7 @@ func (eb *EventBuffer) CreateUserEvent(user *pb.CreateUserRequest) *pb.Event {
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
 		Op:             pb.OpType_OP_CREATE_USER,
+		EventAt:        timestamppb.Now(),
 		CreateUser:     user,
 	}
 
@@ -114,6 +120,7 @@ func (eb *EventBuffer) CreateTopicEvent(topic *pb.CreateTopicRequest) *pb.Event 
 	event := &pb.Event{
 		SequenceNumber: eb.nextEventSeq,
 		Op:             pb.OpType_OP_CREATE_TOPIC,
+		EventAt:        timestamppb.Now(),
 		CreateTopic:    topic,
 	}
 
