@@ -87,9 +87,9 @@ service MessageBoardReads {
   rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
 }
 
-// Subscriptions; goes to the node (in the middle of the chain) returned by head
+// Subscriptions; goes to the node (in the middle of the chain) returned by the control plane
 service MessageBoardSubscriptions {
-  // Subscribe to topics; goes to the node returned by head
+  // Subscribe to topics; goes to the node returned by the control plane
   rpc SubscribeTopic(SubscribeTopicRequest) returns (stream MessageEvent);
 
   // Request a node to which a subscription can be opened.
@@ -209,6 +209,9 @@ service NodeUpdate {
 
   // Inform a node about its new successor
   rpc SetSuccessor(NodeInfoMessage) returns (google.protobuf.Empty);
+
+  // Inform a node to add a subscription
+  rpc AddSubscriptionRequest(SubscriptionNodeRequest) returns (AddSubscriptionResponse);
 }
 
 message NeighborsInfo {
@@ -219,6 +222,10 @@ message NeighborsInfo {
 // Wrap this into a seperate message to allow for nil NodeInfo values
 message NodeInfoMessage {
   NodeInfo node = 1;
+}
+
+message AddSubscriptionResponse {
+  string subscribe_token = 1; // token to be used when opening the subscription
 }
 
 ////////////////////////////////////////////////////////////////////////////////

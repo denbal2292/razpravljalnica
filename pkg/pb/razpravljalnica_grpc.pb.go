@@ -526,9 +526,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Subscriptions; goes to the node (in the middle of the chain) returned by head
+// Subscriptions; goes to the node (in the middle of the chain) returned by the control plane
 type MessageBoardSubscriptionsClient interface {
-	// Subscribe to topics; goes to the node returned by head
+	// Subscribe to topics; goes to the node returned by the control plane
 	SubscribeTopic(ctx context.Context, in *SubscribeTopicRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[MessageEvent], error)
 	// Request a node to which a subscription can be opened.
 	GetSubscriptionNode(ctx context.Context, in *SubscriptionNodeRequest, opts ...grpc.CallOption) (*SubscriptionNodeResponse, error)
@@ -575,9 +575,9 @@ func (c *messageBoardSubscriptionsClient) GetSubscriptionNode(ctx context.Contex
 // All implementations must embed UnimplementedMessageBoardSubscriptionsServer
 // for forward compatibility.
 //
-// Subscriptions; goes to the node (in the middle of the chain) returned by head
+// Subscriptions; goes to the node (in the middle of the chain) returned by the control plane
 type MessageBoardSubscriptionsServer interface {
-	// Subscribe to topics; goes to the node returned by head
+	// Subscribe to topics; goes to the node returned by the control plane
 	SubscribeTopic(*SubscribeTopicRequest, grpc.ServerStreamingServer[MessageEvent]) error
 	// Request a node to which a subscription can be opened.
 	GetSubscriptionNode(context.Context, *SubscriptionNodeRequest) (*SubscriptionNodeResponse, error)
@@ -967,8 +967,9 @@ var ControlPlane_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	NodeUpdate_SetPredecessor_FullMethodName = "/razpravljalnica.NodeUpdate/SetPredecessor"
-	NodeUpdate_SetSuccessor_FullMethodName   = "/razpravljalnica.NodeUpdate/SetSuccessor"
+	NodeUpdate_SetPredecessor_FullMethodName         = "/razpravljalnica.NodeUpdate/SetPredecessor"
+	NodeUpdate_SetSuccessor_FullMethodName           = "/razpravljalnica.NodeUpdate/SetSuccessor"
+	NodeUpdate_AddSubscriptionRequest_FullMethodName = "/razpravljalnica.NodeUpdate/AddSubscriptionRequest"
 )
 
 // NodeUpdateClient is the client API for NodeUpdate service.
@@ -981,6 +982,8 @@ type NodeUpdateClient interface {
 	SetPredecessor(ctx context.Context, in *NodeInfoMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Inform a node about its new successor
 	SetSuccessor(ctx context.Context, in *NodeInfoMessage, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Inform a node to add a subscription
+	AddSubscriptionRequest(ctx context.Context, in *SubscriptionNodeRequest, opts ...grpc.CallOption) (*AddSubscriptionResponse, error)
 }
 
 type nodeUpdateClient struct {
@@ -1011,6 +1014,16 @@ func (c *nodeUpdateClient) SetSuccessor(ctx context.Context, in *NodeInfoMessage
 	return out, nil
 }
 
+func (c *nodeUpdateClient) AddSubscriptionRequest(ctx context.Context, in *SubscriptionNodeRequest, opts ...grpc.CallOption) (*AddSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddSubscriptionResponse)
+	err := c.cc.Invoke(ctx, NodeUpdate_AddSubscriptionRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeUpdateServer is the server API for NodeUpdate service.
 // All implementations must embed UnimplementedNodeUpdateServer
 // for forward compatibility.
@@ -1021,6 +1034,8 @@ type NodeUpdateServer interface {
 	SetPredecessor(context.Context, *NodeInfoMessage) (*emptypb.Empty, error)
 	// Inform a node about its new successor
 	SetSuccessor(context.Context, *NodeInfoMessage) (*emptypb.Empty, error)
+	// Inform a node to add a subscription
+	AddSubscriptionRequest(context.Context, *SubscriptionNodeRequest) (*AddSubscriptionResponse, error)
 	mustEmbedUnimplementedNodeUpdateServer()
 }
 
@@ -1036,6 +1051,9 @@ func (UnimplementedNodeUpdateServer) SetPredecessor(context.Context, *NodeInfoMe
 }
 func (UnimplementedNodeUpdateServer) SetSuccessor(context.Context, *NodeInfoMessage) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetSuccessor not implemented")
+}
+func (UnimplementedNodeUpdateServer) AddSubscriptionRequest(context.Context, *SubscriptionNodeRequest) (*AddSubscriptionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddSubscriptionRequest not implemented")
 }
 func (UnimplementedNodeUpdateServer) mustEmbedUnimplementedNodeUpdateServer() {}
 func (UnimplementedNodeUpdateServer) testEmbeddedByValue()                    {}
@@ -1094,6 +1112,24 @@ func _NodeUpdate_SetSuccessor_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeUpdate_AddSubscriptionRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubscriptionNodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeUpdateServer).AddSubscriptionRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeUpdate_AddSubscriptionRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeUpdateServer).AddSubscriptionRequest(ctx, req.(*SubscriptionNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NodeUpdate_ServiceDesc is the grpc.ServiceDesc for NodeUpdate service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1108,6 +1144,10 @@ var NodeUpdate_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetSuccessor",
 			Handler:    _NodeUpdate_SetSuccessor_Handler,
+		},
+		{
+			MethodName: "AddSubscriptionRequest",
+			Handler:    _NodeUpdate_AddSubscriptionRequest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

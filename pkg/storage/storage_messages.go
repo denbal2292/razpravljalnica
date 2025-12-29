@@ -57,6 +57,12 @@ func (s *Storage) UpdateMessage(topicId int64, userId int64, messageId int64, te
 		return nil, ErrUserNotFound
 	}
 
+	// Check if topic has any messages
+	topicMessages, ok := s.messages[topicId]
+	if !ok || topicMessages == nil {
+		return nil, ErrMsgNotFound
+	}
+
 	// Check if message exists
 	message, ok := s.messages[topicId][messageId]
 	if !ok {
@@ -75,35 +81,41 @@ func (s *Storage) UpdateMessage(topicId int64, userId int64, messageId int64, te
 }
 
 // Delete an existing message
-func (s *Storage) DeleteMessage(topicId int64, userId int64, messageId int64) error {
+func (s *Storage) DeleteMessage(topicId int64, userId int64, messageId int64) (*pb.Message, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Check if topic exists
 	if _, ok := s.topics[topicId]; !ok {
-		return ErrTopicNotFound
+		return nil, ErrTopicNotFound
 	}
 
 	// Check if user exists
 	if _, ok := s.users[userId]; !ok {
-		return ErrUserNotFound
+		return nil, ErrUserNotFound
+	}
+
+	// Check if topic has any messages
+	topicMessages, ok := s.messages[topicId]
+	if !ok || topicMessages == nil {
+		return nil, ErrMsgNotFound
 	}
 
 	// Check if message exists
 	message, ok := s.messages[topicId][messageId]
 	if !ok {
-		return ErrMsgNotFound
+		return nil, ErrMsgNotFound
 	}
 
 	// Check if the user is the author of the message
 	if message.UserId != userId {
-		return ErrUserNotAuthor
+		return nil, ErrUserNotAuthor
 	}
 
 	// Delete the message
 	delete(s.messages[topicId], messageId)
 
-	return nil
+	return message, nil
 }
 
 // Like a message
@@ -119,6 +131,12 @@ func (s *Storage) LikeMessage(topicId int64, userId int64, messageId int64) (*pb
 	// Check if user exists
 	if _, ok := s.users[userId]; !ok {
 		return nil, ErrUserNotFound
+	}
+
+	// Check if topic has any messages
+	topicMessages, ok := s.messages[topicId]
+	if !ok || topicMessages == nil {
+		return nil, ErrMsgNotFound
 	}
 
 	// Check if message exists

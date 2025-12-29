@@ -28,10 +28,11 @@ type Node struct {
 	controlPlane      pb.ControlPlaneClient // gRPC client to the control plane
 	heartbeatInterval time.Duration         // interval between heartbeats
 
-	storage     *storage.Storage
-	eventBuffer *EventBuffer
-	ackSync     *AckSynchronization // for waiting for ACKs from predecessor
-	syncQueue   *ServerSyncQueue    // queue of sync requests
+	storage             *storage.Storage
+	eventBuffer         *EventBuffer
+	ackSync             *AckSynchronization  // for waiting for ACKs from predecessor
+	syncQueue           *ServerSyncQueue     // queue of sync requests
+	subscriptionManager *SubscriptionManager // manages topic subscriptions for clients
 
 	mu          sync.RWMutex    // protects predecessor and successor
 	predecessor *NodeConnection // nil if HEAD
@@ -64,18 +65,19 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 			NodeId:  name,
 			Address: address,
 		},
-		controlPlane:      controlPlane,
-		ackSync:           NewAckSynchronization(),
-		syncQueue:         NewServerSyncQueue(),
-		ackQueue:          make(map[int64]*pb.Event),
-		nextAckSeq:        0,
-		ackMu:             sync.Mutex{},
-		eventQueue:        make(map[int64]*pb.Event),
-		nextEventSeq:      0,
-		eventMu:           sync.Mutex{},
-		predecessor:       nil,
-		successor:         nil,
-		heartbeatInterval: 5 * time.Second, // TODO: Configurable
+		controlPlane:        controlPlane,
+		ackSync:             NewAckSynchronization(),
+		syncQueue:           NewServerSyncQueue(),
+		subscriptionManager: NewSubscriptionManager(),
+		ackQueue:            make(map[int64]*pb.Event),
+		nextAckSeq:          0,
+		ackMu:               sync.Mutex{},
+		eventQueue:          make(map[int64]*pb.Event),
+		nextEventSeq:        0,
+		eventMu:             sync.Mutex{},
+		predecessor:         nil,
+		successor:           nil,
+		heartbeatInterval:   5 * time.Second, // TODO: Configurable
 		// Keep this as os.Stdout for simplicity - can be easily extended
 		// to use file or other logging backends
 		// Use tint for nicer output
@@ -139,7 +141,8 @@ func (n *Node) applyEvent(event *pb.Event) error {
 
 	case pb.OpType_OP_DELETE:
 		msgRequest := event.DeleteMessage
-		return n.storage.DeleteMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId)
+		_, err := n.storage.DeleteMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId)
+		return err
 
 	case pb.OpType_OP_LIKE:
 		likeRequest := event.LikeMessage

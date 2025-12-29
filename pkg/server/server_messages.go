@@ -41,6 +41,10 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 		return nil, handleStorageError(err)
 	}
 
+	// Notify subscription manager about the new message event
+	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_POST)
+	n.subscriptionManager.AddMessageEvent(subEvent, req.TopicId)
+
 	return message, nil
 }
 
@@ -70,6 +74,7 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
 		return nil, err
 	}
+
 	// We can now safely commit the message update to storage
 	n.logApplyEvent(event)
 
@@ -77,6 +82,10 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 	if err != nil {
 		return nil, handleStorageError(err)
 	}
+
+	// Notify subscription manager about the new message event
+	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_UPDATE)
+	n.subscriptionManager.AddMessageEvent(subEvent, req.TopicId)
 
 	return message, nil
 }
@@ -108,10 +117,14 @@ func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 	// We can now safely commit the message deletion to storage
 	n.logApplyEvent(event)
 
-	err := n.storage.DeleteMessage(req.TopicId, req.UserId, req.MessageId)
+	message, err := n.storage.DeleteMessage(req.TopicId, req.UserId, req.MessageId)
 	if err != nil {
 		return nil, handleStorageError(err)
 	}
+
+	// Notify subscription manager about the new message event
+	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_DELETE)
+	n.subscriptionManager.AddMessageEvent(subEvent, req.TopicId)
 
 	return &emptypb.Empty{}, nil
 }
@@ -142,6 +155,10 @@ func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 	if err != nil {
 		return nil, handleStorageError(err)
 	}
+
+	// Notify subscription manager about the new message event
+	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_LIKE)
+	n.subscriptionManager.AddMessageEvent(subEvent, req.TopicId)
 
 	return message, nil
 }
