@@ -82,14 +82,15 @@ func (cp *ControlPlane) reconnectNeighbors(pred *NodeInfo, succ *NodeInfo) {
 	// here we just need to update neighbors (reconnect the chain)
 	if pred != nil && succ != nil {
 		// Middle node died
-		// Predecessor is now connected to successor of the dead node
-		if _, err := pred.Client.SetSuccessor(context.Background(), &pb.NodeInfoMessage{Node: succ.Info}); err != nil {
-			log.Printf("Error updating predecessor %s: %v", pred.Info.NodeId, err)
-		}
-
+		// NOTE: Connect predecessor before successor to make sure when syncing starts, the successor knows about its new predecessor
 		// Successor is now connected to predecessor of the dead node
 		if _, err := succ.Client.SetPredecessor(context.Background(), &pb.NodeInfoMessage{Node: pred.Info}); err != nil {
 			log.Printf("Error updating successor %s: %v", succ.Info.NodeId, err)
+		}
+
+		// Predecessor is now connected to successor of the dead node
+		if _, err := pred.Client.SetSuccessor(context.Background(), &pb.NodeInfoMessage{Node: succ.Info}); err != nil {
+			log.Printf("Error updating predecessor %s: %v", pred.Info.NodeId, err)
 		}
 
 	} else if pred != nil {

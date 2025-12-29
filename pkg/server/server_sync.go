@@ -9,6 +9,9 @@ import (
 
 // Send the last applied event number to the caller node (used for syncing)
 func (n *Node) GetLastSequenceNumbers(ctx context.Context, empty *emptypb.Empty) (*pb.LastSequenceNumbersResponse, error) {
+	n.ackMu.Lock()
+	defer n.ackMu.Unlock()
+
 	return &pb.LastSequenceNumbersResponse{
 		LastSequenceNumber:         n.eventBuffer.GetLastReceived(),
 		AcknowledgedSequenceNumber: n.eventBuffer.GetLastApplied(),

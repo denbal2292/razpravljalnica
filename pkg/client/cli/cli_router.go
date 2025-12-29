@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
+	"time"
 
 	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 )
@@ -75,7 +77,6 @@ func printHelp() {
 	fmt.Print(help)
 }
 
-// loopCommand repeatedly executes the given command until interrupted by SIGINT (Ctrl+C).
 func loopCommand(client *shared.ClientSet, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("usage: loop <command> [args...]")
@@ -88,25 +89,43 @@ func loopCommand(client *shared.ClientSet, args []string) error {
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
 
+	const maxConcurrent = 100
+	sem := make(chan struct{}, maxConcurrent)
+
 	fmt.Println("Looping. Press Ctrl+C to stop...")
 
-	for {
-		err := route(client, innerCmd, innerArgs)
-		if err != nil {
-			if errors.Is(err, errExit) {
-				return errExit
-			}
-			fmt.Printf("Error: %v\n", err)
+	var sent, errCount uint64
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	var lastSent uint64
+	go func() {
+		for range ticker.C {
+			currentSent := atomic.LoadUint64(&sent)
+			rate := currentSent - lastSent
+			lastSent = currentSent
+
+			e := atomic.LoadUint64(&errCount)
+			fmt.Printf("\rSent: %d | Errors: %d | Rate: %d/s", currentSent, e, rate)
 		}
+	}()
 
-		// time.Sleep(100 * time.Millisecond)
-
+	for {
 		select {
 		case <-sigCh:
-			fmt.Println("\nLoop interrupted by user.")
+			fmt.Printf("\nLoop interrupted. Sent %d requests, %d errors.\n",
+				atomic.LoadUint64(&sent), atomic.LoadUint64(&errCount))
 			return nil
-		default:
-			// continue looping
+		case sem <- struct{}{}:
+			go func() {
+				defer func() { <-sem }()
+
+				err := route(client, innerCmd, innerArgs)
+				if err != nil && !errors.Is(err, errExit) {
+					atomic.AddUint64(&errCount, 1)
+				}
+			}()
+			atomic.AddUint64(&sent, 1)
 		}
 	}
 }

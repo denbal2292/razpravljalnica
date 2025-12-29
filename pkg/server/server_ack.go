@@ -8,9 +8,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TODO: There could still be a race condition here if an ACK is sent right as setSuccessor is called.
-//
-//	Consider pausing ACK processing in the node with setPredecessor called during sync?
 func (n *Node) handleEventAcknowledgment(seqNum int64) {
 	go n.doSendAllUnacknowledged(seqNum)
 }
