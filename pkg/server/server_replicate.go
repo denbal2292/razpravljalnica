@@ -17,11 +17,6 @@ func (n *Node) handleEventReplication(event *pb.Event) {
 		return
 	}
 
-	// 1. Add the event to the buffer unless we're the HEAD (it already applied when created)
-	if !n.IsHead() {
-		n.eventBuffer.AddEvent(event)
-	}
-
 	// 2. Forward the event to the successor
 	go func() {
 		defer n.syncMu.RUnlock()
@@ -43,6 +38,11 @@ func (n *Node) doForwardAllEvents(event *pb.Event) {
 	if event.SequenceNumber == n.nextEventSeq {
 		n.logger.Info("Handling next expected event", "sequence_number", event.SequenceNumber)
 
+		// Add the event to the buffer unless we're the HEAD (it already applied when created)
+		if !n.IsHead() {
+			n.eventBuffer.AddEvent(event)
+		}
+
 		// Event is the next expected, send it immediately
 		n.forwardEvent(event)
 
@@ -57,6 +57,11 @@ func (n *Node) doForwardAllEvents(event *pb.Event) {
 			}
 
 			n.logger.Info("Handling buffered event", "sequence_number", bufferedEvent.SequenceNumber)
+
+			// Add the event to the buffer unless we're the HEAD (it already applied when created)
+			if !n.IsHead() {
+				n.eventBuffer.AddEvent(bufferedEvent)
+			}
 
 			// Send the buffered event
 			n.forwardEvent(bufferedEvent)

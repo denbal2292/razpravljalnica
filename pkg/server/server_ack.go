@@ -2,32 +2,30 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// TODO: There could still be a race condition here if an ACK is sent right as setSuccessor is called.
+//
+//	Consider pausing ACK processing in the node with setPredecessor called during sync?
 func (n *Node) handleEventAcknowledgment(seqNum int64) {
-	// 1. Acknowledge the event in the buffer and retrieve it
-	event := n.eventBuffer.AcknowledgeEvent(seqNum)
-
-	// 2. If event is nil, it was already acknowledged (repeated ACKs from syncing)
-	if event == nil {
-		n.logger.Warn("Received ACK for already acknowledged event", "sequence_number", seqNum, "last_applied", n.eventBuffer.GetLastApplied())
-		return
-	}
-
-	go n.doSendAllUnacknowledged(event)
+	go n.doSendAllUnacknowledged(seqNum)
 }
 
-func (n *Node) doSendAllUnacknowledged(event *pb.Event) {
+func (n *Node) doSendAllUnacknowledged(seqNum int64) {
 	n.ackMu.Lock()
 	defer n.ackMu.Unlock()
 
-	if event.SequenceNumber == n.nextAckSeq {
-		n.logger.Info("Handling next expected ACK", "sequence_number", event.SequenceNumber)
+	event := n.eventBuffer.GetEvent(seqNum)
+
+	if seqNum == n.nextAckSeq {
+		n.logger.Info("Handling next expected ACK", "sequence_number", seqNum)
+
+		// Acknowledge the event in the buffer
+		n.eventBuffer.AcknowledgeEvent(seqNum)
 
 		// ACK is the next expected, process it immediately
 		n.acknowledgeEvent(event)
@@ -44,6 +42,9 @@ func (n *Node) doSendAllUnacknowledged(event *pb.Event) {
 
 			n.logger.Info("Handling buffered ACK", "sequence_number", bufferedEvent.SequenceNumber)
 
+			// Acknowledge the event in the buffer
+			n.eventBuffer.AcknowledgeEvent(bufferedEvent.SequenceNumber)
+
 			// Process the buffered ACK
 			n.acknowledgeEvent(bufferedEvent)
 
@@ -51,12 +52,12 @@ func (n *Node) doSendAllUnacknowledged(event *pb.Event) {
 			delete(n.ackQueue, n.nextAckSeq)
 			n.nextAckSeq++
 		}
-	} else if event.SequenceNumber > n.nextAckSeq {
+	} else if seqNum > n.nextAckSeq {
 		// ACK is out of order, buffer it
 		n.ackQueue[event.SequenceNumber] = event
 		n.logger.Info("ACK buffered due to out-of-order reception", "sequence_number", event.SequenceNumber, "expected_sequence_number", n.nextAckSeq)
 	} else {
-		panic(fmt.Errorf("ACK sequence number less than next expected: %d < %d", event.SequenceNumber, n.nextAckSeq))
+		n.logger.Warn("Received ACK for already acknowledged event - not forwarding", "sequence_number", seqNum, "last_applied", n.eventBuffer.GetLastApplied())
 	}
 }
 
