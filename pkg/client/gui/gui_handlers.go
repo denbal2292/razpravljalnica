@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +21,10 @@ func (gc *guiClient) handleCreateTopic() {
 	if topicName == "" {
 		gc.displayStatus("Ime teme ne sme biti prazno", "red")
 		return
+	}
+
+	if gc.userId == -1 {
+		gc.displayStatus("Za ustvarjanje teme se moraš prijaviti", "red")
 	}
 
 	go func() {
@@ -119,6 +124,21 @@ func (gc *guiClient) handleSelectTopic(topicId int64) {
 	gc.loadMessagesForCurrentTopic()
 }
 
+func (gc *guiClient) getUserName(id int64) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+	defer cancel()
+
+	user, err := gc.clients.Reads.GetUser(ctx, &pb.GetUserRequest{
+		UserId: id,
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return user.Name, nil
+}
+
 func (gc *guiClient) loadMessagesForCurrentTopic() {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
@@ -149,15 +169,13 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 
 			// Fetch user only if not already fetched - for performance reasons
 			if _, exists := users[userId]; !exists {
-				user, err := gc.clients.Reads.GetUser(ctx, &pb.GetUserRequest{
-					UserId: userId,
-				})
+				username, err := gc.getUserName(userId)
 
 				if err != nil {
 					// Skip this message
 					users[userId] = &pb.User{Name: "Neznan uporabnik"}
 				} else {
-					users[userId] = user
+					users[userId] = &pb.User{Name: username}
 				}
 			}
 		}
@@ -252,6 +270,41 @@ func (gc *guiClient) handleCreateUser() {
 		gc.app.QueueUpdateDraw(func() {
 			gc.newUserInput.SetText("")
 			gc.loggedInUserView.SetText(fmt.Sprintf("[green]Prijavljen kot[-]: [yellow]%s[-]", user.Name))
+		})
+	}()
+}
+
+func (gc *guiClient) handleLogInUser() {
+	// Extract the user name from the input field
+	userId := strings.TrimSpace(gc.logInUserInput.GetText())
+
+	if userId == "" {
+		gc.displayStatus("ID uporabnika ni bil podan", "red")
+		return
+	}
+
+	go func() {
+		// Set the user ID for future operations
+		id, err := strconv.ParseInt(userId, 10, 64)
+
+		// Probably caused by an overflow
+		if err != nil {
+			gc.displayStatus("Neveljaven ID uporabnika", "red")
+			return
+		}
+
+		userName, err := gc.getUserName(id)
+		if err != nil {
+			gc.displayStatus("Napaka pri prijavi uporabnika", "red")
+			return
+		}
+
+		// We can safely set the user ID now
+		gc.userId = id
+		gc.app.QueueUpdateDraw(func() {
+			gc.logInUserInput.SetText("")
+			gc.loggedInUserView.SetText(fmt.Sprintf("[green]Prijavljen kot[-]: [yellow]%s[-]", userName))
+			gc.displayStatus("Uspešna prijava uporabnika", "green")
 		})
 	}()
 }

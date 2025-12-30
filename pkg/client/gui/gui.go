@@ -12,6 +12,7 @@ type guiClient struct {
 	topicsList       *tview.List
 	newUserInput     *tview.InputField
 	loggedInUserView *tview.TextView
+	logInUserInput   *tview.InputField
 	newTopicInput    *tview.InputField
 	messageView      *tview.TextView
 	messageInput     *tview.InputField
@@ -44,11 +45,15 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 		app:              tview.NewApplication(),
 		newUserInput:     tview.NewInputField(),
 		loggedInUserView: tview.NewTextView(),
+		logInUserInput:   tview.NewInputField(),
 		topicsList:       tview.NewList(),
 		newTopicInput:    tview.NewInputField(),
 		messageView:      tview.NewTextView(),
 		messageInput:     tview.NewInputField(),
 		statusBar:        tview.NewTextView(),
+
+		// User is not logged in initially
+		userId: -1,
 
 		clients: clients,
 	}
@@ -84,11 +89,24 @@ func (gc *guiClient) setupWidgets() {
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(0)
+		SetFieldWidth(14)
 
 	gc.newUserInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
 			gc.handleCreateUser()
+		}
+	})
+
+	gc.logInUserInput.
+		SetLabel("Prijava v uporabnika(ID) > ").
+		SetLabelColor(tcell.ColorGreen).
+		SetFieldBackgroundColor(tcell.ColorDarkGrey).
+		SetFieldTextColor(tcell.ColorBlack).
+		SetFieldWidth(14)
+
+	gc.logInUserInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			gc.handleLogInUser()
 		}
 	})
 
@@ -115,9 +133,9 @@ func (gc *guiClient) setupWidgets() {
 	// Configure status bar
 	gc.statusBar.
 		SetDynamicColors(true). // Allow inline color changes
+		SetTextAlign(tview.AlignLeft).
 		SetLabel("[white]Status:[-] ").
-		SetText("[green]Povezan").
-		SetTextAlign(tview.AlignLeft)
+		SetText("[green]Povezan")
 
 	// Configure messages view
 	gc.messageView.
@@ -143,34 +161,40 @@ func (gc *guiClient) setupWidgets() {
 }
 
 func (gc *guiClient) setupLayout() {
-	// Create a grid layout
 	grid := tview.NewGrid().
-		SetRows(1, 0, 1).     // Header, main area, status bar
-		SetColumns(30, 1, 0). // Topics, spacer, messages
-		SetBorders(false)     // No borders between grid cells
+		SetRows(1, 0, 1).     // Header, Main, Status
+		SetColumns(30, 1, 0). // Topics, Spacer, Messages (0 = flexible)
+		SetBorders(false)
 
+	userCredentialsColumn := tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(gc.newUserInput, 30, 0, false).
+		AddItem(tview.NewBox(), 2, 0, false).
+		AddItem(gc.logInUserInput, 40, 0, false).
+		AddItem(gc.loggedInUserView, 0, 1, false)
+
+	// Topics Column
 	topicsColumn := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(gc.topicsList, 0, 1, true).
 		AddItem(gc.newTopicInput, 1, 0, false)
 
+	// Messages Column
 	messagesColumn := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(gc.messageView, 0, 1, false).
 		AddItem(gc.messageInput, 1, 0, true)
 
-	grid.AddItem(gc.newUserInput, 0, 0, 1, 1, 0, 0, false)
-	grid.AddItem(gc.loggedInUserView, 0, 2, 1, 1, 0, 0, false)
+	// User credentials header
+	grid.AddItem(userCredentialsColumn, 0, 2, 1, 1, 0, 0, false)
+	grid.AddItem(
+		tview.NewTextView().SetDynamicColors(true).SetText("[blue]RAZPRAVLJALNICA[-]"),
+		0, 0, 1, 1, 0, 0, false,
+	)
 
 	grid.AddItem(topicsColumn, 1, 0, 1, 1, 0, 0, true)
-	grid.AddItem(tview.NewBox(), 1, 1, 1, 1, 0, 0, false)
 	grid.AddItem(messagesColumn, 1, 2, 1, 1, 0, 0, true)
-
-	// Bottom Row: Status
 	grid.AddItem(gc.statusBar, 2, 0, 1, 3, 0, 0, false)
 
-	// Set the Grid as root
 	gc.app.SetRoot(grid, true)
-
-	gc.app.SetFocus(gc.topicsList)
 }
