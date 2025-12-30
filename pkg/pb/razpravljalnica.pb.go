@@ -938,8 +938,7 @@ func (x *SubscribeTopicRequest) GetSubscribeToken() string {
 
 type SubscriptionNodeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	TopicId       []int64                `protobuf:"varint,2,rep,packed,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // repeated int64 topic_id = 2; // (not needed here, probably?)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -979,13 +978,6 @@ func (x *SubscriptionNodeRequest) GetUserId() int64 {
 		return x.UserId
 	}
 	return 0
-}
-
-func (x *SubscriptionNodeRequest) GetTopicId() []int64 {
-	if x != nil {
-		return x.TopicId
-	}
-	return nil
 }
 
 type SubscriptionNodeResponse struct {
@@ -1658,10 +1650,9 @@ const file_razpravljalnica_proto_rawDesc = "" +
 	"\btopic_id\x18\x01 \x03(\x03R\atopicId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\x03R\x06userId\x12&\n" +
 	"\x0ffrom_message_id\x18\x03 \x01(\x03R\rfromMessageId\x12'\n" +
-	"\x0fsubscribe_token\x18\x04 \x01(\tR\x0esubscribeToken\"M\n" +
+	"\x0fsubscribe_token\x18\x04 \x01(\tR\x0esubscribeToken\"2\n" +
 	"\x17SubscriptionNodeRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x19\n" +
-	"\btopic_id\x18\x02 \x03(\x03R\atopicId\"r\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\"r\n" +
 	"\x18SubscriptionNodeResponse\x12'\n" +
 	"\x0fsubscribe_token\x18\x01 \x01(\tR\x0esubscribeToken\x12-\n" +
 	"\x04node\x18\x02 \x01(\v2\x19.razpravljalnica.NodeInfoR\x04node\"\xcb\x01\n" +

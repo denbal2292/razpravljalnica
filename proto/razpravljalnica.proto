@@ -152,7 +152,7 @@ message SubscribeTopicRequest {
 
 message SubscriptionNodeRequest {
   int64 user_id = 1;
-  repeated int64 topic_id = 2;
+  // repeated int64 topic_id = 2; // (not needed here, probably?)
 }
 
 message SubscriptionNodeResponse {

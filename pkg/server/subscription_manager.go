@@ -97,30 +97,34 @@ func generateSubscriptionToken(n int) (string, error) {
 	return string(b), nil
 }
 
-// StartSubscription is called when a client wants to open a subscription using the provided token
-func (sm *SubscriptionManager) StartSubscription(req *pb.SubscribeTopicRequest) chan *pb.MessageEvent {
-	// 1. Check if the subscription request is available
-	sm.availMu.RLock()
-	subReq, exists := sm.availableSubscriptions[req.SubscribeToken]
-	sm.availMu.RUnlock()
+func (sm *SubscriptionManager) ValidateSubscriptionToken(subscribeToken string, userId int64) bool {
+	sm.availMu.Lock()
+	defer sm.availMu.Unlock()
+
+	subReq, exists := sm.availableSubscriptions[subscribeToken]
 
 	if !exists {
-		// Subscription request not found
-		return nil
+		return false
 	}
 
-	// 2. Remove the subscription request from availableSubscriptions
-	sm.availMu.Lock()
-	delete(sm.availableSubscriptions, req.SubscribeToken)
-	sm.availMu.Unlock()
+	if subReq.UserId != userId {
+		return false
+	}
 
-	// 3. Create a channel for sending message events
+	delete(sm.availableSubscriptions, subscribeToken)
+
+	return exists
+}
+
+// Open a subscription for the given request and return a channel to receive message events
+func (sm *SubscriptionManager) OpenSubscriptionChannel(req *pb.SubscribeTopicRequest) <-chan *pb.MessageEvent {
+	// 1. Create a channel for sending message events
 	eventChan := make(chan *pb.MessageEvent, 100) // Buffered channel to avoid blocking
 
-	// 4. Store the active subscription
+	// 2. Store the active subscription
 	subscription := &Subscription{
-		userId:   subReq.UserId,
-		topicIds: subReq.TopicId,
+		userId:   req.UserId,
+		topicIds: req.TopicId,
 		channel:  eventChan,
 	}
 
@@ -128,9 +132,9 @@ func (sm *SubscriptionManager) StartSubscription(req *pb.SubscribeTopicRequest) 
 	sm.activeSubscriptions[req.SubscribeToken] = subscription
 	sm.activeMu.Unlock()
 
-	// 5. Update subscriptionsByTopic mapping
+	// 3. Update subscriptionsByTopic mapping
 	sm.topicMu.Lock()
-	for _, topicId := range subReq.TopicId {
+	for _, topicId := range subscription.topicIds {
 		sm.subscriptionsByTopic[topicId] = append(sm.subscriptionsByTopic[topicId], subscription)
 	}
 	sm.topicMu.Unlock()
@@ -148,7 +152,7 @@ func (sm *SubscriptionManager) ClearSubscription(subscribeToken string) {
 	subDelete, exists := sm.activeSubscriptions[subscribeToken]
 
 	if !exists {
-		panic(fmt.Errorf("Trying to clear a non-existing subscription for token: %s", subscribeToken))
+		return // No active subscription to clear
 	}
 
 	close(subDelete.channel)

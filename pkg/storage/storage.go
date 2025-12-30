@@ -13,6 +13,7 @@ var (
 	ErrMsgNotFound      = errors.New("message not found")
 	ErrUserNotAuthor    = errors.New("user is not the author of the message")
 	ErrUserAlreadyLiked = errors.New("user has already liked the message")
+	ErrInvalidLimit     = errors.New("invalid limit specified")
 )
 
 type Storage struct {

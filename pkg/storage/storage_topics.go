@@ -15,6 +15,10 @@ func (s *Storage) CreateTopic(name string) (*pb.Topic, error) {
 	s.topics[topicId] = topic
 	s.nextTopicId++
 
+	// Initialize message map for the topic
+	s.messages[topicId] = make(map[int64]*pb.Message)
+	s.nextMessageId[topicId] = 1
+
 	return topic, nil
 }
 

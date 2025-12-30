@@ -173,6 +173,8 @@ func handleStorageError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case storage.ErrUserAlreadyLiked:
 		return status.Error(codes.AlreadyExists, err.Error())
+	case storage.ErrInvalidLimit:
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}
