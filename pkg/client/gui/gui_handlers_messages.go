@@ -125,3 +125,22 @@ func (gc *guiClient) handlePostMessage() {
 		})
 	}()
 }
+
+func (gc *guiClient) handleMessageClick() {
+	gc.clientMu.RLock()
+	messageId := gc.selectedMessageId
+	gc.clientMu.RUnlock()
+
+	if messageId == -1 {
+		gc.displayStatus("Izberi sporočilo za brisanje", "red")
+		return
+	}
+
+	gc.showModal(
+		fmt.Sprintf("Ali si prepričan, da želiš izbrisati sporočilo %d?", messageId),
+		[]string{"Da", "Ne"},
+		func(buttonIndex int, buttonLabel string) {
+			gc.displayStatus("OK", "green")
+		},
+	)
+}

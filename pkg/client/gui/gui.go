@@ -14,6 +14,7 @@ type guiClient struct {
 	clientMu sync.RWMutex
 
 	app              *tview.Application
+	pages            *tview.Pages
 	topicsList       *tview.List
 	newUserInput     *tview.InputField
 	loggedInUserView *tview.TextView
@@ -22,6 +23,7 @@ type guiClient struct {
 	messageView      *tview.TextView
 	messageInput     *tview.InputField
 	statusBar        *tview.TextView
+	modal            *tview.Modal
 
 	// Keep reference to the connections
 	clients *shared.ClientSet
@@ -51,6 +53,7 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 	// Initialize GUI client structure
 	gc := &guiClient{
 		app:              tview.NewApplication(),
+		pages:            tview.NewPages(),
 		newUserInput:     tview.NewInputField(),
 		loggedInUserView: tview.NewTextView(),
 		logInUserInput:   tview.NewInputField(),
@@ -59,6 +62,7 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 		messageView:      tview.NewTextView(),
 		messageInput:     tview.NewInputField(),
 		statusBar:        tview.NewTextView(),
+		modal:            tview.NewModal(),
 
 		// User is not logged in initially
 		userId: -1,
@@ -168,13 +172,13 @@ func (gc *guiClient) setupWidgets() {
 			var messageId int64
 			// Extract message ID from region ID
 			fmt.Sscanf(regionId, "msg-%d", &messageId)
-
+			// Store the selected message ID
 			gc.clientMu.Lock()
 			gc.selectedMessageId = messageId
 			gc.clientMu.Unlock()
 
-			gc.displayStatus(fmt.Sprintf("%d", messageId), "blue")
-
+			// Handle message click
+			gc.handleMessageClick()
 		} else {
 			gc.clientMu.Lock()
 			gc.selectedMessageId = -1
@@ -234,5 +238,8 @@ func (gc *guiClient) setupLayout() {
 	grid.AddItem(messagesColumn, 1, 2, 1, 1, 0, 0, true)
 	grid.AddItem(gc.statusBar, 2, 0, 1, 3, 0, 0, false)
 
-	gc.app.SetRoot(grid, true)
+	// Add main layout as a page
+	gc.pages.AddPage("main", grid, true, true)
+
+	gc.app.SetRoot(gc.pages, true)
 }
