@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// TODO: If this is not HEAD node, we should probably reject the request
 func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb.Message, error) {
 	if req.Text == "" {
 		return nil, status.Error(codes.InvalidArgument, "text cannot be empty")
@@ -26,6 +27,7 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 		n.WaitForSyncToComplete()
 	}
 
+	// TODO: Don't apply it here in createEvent method!
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.CreateMessageEvent(req)
 	n.logEventReceived(event)
@@ -205,7 +207,7 @@ func (n *Node) SubscribeTopic(req *pb.SubscribeTopicRequest, stream grpc.ServerS
 
 	// 3. Send past messages first
 	for _, msg := range pastMessages {
-		subEvent := n.subscriptionManager.CreateMessageEvent(msg, 0, nil, pb.OpType_OP_POST)
+		subEvent := n.subscriptionManager.CreateMessageEvent(msg, 0, msg.CreatedAt, pb.OpType_OP_POST)
 		if err := stream.Send(subEvent); err != nil {
 			n.logger.Error("Failed to send past message event to subscriber", "error", err)
 			return err

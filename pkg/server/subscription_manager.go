@@ -159,7 +159,8 @@ func (sm *SubscriptionManager) ClearSubscription(subscribeToken string) {
 	delete(sm.activeSubscriptions, subscribeToken)
 
 	for _, topicId := range subDelete.topicIds {
-		subs := sm.subscriptionsByTopic[topicId]
+		subs:= sm.subscriptionsByTopic[topicId]
+
 		for i, topicSub := range subs {
 			if subDelete == topicSub {
 				// Remove subscription from the slice

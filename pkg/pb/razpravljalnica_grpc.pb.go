@@ -518,8 +518,7 @@ var MessageBoardReads_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	MessageBoardSubscriptions_SubscribeTopic_FullMethodName      = "/razpravljalnica.MessageBoardSubscriptions/SubscribeTopic"
-	MessageBoardSubscriptions_GetSubscriptionNode_FullMethodName = "/razpravljalnica.MessageBoardSubscriptions/GetSubscriptionNode"
+	MessageBoardSubscriptions_SubscribeTopic_FullMethodName = "/razpravljalnica.MessageBoardSubscriptions/SubscribeTopic"
 )
 
 // MessageBoardSubscriptionsClient is the client API for MessageBoardSubscriptions service.
@@ -530,8 +529,6 @@ const (
 type MessageBoardSubscriptionsClient interface {
 	// Subscribe to topics; goes to the node returned by the control plane
 	SubscribeTopic(ctx context.Context, in *SubscribeTopicRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[MessageEvent], error)
-	// Request a node to which a subscription can be opened.
-	GetSubscriptionNode(ctx context.Context, in *SubscriptionNodeRequest, opts ...grpc.CallOption) (*SubscriptionNodeResponse, error)
 }
 
 type messageBoardSubscriptionsClient struct {
@@ -561,16 +558,6 @@ func (c *messageBoardSubscriptionsClient) SubscribeTopic(ctx context.Context, in
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type MessageBoardSubscriptions_SubscribeTopicClient = grpc.ServerStreamingClient[MessageEvent]
 
-func (c *messageBoardSubscriptionsClient) GetSubscriptionNode(ctx context.Context, in *SubscriptionNodeRequest, opts ...grpc.CallOption) (*SubscriptionNodeResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SubscriptionNodeResponse)
-	err := c.cc.Invoke(ctx, MessageBoardSubscriptions_GetSubscriptionNode_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // MessageBoardSubscriptionsServer is the server API for MessageBoardSubscriptions service.
 // All implementations must embed UnimplementedMessageBoardSubscriptionsServer
 // for forward compatibility.
@@ -579,8 +566,6 @@ func (c *messageBoardSubscriptionsClient) GetSubscriptionNode(ctx context.Contex
 type MessageBoardSubscriptionsServer interface {
 	// Subscribe to topics; goes to the node returned by the control plane
 	SubscribeTopic(*SubscribeTopicRequest, grpc.ServerStreamingServer[MessageEvent]) error
-	// Request a node to which a subscription can be opened.
-	GetSubscriptionNode(context.Context, *SubscriptionNodeRequest) (*SubscriptionNodeResponse, error)
 	mustEmbedUnimplementedMessageBoardSubscriptionsServer()
 }
 
@@ -593,9 +578,6 @@ type UnimplementedMessageBoardSubscriptionsServer struct{}
 
 func (UnimplementedMessageBoardSubscriptionsServer) SubscribeTopic(*SubscribeTopicRequest, grpc.ServerStreamingServer[MessageEvent]) error {
 	return status.Error(codes.Unimplemented, "method SubscribeTopic not implemented")
-}
-func (UnimplementedMessageBoardSubscriptionsServer) GetSubscriptionNode(context.Context, *SubscriptionNodeRequest) (*SubscriptionNodeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetSubscriptionNode not implemented")
 }
 func (UnimplementedMessageBoardSubscriptionsServer) mustEmbedUnimplementedMessageBoardSubscriptionsServer() {
 }
@@ -630,36 +612,13 @@ func _MessageBoardSubscriptions_SubscribeTopic_Handler(srv interface{}, stream g
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type MessageBoardSubscriptions_SubscribeTopicServer = grpc.ServerStreamingServer[MessageEvent]
 
-func _MessageBoardSubscriptions_GetSubscriptionNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SubscriptionNodeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MessageBoardSubscriptionsServer).GetSubscriptionNode(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: MessageBoardSubscriptions_GetSubscriptionNode_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MessageBoardSubscriptionsServer).GetSubscriptionNode(ctx, req.(*SubscriptionNodeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // MessageBoardSubscriptions_ServiceDesc is the grpc.ServiceDesc for MessageBoardSubscriptions service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var MessageBoardSubscriptions_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "razpravljalnica.MessageBoardSubscriptions",
 	HandlerType: (*MessageBoardSubscriptionsServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "GetSubscriptionNode",
-			Handler:    _MessageBoardSubscriptions_GetSubscriptionNode_Handler,
-		},
-	},
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "SubscribeTopic",
@@ -671,7 +630,8 @@ var MessageBoardSubscriptions_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ClientDiscovery_GetClusterState_FullMethodName = "/razpravljalnica.ClientDiscovery/GetClusterState"
+	ClientDiscovery_GetClusterState_FullMethodName     = "/razpravljalnica.ClientDiscovery/GetClusterState"
+	ClientDiscovery_GetSubscriptionNode_FullMethodName = "/razpravljalnica.ClientDiscovery/GetSubscriptionNode"
 )
 
 // ClientDiscoveryClient is the client API for ClientDiscovery service.
@@ -682,6 +642,8 @@ const (
 type ClientDiscoveryClient interface {
 	// Get the current head and tail nodes (for the client to connect to)
 	GetClusterState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetClusterStateResponse, error)
+	// Request a node to which a subscription can be opened.
+	GetSubscriptionNode(ctx context.Context, in *SubscriptionNodeRequest, opts ...grpc.CallOption) (*SubscriptionNodeResponse, error)
 }
 
 type clientDiscoveryClient struct {
@@ -702,6 +664,16 @@ func (c *clientDiscoveryClient) GetClusterState(ctx context.Context, in *emptypb
 	return out, nil
 }
 
+func (c *clientDiscoveryClient) GetSubscriptionNode(ctx context.Context, in *SubscriptionNodeRequest, opts ...grpc.CallOption) (*SubscriptionNodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubscriptionNodeResponse)
+	err := c.cc.Invoke(ctx, ClientDiscovery_GetSubscriptionNode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ClientDiscoveryServer is the server API for ClientDiscovery service.
 // All implementations must embed UnimplementedClientDiscoveryServer
 // for forward compatibility.
@@ -710,6 +682,8 @@ func (c *clientDiscoveryClient) GetClusterState(ctx context.Context, in *emptypb
 type ClientDiscoveryServer interface {
 	// Get the current head and tail nodes (for the client to connect to)
 	GetClusterState(context.Context, *emptypb.Empty) (*GetClusterStateResponse, error)
+	// Request a node to which a subscription can be opened.
+	GetSubscriptionNode(context.Context, *SubscriptionNodeRequest) (*SubscriptionNodeResponse, error)
 	mustEmbedUnimplementedClientDiscoveryServer()
 }
 
@@ -722,6 +696,9 @@ type UnimplementedClientDiscoveryServer struct{}
 
 func (UnimplementedClientDiscoveryServer) GetClusterState(context.Context, *emptypb.Empty) (*GetClusterStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetClusterState not implemented")
+}
+func (UnimplementedClientDiscoveryServer) GetSubscriptionNode(context.Context, *SubscriptionNodeRequest) (*SubscriptionNodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSubscriptionNode not implemented")
 }
 func (UnimplementedClientDiscoveryServer) mustEmbedUnimplementedClientDiscoveryServer() {}
 func (UnimplementedClientDiscoveryServer) testEmbeddedByValue()                         {}
@@ -762,6 +739,24 @@ func _ClientDiscovery_GetClusterState_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ClientDiscovery_GetSubscriptionNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubscriptionNodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientDiscoveryServer).GetSubscriptionNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientDiscovery_GetSubscriptionNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientDiscoveryServer).GetSubscriptionNode(ctx, req.(*SubscriptionNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ClientDiscovery_ServiceDesc is the grpc.ServiceDesc for ClientDiscovery service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -772,6 +767,10 @@ var ClientDiscovery_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetClusterState",
 			Handler:    _ClientDiscovery_GetClusterState_Handler,
+		},
+		{
+			MethodName: "GetSubscriptionNode",
+			Handler:    _ClientDiscovery_GetSubscriptionNode_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

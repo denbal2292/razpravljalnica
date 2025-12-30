@@ -1710,12 +1710,12 @@ const file_razpravljalnica_proto_rawDesc = "" +
 	"\n" +
 	"ListTopics\x12\x16.google.protobuf.Empty\x1a#.razpravljalnica.ListTopicsResponse\x12A\n" +
 	"\aGetUser\x12\x1f.razpravljalnica.GetUserRequest\x1a\x15.razpravljalnica.User\x12X\n" +
-	"\vGetMessages\x12#.razpravljalnica.GetMessagesRequest\x1a$.razpravljalnica.GetMessagesResponse2\xe2\x01\n" +
+	"\vGetMessages\x12#.razpravljalnica.GetMessagesRequest\x1a$.razpravljalnica.GetMessagesResponse2v\n" +
 	"\x19MessageBoardSubscriptions\x12Y\n" +
-	"\x0eSubscribeTopic\x12&.razpravljalnica.SubscribeTopicRequest\x1a\x1d.razpravljalnica.MessageEvent0\x01\x12j\n" +
-	"\x13GetSubscriptionNode\x12(.razpravljalnica.SubscriptionNodeRequest\x1a).razpravljalnica.SubscriptionNodeResponse2f\n" +
+	"\x0eSubscribeTopic\x12&.razpravljalnica.SubscribeTopicRequest\x1a\x1d.razpravljalnica.MessageEvent0\x012\xd2\x01\n" +
 	"\x0fClientDiscovery\x12S\n" +
-	"\x0fGetClusterState\x12\x16.google.protobuf.Empty\x1a(.razpravljalnica.GetClusterStateResponse2\xde\x01\n" +
+	"\x0fGetClusterState\x12\x16.google.protobuf.Empty\x1a(.razpravljalnica.GetClusterStateResponse\x12j\n" +
+	"\x13GetSubscriptionNode\x12(.razpravljalnica.SubscriptionNodeRequest\x1a).razpravljalnica.SubscriptionNodeResponse2\xde\x01\n" +
 	"\fControlPlane\x12>\n" +
 	"\tHeartbeat\x12\x19.razpravljalnica.NodeInfo\x1a\x16.google.protobuf.Empty\x12I\n" +
 	"\fRegisterNode\x12\x19.razpravljalnica.NodeInfo\x1a\x1e.razpravljalnica.NeighborsInfo\x12C\n" +
@@ -1808,8 +1808,8 @@ var file_razpravljalnica_proto_depIdxs = []int32{
 	19, // 28: razpravljalnica.MessageBoardReads.GetUser:input_type -> razpravljalnica.GetUserRequest
 	13, // 29: razpravljalnica.MessageBoardReads.GetMessages:input_type -> razpravljalnica.GetMessagesRequest
 	15, // 30: razpravljalnica.MessageBoardSubscriptions.SubscribeTopic:input_type -> razpravljalnica.SubscribeTopicRequest
-	16, // 31: razpravljalnica.MessageBoardSubscriptions.GetSubscriptionNode:input_type -> razpravljalnica.SubscriptionNodeRequest
-	29, // 32: razpravljalnica.ClientDiscovery.GetClusterState:input_type -> google.protobuf.Empty
+	29, // 31: razpravljalnica.ClientDiscovery.GetClusterState:input_type -> google.protobuf.Empty
+	16, // 32: razpravljalnica.ClientDiscovery.GetSubscriptionNode:input_type -> razpravljalnica.SubscriptionNodeRequest
 	5,  // 33: razpravljalnica.ControlPlane.Heartbeat:input_type -> razpravljalnica.NodeInfo
 	5,  // 34: razpravljalnica.ControlPlane.RegisterNode:input_type -> razpravljalnica.NodeInfo
 	5,  // 35: razpravljalnica.ControlPlane.UnregisterNode:input_type -> razpravljalnica.NodeInfo
@@ -1829,8 +1829,8 @@ var file_razpravljalnica_proto_depIdxs = []int32{
 	1,  // 49: razpravljalnica.MessageBoardReads.GetUser:output_type -> razpravljalnica.User
 	14, // 50: razpravljalnica.MessageBoardReads.GetMessages:output_type -> razpravljalnica.GetMessagesResponse
 	18, // 51: razpravljalnica.MessageBoardSubscriptions.SubscribeTopic:output_type -> razpravljalnica.MessageEvent
-	17, // 52: razpravljalnica.MessageBoardSubscriptions.GetSubscriptionNode:output_type -> razpravljalnica.SubscriptionNodeResponse
-	20, // 53: razpravljalnica.ClientDiscovery.GetClusterState:output_type -> razpravljalnica.GetClusterStateResponse
+	20, // 52: razpravljalnica.ClientDiscovery.GetClusterState:output_type -> razpravljalnica.GetClusterStateResponse
+	17, // 53: razpravljalnica.ClientDiscovery.GetSubscriptionNode:output_type -> razpravljalnica.SubscriptionNodeResponse
 	29, // 54: razpravljalnica.ControlPlane.Heartbeat:output_type -> google.protobuf.Empty
 	22, // 55: razpravljalnica.ControlPlane.RegisterNode:output_type -> razpravljalnica.NeighborsInfo
 	29, // 56: razpravljalnica.ControlPlane.UnregisterNode:output_type -> google.protobuf.Empty

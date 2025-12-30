@@ -91,9 +91,6 @@ service MessageBoardReads {
 service MessageBoardSubscriptions {
   // Subscribe to topics; goes to the node returned by the control plane
   rpc SubscribeTopic(SubscribeTopicRequest) returns (stream MessageEvent);
-
-  // Request a node to which a subscription can be opened.
-  rpc GetSubscriptionNode(SubscriptionNodeRequest) returns (SubscriptionNodeResponse);
 }
 
 message CreateUserRequest {
@@ -179,6 +176,9 @@ message GetUserRequest {
 service ClientDiscovery {
   // Get the current head and tail nodes (for the client to connect to)
   rpc GetClusterState(google.protobuf.Empty) returns (GetClusterStateResponse);
+  
+  // Request a node to which a subscription can be opened.
+  rpc GetSubscriptionNode(SubscriptionNodeRequest) returns (SubscriptionNodeResponse);
 }
 
 // API for nodes to call the control plane (node -> control plane)
