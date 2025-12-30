@@ -166,9 +166,16 @@ func (gc *guiClient) setupWidgets() {
 			// Extract message ID from region ID
 			fmt.Sscanf(regionId, "msg-%d", &messageId)
 
+			gc.clientMu.Lock()
+			gc.selectedMessageId = messageId
+			gc.clientMu.Unlock()
+
 			gc.displayStatus(fmt.Sprintf("%d", messageId), "blue")
+
 		} else {
+			gc.clientMu.Lock()
 			gc.selectedMessageId = -1
+			gc.clientMu.Unlock()
 		}
 	})
 

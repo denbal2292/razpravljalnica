@@ -85,9 +85,12 @@ func (gc *guiClient) refreshTopics(reloadMessages bool) {
 			topicsIds = append(topicsIds, topic.Id)
 		}
 
+		gc.clientMu.Lock()
+		gc.topics = topicsMap
+		gc.topicOrder = topicsIds
+		gc.clientMu.Unlock()
+
 		gc.app.QueueUpdateDraw(func() {
-			gc.topics = topicsMap
-			gc.topicOrder = topicsIds
 			gc.topicsList.Clear()
 			for _, topicId := range topicsIds {
 				gc.topicsList.AddItem(gc.topics[topicId].Name, "", 0, nil)

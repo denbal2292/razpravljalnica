@@ -34,13 +34,13 @@ func (gc *guiClient) handleCreateUser() {
 			gc.displayStatus("Uporabnik uspešno ustvarjen", "green")
 		}
 
+		// Set the user ID for future operations
+		gc.clientMu.Lock()
+		gc.userId = user.Id
+		gc.clientMu.Unlock()
+
 		// Clear the input field after processing
 		gc.app.QueueUpdateDraw(func() {
-			// Set the user ID for future operations
-			gc.clientMu.Lock()
-			gc.userId = user.Id
-			gc.clientMu.Unlock()
-
 			gc.newUserInput.SetText("")
 			gc.loggedInUserView.SetText(fmt.Sprintf("[green]Prijavljen kot[-]: [yellow]%s[-]", user.Name))
 		})
@@ -72,11 +72,11 @@ func (gc *guiClient) handleLogInUser() {
 			return
 		}
 
+		// We can safely set the user ID now
+		gc.clientMu.Lock()
+		gc.userId = id
+		gc.clientMu.Unlock()
 		gc.app.QueueUpdateDraw(func() {
-			// We can safely set the user ID now
-			gc.clientMu.Lock()
-			gc.userId = id
-			gc.clientMu.Unlock()
 			gc.logInUserInput.SetText("")
 			gc.loggedInUserView.SetText(fmt.Sprintf("[green]Prijavljen kot[-]: [yellow]%s[-]", userName))
 			gc.displayStatus("Uspešna prijava uporabnika", "green")
