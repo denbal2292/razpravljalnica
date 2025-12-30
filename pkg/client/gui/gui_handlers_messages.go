@@ -58,7 +58,11 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 		// Update the message view in the GUI
 		gc.app.QueueUpdateDraw(func() {
 			// Change the title
-			gc.messageView.SetTitle(fmt.Sprintf("Sporočila v [yellow]%s[-]", gc.topics[gc.currentTopicId].Name))
+			gc.clientMu.RLock()
+			currentTopicId := gc.topics[gc.currentTopicId].Name
+			gc.clientMu.RUnlock()
+
+			gc.messageView.SetTitle(fmt.Sprintf("Sporočila v [yellow]%s[-]", currentTopicId))
 
 			// Clear the screen before displaying messages
 			gc.messageView.Clear()

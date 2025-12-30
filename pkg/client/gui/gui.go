@@ -86,7 +86,10 @@ func (gc *guiClient) setupWidgets() {
 
 	gc.topicsList.SetSelectedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		if index >= 0 && index < len(gc.topics) {
+			gc.clientMu.RLock()
 			topicId := gc.topicOrder[index]
+			gc.clientMu.RUnlock()
+
 			gc.handleSelectTopic(topicId)
 		}
 	})
