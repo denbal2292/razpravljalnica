@@ -20,8 +20,13 @@ func (gc *guiClient) handleCreateTopic() {
 		return
 	}
 
-	if gc.userId == -1 {
+	gc.clientMu.RLock()
+	userId := gc.userId
+	gc.clientMu.RUnlock()
+
+	if userId == -1 {
 		gc.displayStatus("Za ustvarjanje teme se moraš prijaviti", "red")
+		return
 	}
 
 	go func() {
@@ -41,10 +46,13 @@ func (gc *guiClient) handleCreateTopic() {
 			gc.displayStatus("Tema uspešno ustvarjena", "green")
 		}
 
-		// Clear the input field after processing
-		gc.newTopicInput.SetText("")
-		// Set focus back to topics list
-		gc.app.SetFocus(gc.topicsList)
+		gc.app.QueueUpdateDraw(func() {
+			// Clear the input field after processing
+			gc.newTopicInput.SetText("")
+			// Set focus back to topics list
+			gc.app.SetFocus(gc.topicsList)
+			gc.displayStatus("Tema uspešno ustvarjena", "green")
+		})
 
 		// Refresh the topics list to show the new topic - don't reload messages
 		gc.refreshTopics(false)
@@ -99,7 +107,9 @@ func (gc *guiClient) refreshTopics(reloadMessages bool) {
 // handleSelectTopic processes topic selection from the list and updates the GUI
 func (gc *guiClient) handleSelectTopic(topicId int64) {
 	// Set the current topic ID
+	gc.clientMu.Lock()
 	gc.currentTopicId = topicId
+	gc.clientMu.Unlock()
 
 	// Load the messages from the selected topic
 	gc.loadMessagesForCurrentTopic()

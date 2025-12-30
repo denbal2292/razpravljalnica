@@ -1,6 +1,9 @@
 package gui
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/gdamore/tcell/v2"
@@ -8,6 +11,8 @@ import (
 )
 
 type guiClient struct {
+	clientMu sync.RWMutex
+
 	app              *tview.Application
 	topicsList       *tview.List
 	newUserInput     *tview.InputField
@@ -28,6 +33,9 @@ type guiClient struct {
 	currentTopicId int64
 	topics         map[int64]*pb.Topic
 	topicOrder     []int64
+
+	// Messages
+	selectedMessageId int64
 }
 
 func StartGUIClient(clients *shared.ClientSet) {
@@ -140,9 +148,29 @@ func (gc *guiClient) setupWidgets() {
 	// Configure messages view
 	gc.messageView.
 		SetDynamicColors(true).
+		SetRegions(true).
+		SetScrollable(true).
 		SetWordWrap(true).
 		SetBorder(true).
 		SetTitle("Sporočila")
+
+	// This is called when the highlighted region changes
+	// added holds the the region ids od the highlighted regions,
+	// removed holds the region ids that were unhighlighted,
+	// remaining holds the region ids that are still highlighted,
+	// This will be useful for setting up click events on messages
+	gc.messageView.SetHighlightedFunc(func(added, removed, remaining []string) {
+		if len(added) > 0 {
+			regionId := added[0]
+			var messageId int64
+			// Extract message ID from region ID
+			fmt.Sscanf(regionId, "msg-%d", &messageId)
+
+			gc.displayStatus(fmt.Sprintf("%d", messageId), "blue")
+		} else {
+			gc.selectedMessageId = -1
+		}
+	})
 
 	// Configure message input
 	gc.messageInput.
