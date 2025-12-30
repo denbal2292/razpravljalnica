@@ -21,6 +21,8 @@ type ControlPlane struct {
 	nodes             []*NodeInfo // nodes in order: [HEAD, ..., TAIL] (easier to get neighbors)
 	heartbeatInterval time.Duration
 	heartbeatTimeout  time.Duration
+
+	lastControlIndex uint64
 }
 
 func NewControlPlane() *ControlPlane {
