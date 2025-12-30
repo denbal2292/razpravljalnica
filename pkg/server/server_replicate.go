@@ -10,18 +10,7 @@ import (
 )
 
 func (n *Node) handleEventReplication(event *pb.Event) {
-	if !n.syncMu.TryRLock() {
-		// If syncing, enqueue the event to be processed later
-		n.EnqueueEvent(event)
-		n.logger.Info("Node is syncing, event enqueued", "sequence_number", event.SequenceNumber)
-		return
-	}
-
-	// 2. Forward the event to the successor
-	go func() {
-		defer n.syncMu.RUnlock()
-		n.doForwardAllEvents(event)
-	}()
+	go n.doForwardAllEvents(event)
 }
 
 func (n *Node) handleSyncEventReplication(event *pb.Event) {
@@ -30,6 +19,9 @@ func (n *Node) handleSyncEventReplication(event *pb.Event) {
 }
 
 func (n *Node) doForwardAllEvents(event *pb.Event) {
+	n.syncMu.RLock()
+	defer n.syncMu.RUnlock()
+
 	n.eventMu.Lock()
 	defer n.eventMu.Unlock()
 
