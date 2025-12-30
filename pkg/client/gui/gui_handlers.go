@@ -136,13 +136,9 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 			return
 		}
 
-		// Sort messages by createdAt ascending - NOTE not yet supported
-		// sort.Slice(messages.Messages, func(i, j int) bool {
-		// 	// return messages.Messages[i].CreatedAt.AsTime().Before(messages.Messages[j].CreatedAt.AsTime())
-		// })
-		// Sort by ID for now
+		// Sort messages by createdAt ascending
 		sort.Slice(messages.Messages, func(i, j int) bool {
-			return messages.Messages[i].Id < messages.Messages[j].Id
+			return messages.Messages[i].CreatedAt.AsTime().Before(messages.Messages[j].CreatedAt.AsTime())
 		})
 
 		// Fetch all unique users before updating the GUI
