@@ -15,9 +15,13 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 		defer cancel()
 
+		gc.clientMu.RLock()
+		currentTopicId := gc.currentTopicId
+		gc.clientMu.RUnlock()
+
 		// This should be more dynamic
 		messages, err := gc.clients.Reads.GetMessages(ctx, &pb.GetMessagesRequest{
-			TopicId:       gc.currentTopicId,
+			TopicId:       currentTopicId,
 			FromMessageId: 0,
 			Limit:         50,
 		})
@@ -54,7 +58,11 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 		// Update the message view in the GUI
 		gc.app.QueueUpdateDraw(func() {
 			// Change the title
-			gc.messageView.SetTitle(fmt.Sprintf("Sporočila v [yellow]%s[-]", gc.topics[gc.currentTopicId].Name))
+			gc.clientMu.RLock()
+			currentTopicId := gc.topics[gc.currentTopicId].Name
+			gc.clientMu.RUnlock()
+
+			gc.messageView.SetTitle(fmt.Sprintf("Sporočila v [yellow]%s[-]", currentTopicId))
 
 			// Clear the screen before displaying messages
 			gc.messageView.Clear()
@@ -70,9 +78,12 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 
 				// TODO: Make this nicer?
 				timestamp := message.CreatedAt.AsTime().Local().Format("02-01-2006 15:04")
-				messageLine := fmt.Sprintf("[yellow]%s[-]: %s ([green]Všečki: %d[-]) [%s]\n", user.Name, message.Text, message.Likes, timestamp)
+				regionId := fmt.Sprintf("msg-%d", message.Id)
+
+				messageLine := fmt.Sprintf(`["%s"][yellow]%s[-]: %s ([green]Všečki: %d[-]) [%s][""]`+"\n", regionId, user.Name, message.Text, message.Likes, timestamp)
 				gc.messageView.Write([]byte(messageLine))
 			}
+			gc.messageView.ScrollToEnd()
 		})
 	}()
 }
@@ -89,9 +100,14 @@ func (gc *guiClient) handlePostMessage() {
 		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 		defer cancel()
 
+		gc.clientMu.RLock()
+		userId := gc.userId
+		currentTopicId := gc.currentTopicId
+		gc.clientMu.RUnlock()
+
 		_, err := gc.clients.Writes.PostMessage(ctx, &pb.PostMessageRequest{
-			UserId:  gc.userId,
-			TopicId: gc.currentTopicId,
+			UserId:  userId,
+			TopicId: currentTopicId,
 			Text:    message,
 		})
 
@@ -108,4 +124,23 @@ func (gc *guiClient) handlePostMessage() {
 			gc.loadMessagesForCurrentTopic()
 		})
 	}()
+}
+
+func (gc *guiClient) handleMessageClick() {
+	gc.clientMu.RLock()
+	messageId := gc.selectedMessageId
+	gc.clientMu.RUnlock()
+
+	if messageId == -1 {
+		gc.displayStatus("Izberi sporočilo za brisanje", "red")
+		return
+	}
+
+	gc.showModal(
+		fmt.Sprintf("Ali si prepričan, da želiš izbrisati sporočilo %d?", messageId),
+		[]string{"Da", "Ne"},
+		func(buttonIndex int, buttonLabel string) {
+			gc.displayStatus("OK", "green")
+		},
+	)
 }

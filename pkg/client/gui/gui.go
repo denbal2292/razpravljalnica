@@ -1,6 +1,9 @@
 package gui
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/gdamore/tcell/v2"
@@ -8,7 +11,10 @@ import (
 )
 
 type guiClient struct {
+	clientMu sync.RWMutex
+
 	app              *tview.Application
+	pages            *tview.Pages
 	topicsList       *tview.List
 	newUserInput     *tview.InputField
 	loggedInUserView *tview.TextView
@@ -17,6 +23,7 @@ type guiClient struct {
 	messageView      *tview.TextView
 	messageInput     *tview.InputField
 	statusBar        *tview.TextView
+	modal            *tview.Modal
 
 	// Keep reference to the connections
 	clients *shared.ClientSet
@@ -28,6 +35,9 @@ type guiClient struct {
 	currentTopicId int64
 	topics         map[int64]*pb.Topic
 	topicOrder     []int64
+
+	// Messages
+	selectedMessageId int64
 }
 
 func StartGUIClient(clients *shared.ClientSet) {
@@ -43,6 +53,7 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 	// Initialize GUI client structure
 	gc := &guiClient{
 		app:              tview.NewApplication(),
+		pages:            tview.NewPages(),
 		newUserInput:     tview.NewInputField(),
 		loggedInUserView: tview.NewTextView(),
 		logInUserInput:   tview.NewInputField(),
@@ -51,6 +62,7 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 		messageView:      tview.NewTextView(),
 		messageInput:     tview.NewInputField(),
 		statusBar:        tview.NewTextView(),
+		modal:            tview.NewModal(),
 
 		// User is not logged in initially
 		userId: -1,
@@ -78,7 +90,10 @@ func (gc *guiClient) setupWidgets() {
 
 	gc.topicsList.SetSelectedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		if index >= 0 && index < len(gc.topics) {
+			gc.clientMu.RLock()
 			topicId := gc.topicOrder[index]
+			gc.clientMu.RUnlock()
+
 			gc.handleSelectTopic(topicId)
 		}
 	})
@@ -140,9 +155,36 @@ func (gc *guiClient) setupWidgets() {
 	// Configure messages view
 	gc.messageView.
 		SetDynamicColors(true).
+		SetRegions(true).
+		SetScrollable(true).
 		SetWordWrap(true).
 		SetBorder(true).
 		SetTitle("Sporočila")
+
+	// This is called when the highlighted region changes
+	// added holds the the region ids od the highlighted regions,
+	// removed holds the region ids that were unhighlighted,
+	// remaining holds the region ids that are still highlighted,
+	// This will be useful for setting up click events on messages
+	gc.messageView.SetHighlightedFunc(func(added, removed, remaining []string) {
+		if len(added) > 0 {
+			regionId := added[0]
+			var messageId int64
+			// Extract message ID from region ID
+			fmt.Sscanf(regionId, "msg-%d", &messageId)
+			// Store the selected message ID
+			gc.clientMu.Lock()
+			gc.selectedMessageId = messageId
+			gc.clientMu.Unlock()
+
+			// Handle message click
+			gc.handleMessageClick()
+		} else {
+			gc.clientMu.Lock()
+			gc.selectedMessageId = -1
+			gc.clientMu.Unlock()
+		}
+	})
 
 	// Configure message input
 	gc.messageInput.
@@ -196,5 +238,8 @@ func (gc *guiClient) setupLayout() {
 	grid.AddItem(messagesColumn, 1, 2, 1, 1, 0, 0, true)
 	grid.AddItem(gc.statusBar, 2, 0, 1, 3, 0, 0, false)
 
-	gc.app.SetRoot(grid, true)
+	// Add main layout as a page
+	gc.pages.AddPage("main", grid, true, true)
+
+	gc.app.SetRoot(gc.pages, true)
 }

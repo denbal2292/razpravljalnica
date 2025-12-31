@@ -35,7 +35,9 @@ func (gc *guiClient) handleCreateUser() {
 		}
 
 		// Set the user ID for future operations
+		gc.clientMu.Lock()
 		gc.userId = user.Id
+		gc.clientMu.Unlock()
 
 		// Clear the input field after processing
 		gc.app.QueueUpdateDraw(func() {
@@ -71,7 +73,9 @@ func (gc *guiClient) handleLogInUser() {
 		}
 
 		// We can safely set the user ID now
+		gc.clientMu.Lock()
 		gc.userId = id
+		gc.clientMu.Unlock()
 		gc.app.QueueUpdateDraw(func() {
 			gc.logInUserInput.SetText("")
 			gc.loggedInUserView.SetText(fmt.Sprintf("[green]Prijavljen kot[-]: [yellow]%s[-]", userName))
