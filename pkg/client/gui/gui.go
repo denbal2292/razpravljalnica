@@ -71,6 +71,9 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 	}
 	gc.app.EnableMouse(true)
 
+	// Override the tview defaults
+	// tview.Styles.ContrastBackgroundColor = tcell.ColorDarkGray
+
 	gc.setupWidgets()
 	gc.setupLayout()
 
@@ -178,7 +181,7 @@ func (gc *guiClient) setupWidgets() {
 			gc.clientMu.Unlock()
 
 			// Handle message click
-			gc.handleMessageClick()
+			gc.showMessageActionsModal(messageId)
 		} else {
 			gc.clientMu.Lock()
 			gc.selectedMessageId = -1

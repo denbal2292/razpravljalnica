@@ -24,21 +24,15 @@ func (gc *guiClient) displayStatus(message string, color string) {
 	}()
 }
 
-// showModal displays a modal dialog with the given text and buttons.
-func (gc *guiClient) showModal(text string, buttons []string, doneFunc func(buttonIndex int, buttonLabel string)) {
-	modal := tview.NewModal().
-		SetBackgroundColor(tcell.ColorBlack).
-		SetTextColor(tcell.ColorWhite).
-		SetText(text).
-		AddButtons(buttons).
-		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			// Just pop the modal from the pages
-			gc.pages.RemovePage("modal")
-			if doneFunc != nil {
-				doneFunc(buttonIndex, buttonLabel)
-			}
-		})
+func createButton(text string, color tcell.Color, activeColor tcell.Color, textColor tcell.Color, activeTextColor tcell.Color) *tview.Button {
+	btn := tview.NewButton(text)
 
-	gc.pages.AddPage("modal", modal, true, true)
-	gc.app.SetFocus(modal)
+	inactiveStyle := tcell.StyleDefault.Background(color).Foreground(textColor)
+	activeStyle := tcell.StyleDefault.Background(activeColor).Foreground(activeTextColor)
+
+	// Set styles in order for tview to not override them with defaults
+	btn.SetStyle(inactiveStyle)
+	btn.SetActivatedStyle(activeStyle)
+
+	return btn
 }

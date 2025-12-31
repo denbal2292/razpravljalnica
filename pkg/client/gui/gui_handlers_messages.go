@@ -8,6 +8,8 @@ import (
 
 	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 )
 
 func (gc *guiClient) loadMessagesForCurrentTopic() {
@@ -126,21 +128,93 @@ func (gc *guiClient) handlePostMessage() {
 	}()
 }
 
-func (gc *guiClient) handleMessageClick() {
-	gc.clientMu.RLock()
-	messageId := gc.selectedMessageId
-	gc.clientMu.RUnlock()
-
-	if messageId == -1 {
-		gc.displayStatus("Izberi sporočilo za brisanje", "red")
-		return
-	}
-
-	gc.showModal(
-		fmt.Sprintf("Ali si prepričan, da želiš izbrisati sporočilo %d?", messageId),
-		[]string{"Da", "Ne"},
-		func(buttonIndex int, buttonLabel string) {
-			gc.displayStatus("OK", "green")
-		},
+func (gc *guiClient) showMessageActionsModal(messageId int64) {
+	likeButton := createButton(
+		"Všeč mi je",
+		tcell.ColorDarkGray,
+		tcell.ColorGreen,
+		tcell.ColorBlack,
+		tcell.ColorWhite,
 	)
+	likeButton.SetSelectedFunc(func() {
+		gc.pages.RemovePage("modal")
+		// Unighlight all text to remove visual selection
+		gc.messageView.Highlight()
+	})
+
+	deleteButton := createButton(
+		"Izbriši",
+		tcell.ColorDarkGray,
+		tcell.ColorRed,
+		tcell.ColorBlack,
+		tcell.ColorWhite,
+	)
+	deleteButton.SetSelectedFunc(func() {
+		gc.pages.RemovePage("modal")
+		// Unighlight all text to remove visual selection
+		gc.messageView.Highlight()
+	})
+
+	closeButton := createButton(
+		"Zapri",
+		tcell.ColorDarkGray,
+		tcell.ColorGray,
+		tcell.ColorBlack,
+		tcell.ColorWhite,
+	)
+	closeButton.SetSelectedFunc(func() {
+		gc.pages.RemovePage("modal")
+		// Unighlight all text to remove visual selection
+		gc.messageView.Highlight()
+	})
+
+	// Create button layout
+	buttons := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(likeButton, 1, 0, true).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(deleteButton, 1, 0, false).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(closeButton, 1, 0, false)
+
+	buttons.SetBorder(true).SetTitle("Akcije").SetBorderPadding(1, 1, 1, 1)
+
+	// Center the modal
+	flex := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(nil, 0, 1, false).
+			AddItem(buttons, 9, 1, true).
+			AddItem(nil, 0, 1, false), 50, 1, true).
+		AddItem(nil, 0, 1, false)
+
+	// Define the order of focus
+	btns := []*tview.Button{likeButton, deleteButton, closeButton}
+
+	// We need this if we want different styles for different buttons
+	buttons.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyTab, tcell.KeyDown:
+			// Move to next button
+			for i, btn := range btns {
+				if btn.HasFocus() {
+					next := (i + 1) % len(btns)
+					gc.app.SetFocus(btns[next])
+					return nil
+				}
+			}
+		case tcell.KeyBacktab, tcell.KeyUp:
+			// Move to previous button
+			for i, btn := range btns {
+				if btn.HasFocus() {
+					prev := (i - 1 + len(btns)) % len(btns)
+					gc.app.SetFocus(btns[prev])
+					return nil
+				}
+			}
+		}
+		return event
+	})
+	gc.pages.AddPage("modal", flex, true, true)
+	gc.app.SetFocus(likeButton)
 }
