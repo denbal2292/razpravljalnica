@@ -8,6 +8,8 @@ import (
 
 	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -164,11 +166,79 @@ func (gc *guiClient) handleTopicSubscription() {
 	topicId := gc.topicOrder[index]
 	gc.clientMu.RUnlock()
 
-	gc.clientMu.Lock()
-	// Set subscription status
-	gc.subscribedTopics[topicId] = true
-	gc.clientMu.Unlock()
+	gc.subscribeToTopic(topicId)
 
-	gc.displayStatus("Uspešno naročeni na temo", "green")
-	gc.displayTopics()
+}
+
+func (gc *guiClient) subscribeToTopic(topicId int64) {
+	go func() {
+		controlPlaneClient := pb.NewClientDiscoveryClient(gc.clients.ControlConn)
+
+		gc.clientMu.RLock()
+		userId := gc.userId
+		gc.clientMu.RUnlock()
+
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		defer cancel()
+
+		// Begin the subscription process
+		subResponse, err := controlPlaneClient.GetSubscriptionNode(ctx, &pb.SubscriptionNodeRequest{
+			UserId: userId,
+		})
+
+		if err != nil {
+			// gc.displayStatus("Napaka pri pridobivanju vozlišča za naročanje", "red")
+			gc.displayStatus(subResponse.Node.Address, "red")
+			return
+		}
+
+		// Connect to the subscription node
+		conn, err := grpc.NewClient(
+			subResponse.Node.Address,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			gc.displayStatus("Napaka pri povezovanju z vozliščem za naročanje", "red")
+			return
+		}
+		defer conn.Close()
+
+		// Create a subscription client
+		subClient := pb.NewMessageBoardSubscriptionsClient(conn)
+
+		// Get the last message ID we already have for the topic
+		var fromMessageId int64 = 0
+		gc.clientMu.RLock()
+		if entry, ok := gc.messageCache[topicId]; ok && len(entry.order) > 0 {
+			fromMessageId = entry.order[len(entry.order)-1]
+		}
+		gc.clientMu.RUnlock()
+
+		// Send subscription request
+		subscriptionStream, err := subClient.SubscribeTopic(context.Background(), &pb.SubscribeTopicRequest{
+			UserId: userId,
+			// Only subscribe to the selected topic
+			TopicId:        []int64{topicId},
+			FromMessageId:  fromMessageId,
+			SubscribeToken: subResponse.SubscribeToken,
+		})
+
+		if err != nil {
+			gc.displayStatus("Overitev neuspešna", "red")
+			return
+		}
+
+		gc.displayStatus("Uspešno naročeni na temo", "green")
+
+		gc.handleSubscriptionStream(topicId, subscriptionStream)
+		// gc.clients.ControlConn.
+
+		// gc.clientMu.Lock()
+		// // Set subscription status
+		// gc.subscribedTopics[topicId] = true
+		// gc.clientMu.Unlock()
+
+		// gc.displayStatus("Uspešno naročeni na temo", "green")
+		// gc.displayTopics()
+	}()
 }
