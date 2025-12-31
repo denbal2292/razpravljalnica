@@ -84,7 +84,7 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 	gc.setupLayout()
 
 	// Once it's setup, refresh the topics list
-	gc.refreshTopics(true)
+	gc.refreshTopics()
 
 	return gc
 }
@@ -105,6 +105,15 @@ func (gc *guiClient) setupWidgets() {
 
 			gc.handleSelectTopic(topicId)
 		}
+	})
+
+	gc.topicsList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Rune() == 'r' || event.Rune() == 'R' {
+			gc.refreshTopics()
+			return nil
+		}
+
+		return event
 	})
 
 	// Configure new user input
@@ -193,6 +202,16 @@ func (gc *guiClient) setupWidgets() {
 			gc.selectedMessageId = 0
 			gc.clientMu.Unlock()
 		}
+	})
+
+	gc.messageView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// Refresh messages on 'r' key
+		if event.Rune() == 'r' || event.Rune() == 'R' {
+			gc.loadMessagesForCurrentTopic()
+			return nil
+		}
+
+		return event
 	})
 
 	// Configure message input

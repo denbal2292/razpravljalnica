@@ -55,16 +55,21 @@ func (gc *guiClient) handleCreateTopic() {
 		})
 
 		// Refresh the topics list to show the new topic - don't reload messages
-		gc.refreshTopics(false)
+		gc.refreshTopics()
 
 	}()
 }
 
 // refreshTopics fetches the list of topics from the server and updates the GUI
-func (gc *guiClient) refreshTopics(reloadMessages bool) {
+func (gc *guiClient) refreshTopics() {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 		defer cancel()
+
+		// Store the previous topic ID
+		gc.clientMu.RLock()
+		prevTopicId := gc.currentTopicId
+		gc.clientMu.RUnlock()
 
 		topics, err := gc.clients.Reads.ListTopics(ctx, &emptypb.Empty{})
 		if err != nil {
@@ -92,18 +97,26 @@ func (gc *guiClient) refreshTopics(reloadMessages bool) {
 
 		gc.app.QueueUpdateDraw(func() {
 			gc.topicsList.Clear()
-			for _, topicId := range topicsIds {
+			selectedIndex := -1
+			for i, topicId := range topicsIds {
 				gc.topicsList.AddItem(gc.topics[topicId].Name, "", 0, nil)
+				if topicId == prevTopicId {
+					selectedIndex = i
+				}
 			}
-			if len(gc.topicOrder) > 0 {
-				// Set the current topic to the first one if available
-				gc.currentTopicId = gc.topicOrder[0]
+			if len(gc.topicOrder) > 0 && selectedIndex >= 0 {
+				// Set the current topic to the previously selected one if available
+				gc.clientMu.Lock()
+				gc.currentTopicId = gc.topicOrder[selectedIndex]
+				gc.clientMu.Unlock()
+				gc.topicsList.SetCurrentItem(selectedIndex)
+			} else {
+				gc.topicsList.SetCurrentItem(-1)
+				gc.clientMu.Lock()
+				gc.currentTopicId = 0
+				gc.clientMu.Unlock()
 			}
 		})
-
-		if reloadMessages && len(gc.topicOrder) > 0 {
-			gc.loadMessagesForCurrentTopic()
-		}
 	}()
 }
 
