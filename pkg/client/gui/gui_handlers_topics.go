@@ -2,6 +2,7 @@ package gui
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"sort"
 	"strings"
@@ -208,8 +209,9 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 		var fromMessageId int64 = 0
 		gc.clientMu.RLock()
 		if entry, ok := gc.messageCache[topicId]; ok && len(entry.order) > 0 {
-			fromMessageId = entry.order[len(entry.order)-1]
+			fromMessageId = entry.order[len(entry.order)-1] + 1
 		}
+		gc.displayStatus(fmt.Sprintf("Zadnje sporočilo ID: %d", fromMessageId), "blue")
 		gc.clientMu.RUnlock()
 
 		// Send subscription request
@@ -226,17 +228,7 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 			return
 		}
 
-		gc.displayStatus("Uspešno naročeni na temo", "green")
-
-		gc.handleSubscriptionStream(topicId, subscriptionStream)
-		// gc.clients.ControlConn.
-
-		// gc.clientMu.Lock()
-		// // Set subscription status
-		// gc.subscribedTopics[topicId] = true
-		// gc.clientMu.Unlock()
-
 		// gc.displayStatus("Uspešno naročeni na temo", "green")
-		// gc.displayTopics()
+		gc.handleSubscriptionStream(topicId, subscriptionStream)
 	}()
 }
