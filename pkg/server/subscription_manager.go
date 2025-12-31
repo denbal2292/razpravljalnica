@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"crypto/rand"
 	"fmt"
 	"sync"
@@ -66,7 +65,7 @@ func (sm *SubscriptionManager) AddMessageEvent(event *pb.MessageEvent, topicId i
 }
 
 // Control plane calls this RPC to inform the node about a new subscription request
-func (sm *SubscriptionManager) AddSubscriptionRequest(ctx context.Context, req *pb.SubscriptionNodeRequest) (*pb.AddSubscriptionResponse, error) {
+func (sm *SubscriptionManager) AddSubscriptionRequest(req *pb.SubscriptionNodeRequest) (*pb.AddSubscriptionResponse, error) {
 	sm.availMu.Lock()
 	defer sm.availMu.Unlock()
 
@@ -159,7 +158,7 @@ func (sm *SubscriptionManager) ClearSubscription(subscribeToken string) {
 	delete(sm.activeSubscriptions, subscribeToken)
 
 	for _, topicId := range subDelete.topicIds {
-		subs:= sm.subscriptionsByTopic[topicId]
+		subs := sm.subscriptionsByTopic[topicId]
 
 		for i, topicSub := range subs {
 			if subDelete == topicSub {

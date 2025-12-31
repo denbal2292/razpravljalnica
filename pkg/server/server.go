@@ -167,6 +167,10 @@ func (n *Node) connectToControlPlane() {
 	}
 }
 
+func (n *Node) AddSubscriptionRequest(req *pb.SubscriptionNodeRequest) (*pb.AddSubscriptionResponse, error) {
+	return n.subscriptionManager.AddSubscriptionRequest(req)
+}
+
 // Apply the given event to the local storage
 func (n *Node) applyEvent(event *pb.Event) error {
 	switch event.Op {
