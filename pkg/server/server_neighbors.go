@@ -41,7 +41,6 @@ func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) 
 func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*emptypb.Empty, error) {
 	succ := succMsg.Node
 
-	n.syncMu.Lock()
 	n.setSuccessor(succ)
 
 	n.logger.Info("SetSuccessor called", "node_info", succ)

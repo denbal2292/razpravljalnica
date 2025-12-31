@@ -11,6 +11,8 @@ func (n *Node) setSuccessor(nodeInfo *pb.NodeInfo) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
+	n.cancelFunc() // Cancel any existing sending goroutine
+
 	// 1. Try to close existing connection if any
 	if n.successor != nil {
 		n.successor.conn.Close()
@@ -27,9 +29,9 @@ func (n *Node) setSuccessor(nodeInfo *pb.NodeInfo) {
 
 	if err != nil {
 		panic(fmt.Errorf("Failed to create client connection to successor: %w", err))
-	} else {
-		n.successor = successorConn
 	}
+
+	n.successor = successorConn
 }
 
 // A method which actually sets the predecessor connection

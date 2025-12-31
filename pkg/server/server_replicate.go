@@ -9,86 +9,102 @@ import (
 )
 
 func (n *Node) handleEventReplication(event *pb.Event) {
-	go n.doForwardAllEvents(event)
+	n.bufferEvent(event)
 }
 
 func (n *Node) handleSyncEventReplication(event *pb.Event) {
 	n.logger.Info("Replicating missing event to successor", "sequence_number", event.SequenceNumber)
-	n.forwardEvent(event)
+	n.replicateEvent(event)
 }
 
-func (n *Node) doForwardAllEvents(event *pb.Event) {
-	n.syncMu.RLock()
-	defer n.syncMu.RUnlock()
-
+func (n *Node) bufferEvent(event *pb.Event) {
 	n.eventMu.Lock()
 	defer n.eventMu.Unlock()
 
 	n.logEventReceived(event)
 
-	if event.SequenceNumber == n.nextEventSeq {
-		n.logger.Info("Handling next expected event", "sequence_number", event.SequenceNumber)
+	if event.SequenceNumber < n.nextEventSeq {
+		// This probably shouldn't happen (but better to be safe)
+		n.logger.Warn("Received event for already applied sequence number - not forwarding", "sequence_number", event.SequenceNumber, "next_expected", n.nextEventSeq)
+		return
+	}
+
+	// Buffer the event
+	n.eventQueue[event.SequenceNumber] = event
+
+	// Wake up the replicator goroutine to process the new event in a non-blocking way
+	select {
+	case n.sendChan <- struct{}{}:
+		// Successfully notified the replicator
+	default:
+		// Replicator is already notified or busy
+	}
+}
+
+// The goroutine which actually sends events to the successor
+func (n *Node) eventReplicator() {
+	defer n.logger.Warn("Stopping event replicator goroutine")
+
+	n.logger.Info("Starting event replicator goroutine")
+
+	for {
+		select {
+		case <-n.sendChan:
+			n.replicateNextEvents()
+
+		case <-n.cancelCtx.Done():
+			n.logger.Info("Event replicator goroutine exiting due to cancellation")
+			return
+		}
+	}
+}
+
+func (n *Node) replicateNextEvents() {
+	n.eventMu.Lock()
+	defer n.eventMu.Unlock()
+
+	for {
+		event, exists := n.eventQueue[n.nextEventSeq]
+		if !exists {
+			return
+		}
+
+		n.logger.Info("Replicating event to successor", "sequence_number", event.SequenceNumber)
 
 		// Add the event to the buffer unless we're the HEAD (it already applied when created)
 		if !n.IsHead() {
 			n.eventBuffer.AddEvent(event)
 		}
 
-		// Event is the next expected, send it immediately
-		n.forwardEvent(event)
+		n.replicateEvent(event)
 
-		// Update the next expected sequence number
+		// Remove from buffer and increment expected sequence number
+		delete(n.eventQueue, n.nextEventSeq)
 		n.nextEventSeq++
-
-		// Check if there are buffered events that can now be sent
-		for {
-			bufferedEvent, exists := n.eventQueue[n.nextEventSeq]
-			if !exists {
-				break
-			}
-
-			n.logger.Info("Handling buffered event", "sequence_number", bufferedEvent.SequenceNumber)
-
-			// Add the event to the buffer unless we're the HEAD (it already applied when created)
-			if !n.IsHead() {
-				n.eventBuffer.AddEvent(bufferedEvent)
-			}
-
-			// Send the buffered event
-			n.forwardEvent(bufferedEvent)
-
-			// Remove from buffer and update next expected sequence number
-			delete(n.eventQueue, n.nextEventSeq)
-			n.nextEventSeq++
-		}
-	} else if event.SequenceNumber > n.nextEventSeq {
-		// Event is out of order, buffer it
-		n.eventQueue[event.SequenceNumber] = event
-		n.logger.Info("Event buffered due to out-of-order reception", "sequence_number", event.SequenceNumber, "expected_sequence_number", n.nextEventSeq)
-	} else {
-		// This probably shouldn't happen (but better to be safe)
-		n.logger.Warn("Received event for already applied sequence number - not forwarding", "sequence_number", event.SequenceNumber, "next_expected", n.nextEventSeq)
 	}
 }
 
-func (n *Node) forwardEvent(event *pb.Event) {
+func (n *Node) replicateEvent(event *pb.Event) {
 	if n.IsTail() {
-		// If this is the tail, apply the event and send ACK back
+		// If TAIL, apply the event and send ACK back
 		n.handleEventAcknowledgment(event.SequenceNumber)
 	} else {
+		// If not TAIL, forward the event to the successor
+		successorClient := n.getSuccessorClient()
+
+		if successorClient == nil {
+			panic("Successor client is nil when trying to replicate event")
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		succClient := n.getSuccessorClient()
+		_, err := successorClient.ReplicateEvent(ctx, event)
 
-		if succClient == nil {
-			panic("sendEventToSuccessor called on non-tail node with no successor?")
-		}
-
-		if _, err := succClient.ReplicateEvent(ctx, event); err != nil {
-			n.logger.Error("Failed to forward event to successor", "error", err)
+		if err != nil {
+			n.logger.Error("Failed to replicate event to successor", "sequence_number", event.SequenceNumber, "error", err)
 		} else {
-			n.logger.Info("Event forwarded to successor", "sequence_number", event.SequenceNumber)
+			n.logger.Info("Event replicated to successor successfully", "sequence_number", event.SequenceNumber)
 		}
 	}
 }
@@ -107,6 +123,6 @@ func (n *Node) handleEventReplicationAndWaitForAck(event *pb.Event) error {
 // (Don't call)
 // gRPC method that gets called when we receive an event to replicate from the previous node
 func (n *Node) ReplicateEvent(ctx context.Context, event *pb.Event) (*emptypb.Empty, error) {
-	n.handleEventReplication(event)
+	n.bufferEvent(event)
 	return &emptypb.Empty{}, nil
 }
