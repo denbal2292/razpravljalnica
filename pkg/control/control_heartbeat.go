@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"log"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -20,10 +19,17 @@ func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo
 	// Here we don't use a map for nodes since we need to keep them in order
 	for _, node := range cp.nodes {
 		if node.Info.NodeId == nodeInfo.NodeId && node.Info.Address == nodeInfo.Address {
+			cp.logNodeDebug(node, "Heartbeat received")
+
 			node.LastHeartbeat = time.Now()
 			return &emptypb.Empty{}, nil
 		}
 	}
+
+	cp.logger.Warn("Heartbeat: Node not registered",
+		"node_id", nodeInfo.NodeId,
+		"address", nodeInfo.Address,
+	)
 
 	return nil, status.Error(codes.NotFound, "node not registered")
 }
@@ -58,7 +64,7 @@ func (cp *ControlPlane) monitorHeartbeats() {
 				lastAlive = node // Update last alive node for reconnection
 			} else {
 				// Node considered dead
-				log.Printf("Node %s (%s) considered dead due to missed heartbeats", node.Info.NodeId, node.Info.Address)
+				cp.logNodeInfo(node, "Node considered dead due to missed heartbeats")
 				deadInBetween = true
 			}
 		}
@@ -85,27 +91,40 @@ func (cp *ControlPlane) reconnectNeighbors(pred *NodeInfo, succ *NodeInfo) {
 		// NOTE: Connect predecessor before successor to make sure when syncing starts, the successor knows about its new predecessor
 		// Successor is now connected to predecessor of the dead node
 		if _, err := succ.Client.SetPredecessor(context.Background(), &pb.NodeInfoMessage{Node: pred.Info}); err != nil {
-			log.Printf("Error updating successor %s: %v", succ.Info.NodeId, err)
+			cp.logNodeError(succ, err, "Error updating successor")
 		}
 
 		// Predecessor is now connected to successor of the dead node
 		if _, err := pred.Client.SetSuccessor(context.Background(), &pb.NodeInfoMessage{Node: succ.Info}); err != nil {
-			log.Printf("Error updating predecessor %s: %v", pred.Info.NodeId, err)
+			cp.logNodeError(pred, err, "Error updating predecessor")
 		}
+
+		cp.logger.Info("Reconnected predecessor and successor around dead node",
+			"predecessor", pred.Info.NodeId,
+			"successor", succ.Info.NodeId,
+		)
 
 	} else if pred != nil {
 		// TAIL node died -> predecessor becomes new TAIL
 		if _, err := pred.Client.SetSuccessor(context.Background(), &pb.NodeInfoMessage{Node: nil}); err != nil {
-			log.Printf("Error updating predecessor %s to become TAIL: %v", pred.Info.NodeId, err)
+			cp.logNodeError(pred, err, "Error updating predecessor to become TAIL")
 		}
+
+		cp.logger.Info("Updated predecessor to become new TAIL",
+			"predecessor", pred.Info.NodeId,
+		)
 
 	} else if succ != nil {
 		// HEAD node died -> successor becomes new HEAD
 		if _, err := succ.Client.SetPredecessor(context.Background(), &pb.NodeInfoMessage{Node: nil}); err != nil {
-			log.Printf("Error updating successor %s to become HEAD: %v", succ.Info.NodeId, err)
+			cp.logNodeError(succ, err, "Error updating successor to become HEAD")
 		}
+
+		cp.logger.Info("Updated successor to become new HEAD",
+			"successor", succ.Info.NodeId,
+		)
 	} else {
 		// This was the only node, nothing to do
-		log.Printf("All nodes are down, cluster is now empty")
+		cp.logger.Info("All nodes are down, cluster is now empty")
 	}
 }
