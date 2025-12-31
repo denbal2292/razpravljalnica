@@ -50,3 +50,14 @@ func parseInt32(arg, fieldName string) (int32, error) {
 	}
 	return int32(val), nil
 }
+
+func parseInt64(arg string) (int64, error) {
+	val, err := strconv.ParseInt(arg, 10, 32)
+	if err != nil {
+		return 0, &ValidationError{
+			Field:   arg,
+			Message: fmt.Sprintf("must be a valid integer, got '%s'", arg),
+		}
+	}
+	return int64(val), nil
+}

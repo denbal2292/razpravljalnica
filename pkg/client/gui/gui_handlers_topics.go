@@ -201,6 +201,7 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 			gc.displayStatus("Napaka pri povezovanju z vozliščem za naročanje", "red")
 			return
 		}
+		defer conn.Close()
 
 		// Create a subscription client
 		subClient := pb.NewMessageBoardSubscriptionsClient(conn)
@@ -229,6 +230,6 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 		}
 
 		gc.displayStatus("Uspešna naročnina na temo", "green")
-		gc.handleSubscriptionStream(topicId, subscriptionStream)
+		gc.handleSubscriptionStream(subscriptionStream)
 	}()
 }

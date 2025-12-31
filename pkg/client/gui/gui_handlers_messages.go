@@ -365,46 +365,46 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	gc.app.SetFocus(likeButton)
 }
 
-func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
-	go func() {
-		for {
-			msgEvent, err := msgEventStream.Recv()
+func (gc *guiClient) handleSubscriptionStream(msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
+	// Wrapping this in a goroutine is not wanted since that simplifies connection closing.
+	for {
+		msgEvent, err := msgEventStream.Recv()
 
-			if err != nil {
-				gc.displayStatus("Prekinjena povezava za naročanje na temo", "red")
-				return
-			}
-
-			gc.clientMu.Lock()
-			entry, ok := gc.messageCache[topicId]
-			if !ok {
-				entry = &messageCacheEntry{
-					messages: make(map[int64]*pb.Message),
-					order:    make([]int64, 0),
-				}
-				gc.messageCache[topicId] = entry
-			}
-			msg := msgEvent.Message
-			switch msgEvent.Op {
-			case pb.OpType_OP_POST:
-				if msg != nil && msg.UserId != gc.userId {
-					entry.messages[msg.Id] = msg
-					entry.order = append(entry.order, msg.Id)
-				}
-			case pb.OpType_OP_DELETE:
-				if msg != nil {
-					delete(entry.messages, msg.Id)
-					// We don't remove from the order slice - the ID just doesn't
-					// exist - that is checked in updateMessageView when iterting
-					// over the order slice
-				}
-			case pb.OpType_OP_LIKE:
-				if msg != nil {
-					entry.messages[msg.Id] = msg
-				}
-			}
-			gc.clientMu.Unlock()
-			gc.updateMessageView(topicId)
+		if err != nil {
+			gc.displayStatus("Prekinjena povezava za naročanje na temo", "red")
+			return
 		}
-	}()
+
+		msg := msgEvent.Message
+		topicId := msg.TopicId
+		gc.clientMu.Lock()
+		entry, ok := gc.messageCache[topicId]
+		if !ok {
+			entry = &messageCacheEntry{
+				messages: make(map[int64]*pb.Message),
+				order:    make([]int64, 0),
+			}
+			gc.messageCache[topicId] = entry
+		}
+		switch msgEvent.Op {
+		case pb.OpType_OP_POST:
+			if msg != nil && msg.UserId != gc.userId {
+				entry.messages[msg.Id] = msg
+				entry.order = append(entry.order, msg.Id)
+			}
+		case pb.OpType_OP_DELETE:
+			if msg != nil {
+				delete(entry.messages, msg.Id)
+				// We don't remove from the order slice - the ID just doesn't
+				// exist - that is checked in updateMessageView when iterting
+				// over the order slice
+			}
+		case pb.OpType_OP_LIKE:
+			if msg != nil {
+				entry.messages[msg.Id] = msg
+			}
+		}
+		gc.clientMu.Unlock()
+		gc.updateMessageView(topicId)
+	}
 }

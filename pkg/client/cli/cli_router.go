@@ -31,7 +31,6 @@ Read operations:
 
 Subscription operations:
   subscribe <user_id> <topic_id>...           - Subscribe to topics (stream)
-  getsubscribtionnode <user_id> <topic_id>... - Get subscription node info
 `
 
 // Route the command to the appropriate client method
@@ -60,9 +59,7 @@ func route(client *shared.ClientSet, command string, args []string) error {
 	case "user":
 		return getUser(client.Reads, args)
 	case "subscribe":
-		return subscribeTopics(client.Subscriptions, args)
-	case "getsubscriptionnode":
-		return getSubscriptionNode(client.Subscriptions, args)
+		subscribeTopics(client.ControlConn, args)
 	case "loop":
 		return loopCommand(client, args)
 	case "loopslow":

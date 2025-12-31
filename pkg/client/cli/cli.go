@@ -13,6 +13,7 @@ import (
 // Custom exit error to signal client termination
 var errExit = errors.New("exit")
 
+// Mostly synchronous for debug simplicity
 func StartCLIClient(clients *shared.ClientSet) {
 	// Simple REPL loop
 	// Useful for proper line reading
