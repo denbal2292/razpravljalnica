@@ -143,7 +143,6 @@ func (n *Node) connectToControlPlane() {
 		panic("New node cannot have a successor at registration")
 	} else {
 		n.logger.Info("No successor (this node is TAIL)")
-		go n.eventReplicator()
 	}
 }
 
