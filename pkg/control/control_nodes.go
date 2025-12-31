@@ -31,6 +31,8 @@ func (cp *ControlPlane) RegisterNode(ctx context.Context, nodeInfo *pb.NodeInfo)
 		LastHeartbeat: time.Now(), // Initialize heartbeat time so it isn't considered dead immediately
 	}
 
+	cp.logNodeInfo(newNode, "New node registered")
+
 	// Check if this is the first node to register
 	if len(cp.nodes) == 0 {
 		// First node becomes both HEAD and TAIL (no predecessor or successor)
@@ -72,8 +74,14 @@ func (cp *ControlPlane) UnregisterNode(ctx context.Context, nodeInfo *pb.NodeInf
 
 	if idxToRemove == -1 {
 		// Node not found
+		cp.logger.Error("UnregisterNode: Node not found",
+			"node_id", nodeInfo.NodeId,
+			"address", nodeInfo.Address,
+		)
 		return &emptypb.Empty{}, status.Error(codes.NotFound, "Node not found")
 	}
+
+	cp.logNodeInfo(cp.nodes[idxToRemove], "Node unregistered successfully")
 
 	// Get predecessor and successor nodes
 	var pred, succ *NodeInfo

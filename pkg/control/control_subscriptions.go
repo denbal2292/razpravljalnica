@@ -13,6 +13,7 @@ func (cp *ControlPlane) GetSubscriptionNode(ctx context.Context, req *pb.Subscri
 	defer cp.mu.Unlock()
 
 	if len(cp.nodes) == 0 {
+		cp.logger.Info("GetSubscriptionNode: No nodes available")
 		return nil, status.Error(codes.Internal, "No nodes available")
 	}
 
@@ -22,8 +23,11 @@ func (cp *ControlPlane) GetSubscriptionNode(ctx context.Context, req *pb.Subscri
 
 	addSub, err := selectedNode.Client.AddSubscriptionRequest(ctx, req)
 	if err != nil {
+		cp.logNodeError(selectedNode, err, "Failed to add subscription request to node")
 		return nil, err
 	}
+
+	cp.logNodeInfo(selectedNode, "GetSubscriptionNode: Subscription node selected")
 
 	return &pb.SubscriptionNodeResponse{Node: selectedNode.Info, SubscribeToken: addSub.SubscribeToken}, nil
 }
