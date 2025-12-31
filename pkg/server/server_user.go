@@ -13,11 +13,6 @@ func (n *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.U
 		return nil, status.Error(codes.InvalidArgument, "name cannot be empty")
 	}
 
-	if n.IsSyncing() {
-		n.logger.Info("Node is syncing, waiting for sync to complete before creating user")
-		n.WaitForSyncToComplete()
-	}
-
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.CreateUserEvent(req)
 	n.logEventReceived(event)

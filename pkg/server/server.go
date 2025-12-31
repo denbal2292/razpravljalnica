@@ -31,7 +31,6 @@ type Node struct {
 	storage             *storage.Storage
 	eventBuffer         *EventBuffer
 	ackSync             *AckSynchronization  // for waiting for ACKs from predecessor
-	syncQueue           *ServerSyncQueue     // queue of sync requests
 	subscriptionManager *SubscriptionManager // manages topic subscriptions for clients
 
 	mu          sync.RWMutex    // protects predecessor and successor
@@ -67,7 +66,6 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 		},
 		controlPlane:        controlPlane,
 		ackSync:             NewAckSynchronization(),
-		syncQueue:           NewServerSyncQueue(),
 		subscriptionManager: NewSubscriptionManager(),
 		ackQueue:            make(map[int64]*pb.Event),
 		nextAckSeq:          0,

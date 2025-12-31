@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -10,18 +9,7 @@ import (
 )
 
 func (n *Node) handleEventReplication(event *pb.Event) {
-	if !n.syncMu.TryRLock() {
-		// If syncing, enqueue the event to be processed later
-		n.EnqueueEvent(event)
-		n.logger.Info("Node is syncing, event enqueued", "sequence_number", event.SequenceNumber)
-		return
-	}
-
-	// 2. Forward the event to the successor
-	go func() {
-		defer n.syncMu.RUnlock()
-		n.doForwardAllEvents(event)
-	}()
+	go n.doForwardAllEvents(event)
 }
 
 func (n *Node) handleSyncEventReplication(event *pb.Event) {
@@ -30,6 +18,9 @@ func (n *Node) handleSyncEventReplication(event *pb.Event) {
 }
 
 func (n *Node) doForwardAllEvents(event *pb.Event) {
+	n.syncMu.RLock()
+	defer n.syncMu.RUnlock()
+
 	n.eventMu.Lock()
 	defer n.eventMu.Unlock()
 
@@ -75,7 +66,8 @@ func (n *Node) doForwardAllEvents(event *pb.Event) {
 		n.eventQueue[event.SequenceNumber] = event
 		n.logger.Info("Event buffered due to out-of-order reception", "sequence_number", event.SequenceNumber, "expected_sequence_number", n.nextEventSeq)
 	} else {
-		panic(fmt.Errorf("Trying to forward an already applied event %d, expected %d", event.SequenceNumber, n.nextEventSeq))
+		// This probably shouldn't happen (but better to be safe)
+		n.logger.Warn("Received event for already applied sequence number - not forwarding", "sequence_number", event.SequenceNumber, "next_expected", n.nextEventSeq)
 	}
 }
 
