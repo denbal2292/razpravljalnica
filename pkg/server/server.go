@@ -45,11 +45,11 @@ type Node struct {
 	nextEventSeq int64               // next expected event sequence number
 	eventMu      sync.Mutex          // protects eventQueue and nextEventSeq
 
-	syncMu sync.RWMutex // RLock = writing events, Lock = syncing
+	syncMu sync.RWMutex // RLock = writing events, Lock = syncing events
 
-	sendEventChan chan *pb.Event // channel for sending events to successor
-	cancelCtx     context.Context
-	cancelFunc    context.CancelFunc
+	sendChan   chan struct{} // sync channel for signaling new events to send
+	cancelCtx  context.Context
+	cancelFunc context.CancelFunc
 
 	logger *slog.Logger // logger for the node
 }
@@ -81,10 +81,12 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 		eventMu:             sync.Mutex{},
 		predecessor:         nil,
 		successor:           nil,
-		sendEventChan:       make(chan *pb.Event, 100),
-		cancelCtx:           ctx,
-		cancelFunc:          cancel,
-		heartbeatInterval:   5 * time.Second, // TODO: Configurable
+
+		cancelCtx:  ctx,
+		cancelFunc: cancel,
+		sendChan:   make(chan struct{}, 1),
+
+		heartbeatInterval: 5 * time.Second, // TODO: Configurable
 		// Keep this as os.Stdout for simplicity - can be easily extended
 		// to use file or other logging backends
 		// Use tint for nicer output
@@ -100,10 +102,21 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 
 	n.connectToControlPlane()
 
+	n.startEventReplicationGoroutine()
+
 	// Start sending heartbeats to the control plane in the background
 	go n.startHeartbeat()
 
 	return n
+}
+
+func (n *Node) startEventReplicationGoroutine() {
+	ctx, cancel := context.WithCancel(context.Background())
+	n.cancelCtx = ctx
+	n.cancelFunc = cancel
+
+	// Start the event replicator goroutine
+	go n.eventReplicator()
 }
 
 func (n *Node) connectToControlPlane() {
