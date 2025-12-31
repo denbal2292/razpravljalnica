@@ -42,6 +42,8 @@ type guiClient struct {
 	currentTopicId int64
 	topics         map[int64]*pb.Topic
 	topicOrder     []int64
+	// Topics we are subscribed to
+	subscribedTopics map[int64]bool
 
 	// Messages
 	selectedMessageId int64
@@ -71,6 +73,8 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 		messageInput:     tview.NewInputField(),
 		statusBar:        tview.NewTextView(),
 		modal:            tview.NewModal(),
+
+		subscribedTopics: make(map[int64]bool),
 
 		clients: clients,
 
@@ -108,9 +112,12 @@ func (gc *guiClient) setupWidgets() {
 	})
 
 	gc.topicsList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		// Refresh topics on 'r' key
 		if event.Rune() == 'r' || event.Rune() == 'R' {
+			// Refresh topics on 'r' key
 			gc.refreshTopics()
+			return nil
+		} else if event.Rune() == 's' || event.Rune() == 'S' {
+			gc.handleTopicSubscription()
 			return nil
 		}
 
