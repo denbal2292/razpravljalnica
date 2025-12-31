@@ -10,6 +10,12 @@ import (
 	"github.com/rivo/tview"
 )
 
+// messageCacheEntry holds cached messages for a topic
+type messageCacheEntry struct {
+	messages map[int64]*pb.Message
+	order    []int64
+}
+
 type guiClient struct {
 	clientMu sync.RWMutex
 
@@ -30,6 +36,7 @@ type guiClient struct {
 
 	// Extra information about the client state
 	userId int64
+	users  map[int64]*pb.User
 
 	// Current selected topic ID and list of topic IDs
 	currentTopicId int64
@@ -38,6 +45,7 @@ type guiClient struct {
 
 	// Messages
 	selectedMessageId int64
+	messageCache      map[int64]*messageCacheEntry // topicId -> messages
 }
 
 func StartGUIClient(clients *shared.ClientSet) {
@@ -64,16 +72,14 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 		statusBar:        tview.NewTextView(),
 		modal:            tview.NewModal(),
 
-		// User is not logged in initially
-		userId: -1,
-
 		clients: clients,
+
+		// Messages
+		messageCache: make(map[int64]*messageCacheEntry),
 	}
 	gc.app.EnableMouse(true)
 
-	// Override the tview defaults
-	// tview.Styles.ContrastBackgroundColor = tcell.ColorDarkGray
-
+	// Setup widgets and layout
 	gc.setupWidgets()
 	gc.setupLayout()
 
@@ -184,7 +190,7 @@ func (gc *guiClient) setupWidgets() {
 			gc.showMessageActionsModal(messageId)
 		} else {
 			gc.clientMu.Lock()
-			gc.selectedMessageId = -1
+			gc.selectedMessageId = 0
 			gc.clientMu.Unlock()
 		}
 	})

@@ -38,56 +38,98 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 			return messages.Messages[i].CreatedAt.AsTime().Before(messages.Messages[j].CreatedAt.AsTime())
 		})
 
-		// Fetch all unique users before updating the GUI
-		users := make(map[int64]*pb.User)
-
-		for _, message := range messages.Messages {
-			userId := message.UserId
-
-			// Fetch user only if not already fetched - for performance reasons
-			if _, exists := users[userId]; !exists {
-				username, err := gc.getUserName(userId)
-
-				if err != nil {
-					// Skip this message
-					users[userId] = &pb.User{Name: "Neznan uporabnik"}
-				} else {
-					users[userId] = &pb.User{Name: username}
-				}
+		gc.clientMu.Lock()
+		if entry, ok := gc.messageCache[currentTopicId]; !ok {
+			// Create new cache entry
+			entry = &messageCacheEntry{
+				messages: make(map[int64]*pb.Message),
+				order:    make([]int64, 0),
 			}
+			gc.messageCache[currentTopicId] = entry
 		}
 
-		// Update the message view in the GUI
-		gc.app.QueueUpdateDraw(func() {
-			// Change the title
-			gc.clientMu.RLock()
-			currentTopicId := gc.topics[gc.currentTopicId].Name
-			gc.clientMu.RUnlock()
+		// gc.messageCache[currentTopicId].order = make([]int64, 0)
+		order := make([]int64, 0)
+		messagesMap := make(map[int64]*pb.Message)
 
-			gc.messageView.SetTitle(fmt.Sprintf("Sporočila v [yellow]%s[-]", currentTopicId))
+		for _, message := range messages.Messages {
+			order = append(order, message.Id)
+			messagesMap[message.Id] = message
+		}
+		gc.messageCache[currentTopicId].messages = messagesMap
+		gc.messageCache[currentTopicId].order = order
 
-			// Clear the screen before displaying messages
-			gc.messageView.Clear()
+		gc.clientMu.Unlock()
 
-			// Prepare the message display
-			for _, message := range messages.Messages {
-				user, ok := users[message.UserId]
-
-				// If user not found, skip the message
-				if !ok {
-					continue
-				}
-
-				// TODO: Make this nicer?
-				timestamp := message.CreatedAt.AsTime().Local().Format("02-01-2006 15:04")
-				regionId := fmt.Sprintf("msg-%d", message.Id)
-
-				messageLine := fmt.Sprintf(`["%s"][yellow]%s[-]: %s ([green]Všečki: %d[-]) [%s][""]`+"\n", regionId, user.Name, message.Text, message.Likes, timestamp)
-				gc.messageView.Write([]byte(messageLine))
-			}
-			gc.messageView.ScrollToEnd()
-		})
+		// Update the message view
+		gc.updateMessageView(currentTopicId)
 	}()
+}
+
+func (gc *guiClient) updateMessageView(topicId int64) {
+	gc.clientMu.RLock()
+	topic, topicOk := gc.topics[topicId]
+	msgCache, msgOk := gc.messageCache[topicId]
+	gc.clientMu.RUnlock()
+
+	// The last condition should never happen
+	if !topicOk || !msgOk || msgCache == nil {
+		gc.displayStatus("Napaka pri prikazovanju sporočil", "red")
+		return
+	}
+
+	topicName := topic.Name
+	msgs := msgCache.messages
+	order := msgCache.order
+
+	gc.messageView.SetTitle(fmt.Sprintf("Sporočila v [yellow]%s[-]", topicName))
+
+	// Clear the screen before displaying messages
+	gc.messageView.Clear()
+
+	users := make(map[int64]*pb.User)
+
+	for _, msg := range msgs {
+		userId := msg.UserId
+		if _, exists := users[userId]; !exists {
+			userName, err := gc.getUserName(userId)
+			if err != nil {
+				// This really should not happen
+				users[userId] = &pb.User{Id: userId, Name: "Neznan uporabnik"}
+			} else {
+				users[userId] = &pb.User{Id: userId, Name: userName}
+			}
+		}
+	}
+
+	// Set the fetched users
+	gc.clientMu.Lock()
+	gc.users = users
+	gc.clientMu.Unlock()
+
+	gc.app.QueueUpdateDraw(func() {
+		for _, msgId := range order {
+			msg, ok := msgs[msgId]
+			if !ok || msg == nil {
+				// there is no message corresponding to the ID in the order
+				// slice - this should not happen
+				continue
+			}
+
+			user, ok := users[msg.UserId]
+			if !ok || user == nil {
+				// User doesn't exist, skip message - for robustness
+				continue
+			}
+
+			timestamp := msg.CreatedAt.AsTime().Local().Format("02-01-2006 15:04")
+			regionId := fmt.Sprintf("msg-%d", msg.Id)
+
+			messageLine := fmt.Sprintf(`["%s"][yellow]%s[-]: %s ([green]Všečki: %d[-]) [%s][""]`+"\n", regionId, user.Name, msg.Text, msg.Likes, timestamp)
+			gc.messageView.Write([]byte(messageLine))
+		}
+		gc.messageView.ScrollToEnd()
+	})
 }
 
 func (gc *guiClient) handlePostMessage() {
@@ -128,7 +170,48 @@ func (gc *guiClient) handlePostMessage() {
 	}()
 }
 
+func (gc *guiClient) deleteMessage(messageId int64) {
+	gc.clientMu.RLock()
+	userId := gc.userId
+	topicId := gc.currentTopicId
+	gc.clientMu.RUnlock()
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		defer cancel()
+
+		_, err := gc.clients.Writes.DeleteMessage(ctx, &pb.DeleteMessageRequest{
+			UserId:    userId,
+			TopicId:   topicId,
+			MessageId: messageId,
+		})
+
+		if err != nil {
+			gc.displayStatus("Napaka pri brisanju sporočila", "red")
+			return
+		}
+
+		// This is good for consistency BUT bad for performance
+		gc.loadMessagesForCurrentTopic()
+	}()
+}
+
 func (gc *guiClient) showMessageActionsModal(messageId int64) {
+	gc.clientMu.RLock()
+	userId := gc.userId
+	gc.clientMu.RUnlock()
+
+	if userId <= 0 {
+		gc.displayStatus("Za interakcijo s sporočilom se moraš prijaviti", "red")
+		return
+	}
+
+	// This should not happen
+	if messageId <= 0 {
+		gc.displayStatus("Neveljavno sporočilo", "red")
+		return
+	}
+
 	likeButton := createButton(
 		"Všeč mi je",
 		tcell.ColorDarkGray,
@@ -137,6 +220,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		tcell.ColorWhite,
 	)
 	likeButton.SetSelectedFunc(func() {
+		// Close the modal
 		gc.pages.RemovePage("modal")
 		// Unighlight all text to remove visual selection
 		gc.messageView.Highlight()
@@ -150,6 +234,8 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		tcell.ColorWhite,
 	)
 	deleteButton.SetSelectedFunc(func() {
+		gc.deleteMessage(messageId)
+		// Close the modal
 		gc.pages.RemovePage("modal")
 		// Unighlight all text to remove visual selection
 		gc.messageView.Highlight()
@@ -176,8 +262,11 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		AddItem(deleteButton, 1, 0, false).
 		AddItem(tview.NewBox(), 1, 0, false).
 		AddItem(closeButton, 1, 0, false)
-
-	buttons.SetBorder(true).SetTitle("Akcije").SetBorderPadding(1, 1, 1, 1)
+	buttons.
+		SetBorder(true).
+		SetTitle("Akcije").
+		SetBorderColor(tcell.ColorWhite).
+		SetBorderPadding(1, 1, 1, 1)
 
 	// Center the modal
 	flex := tview.NewFlex().
