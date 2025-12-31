@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -67,7 +66,8 @@ func (n *Node) doForwardAllEvents(event *pb.Event) {
 		n.eventQueue[event.SequenceNumber] = event
 		n.logger.Info("Event buffered due to out-of-order reception", "sequence_number", event.SequenceNumber, "expected_sequence_number", n.nextEventSeq)
 	} else {
-		panic(fmt.Errorf("Trying to forward an already applied event %d, expected %d", event.SequenceNumber, n.nextEventSeq))
+		// This probably shouldn't happen (but better to be safe)
+		n.logger.Warn("Received event for already applied sequence number - not forwarding", "sequence_number", event.SequenceNumber, "next_expected", n.nextEventSeq)
 	}
 }
 
