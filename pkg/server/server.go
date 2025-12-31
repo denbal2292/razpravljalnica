@@ -48,6 +48,7 @@ type Node struct {
 	syncMu sync.RWMutex // RLock = writing events, Lock = syncing events
 
 	sendChan   chan struct{} // sync channel for signaling new events to send
+	ackChan    chan struct{} // sync channel for signaling new ACKs to process
 	cancelCtx  context.Context
 	cancelFunc context.CancelFunc
 
@@ -84,7 +85,8 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 
 		cancelCtx:  ctx,
 		cancelFunc: cancel,
-		sendChan:   make(chan struct{}, 1),
+		sendChan:   make(chan struct{}),
+		ackChan:    make(chan struct{}),
 
 		heartbeatInterval: 5 * time.Second, // TODO: Configurable
 		// Keep this as os.Stdout for simplicity - can be easily extended
@@ -106,6 +108,9 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 
 	// Start sending heartbeats to the control plane in the background
 	go n.startHeartbeat()
+
+	// Start ACK processor goroutine (we don't need to stop it)
+	go n.ackProcessor()
 
 	return n
 }

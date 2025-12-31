@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -90,7 +91,15 @@ func (n *Node) replicateEvent(event *pb.Event) {
 	} else {
 		// If not TAIL, forward the event to the successor
 		successorClient := n.getSuccessorClient()
-		_, err := successorClient.ReplicateEvent(context.Background(), event)
+
+		if successorClient == nil {
+			panic("Successor client is nil when trying to replicate event")
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		_, err := successorClient.ReplicateEvent(ctx, event)
 
 		if err != nil {
 			n.logger.Error("Failed to replicate event to successor", "sequence_number", event.SequenceNumber, "error", err)
