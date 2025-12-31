@@ -170,6 +170,5 @@ func (gc *guiClient) handleTopicSubscription() {
 	gc.clientMu.Unlock()
 
 	gc.displayStatus("Uspešno naročeni na temo", "green")
-
 	gc.displayTopics()
 }
