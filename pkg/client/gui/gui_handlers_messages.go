@@ -10,6 +10,7 @@ import (
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"google.golang.org/grpc"
 )
 
 func (gc *guiClient) loadMessagesForCurrentTopic() {
@@ -362,4 +363,37 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	})
 	gc.pages.AddPage("modal", flex, true, true)
 	gc.app.SetFocus(likeButton)
+}
+
+func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
+	go func() {
+		for {
+			msgEvent, err := msgEventStream.Recv()
+
+			if err != nil {
+				gc.displayStatus("Prekinjena povezava za naročanje na temo", "red")
+				return
+			}
+
+			gc.clientMu.Lock()
+			entry, ok := gc.messageCache[topicId]
+			if !ok {
+				entry = &messageCacheEntry{
+					messages: make(map[int64]*pb.Message),
+					order:    make([]int64, 0),
+				}
+				gc.messageCache[topicId] = entry
+			}
+			switch msgEvent.Op {
+			case pb.OpType_OP_POST:
+				msg := msgEvent.Message
+				if msg != nil {
+					entry.messages[msg.Id] = msg
+					entry.order = append(entry.order, msg.Id)
+				}
+			}
+			gc.clientMu.Unlock()
+			gc.updateMessageView(topicId)
+		}
+	}()
 }
