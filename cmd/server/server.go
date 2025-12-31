@@ -25,6 +25,8 @@ func registerServices(node *server.Node, gRPCServer *grpc.Server) {
 
 	// All nodes participate in chain replication
 	razpravljalnica.RegisterChainReplicationServer(gRPCServer, node)
+
+	razpravljalnica.RegisterMessageBoardSubscriptionsServer(gRPCServer, node)
 }
 
 func main() {
