@@ -228,7 +228,7 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 			return
 		}
 
-		// gc.displayStatus("Uspešno naročeni na temo", "green")
+		gc.displayStatus("Uspešna naročnina na temo", "green")
 		gc.handleSubscriptionStream(topicId, subscriptionStream)
 	}()
 }
