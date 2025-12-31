@@ -2,6 +2,7 @@ package gui
 
 import (
 	"context"
+	"maps"
 	"sort"
 	"strings"
 
@@ -102,34 +103,41 @@ func (gc *guiClient) refreshTopics() {
 }
 
 func (gc *guiClient) displayTopics() {
-	gc.clientMu.RLock()
-	topics := gc.topics
-	topicOrder := gc.topicOrder
-	selectedTopicId := gc.currentTopicId
-	gc.clientMu.RUnlock()
+	go func() {
+		gc.clientMu.RLock()
+		topics := gc.topics
+		selectedTopicId := gc.currentTopicId
+		subscribedTopics := make(map[int64]bool, len(gc.subscribedTopics))
+		topicOrder := make([]int64, len(gc.topicOrder))
 
-	gc.app.QueueUpdateDraw(func() {
-		gc.topicsList.Clear()
-		selectedIndex := -1
-		for i, topicId := range topicOrder {
-			gc.topicsList.AddItem(topics[topicId].Name, "", 0, nil)
-			if topicId == selectedTopicId {
-				selectedIndex = i
+		// Copy subscribed topics
+		maps.Copy(subscribedTopics, gc.subscribedTopics)
+		copy(topicOrder, gc.topicOrder)
+
+		gc.clientMu.RUnlock()
+
+		gc.app.QueueUpdateDraw(func() {
+			gc.topicsList.Clear()
+			selectedIndex := -1
+			for i, topicId := range topicOrder {
+				topicName := topics[topicId].Name
+				if subscribed, ok := subscribedTopics[topicId]; ok && subscribed {
+					// Mark subscribed topics with an asterisk
+					topicName = topicName + " [yellow]*[-]"
+				}
+
+				gc.topicsList.AddItem(topicName, "", 0, nil)
+				if topicId == selectedTopicId {
+					selectedIndex = i
+				}
 			}
-		}
-		if len(gc.topicOrder) > 0 && selectedIndex >= 0 {
-			// Set the current topic to the previously selected one if available
-			gc.clientMu.Lock()
-			gc.currentTopicId = gc.topicOrder[selectedIndex]
-			gc.clientMu.Unlock()
-			gc.topicsList.SetCurrentItem(selectedIndex)
-		} else {
-			gc.topicsList.SetCurrentItem(-1)
-			gc.clientMu.Lock()
-			gc.currentTopicId = 0
-			gc.clientMu.Unlock()
-		}
-	})
+			if len(topicOrder) > 0 && selectedIndex >= 0 {
+				gc.topicsList.SetCurrentItem(selectedIndex)
+			} else {
+				gc.topicsList.SetCurrentItem(-1)
+			}
+		})
+	}()
 }
 
 // handleSelectTopic processes topic selection from the list and updates the GUI
@@ -141,4 +149,26 @@ func (gc *guiClient) handleSelectTopic(topicId int64) {
 
 	// Load the messages from the selected topic
 	gc.loadMessagesForCurrentTopic()
+}
+
+func (gc *guiClient) handleTopicSubscription() {
+	index := gc.topicsList.GetCurrentItem()
+
+	if index < 0 || index >= len(gc.topicOrder) {
+		gc.displayStatus("Izbrana tema ni na voljo", "red")
+		return
+	}
+
+	// Fetch the topic ID based on the selected topic index
+	gc.clientMu.RLock()
+	topicId := gc.topicOrder[index]
+	gc.clientMu.RUnlock()
+
+	gc.clientMu.Lock()
+	// Set subscription status
+	gc.subscribedTopics[topicId] = true
+	gc.clientMu.Unlock()
+
+	gc.displayStatus("Uspešno naročeni na temo", "green")
+	gc.displayTopics()
 }
