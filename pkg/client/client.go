@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// IMPORTANT: Always spawn new goroutines when using QueueUpdateDraw to avoid deadlocks!
 // Initialize a new client instance
 func RunClient(controlPlaneAddress, clientType string) {
 	fmt.Println("Connecting to control plane at", controlPlaneAddress)
