@@ -167,7 +167,7 @@ func (n *Node) connectToControlPlane() {
 	}
 }
 
-func (n *Node) AddSubscriptionRequest(req *pb.SubscriptionNodeRequest) (*pb.AddSubscriptionResponse, error) {
+func (n *Node) AddSubscriptionRequest(ctx context.Context, req *pb.SubscriptionNodeRequest) (*pb.AddSubscriptionResponse, error) {
 	return n.subscriptionManager.AddSubscriptionRequest(req)
 }
 
