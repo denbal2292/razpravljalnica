@@ -384,12 +384,23 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 				}
 				gc.messageCache[topicId] = entry
 			}
+			msg := msgEvent.Message
 			switch msgEvent.Op {
 			case pb.OpType_OP_POST:
-				msg := msgEvent.Message
-				if msg != nil {
+				if msg != nil && msg.UserId != gc.userId {
 					entry.messages[msg.Id] = msg
 					entry.order = append(entry.order, msg.Id)
+				}
+			case pb.OpType_OP_DELETE:
+				if msg != nil {
+					delete(entry.messages, msg.Id)
+					// We don't remove from the order slice - the ID just doesn't
+					// exist - that is checked in updateMessageView when iterting
+					// over the order slice
+				}
+			case pb.OpType_OP_LIKE:
+				if msg != nil {
+					entry.messages[msg.Id] = msg
 				}
 			}
 			gc.clientMu.Unlock()

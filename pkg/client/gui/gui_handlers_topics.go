@@ -187,8 +187,7 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 		})
 
 		if err != nil {
-			// gc.displayStatus("Napaka pri pridobivanju vozlišča za naročanje", "red")
-			gc.displayStatus(subResponse.Node.Address, "red")
+			gc.displayStatus("Napaka pri pridobivanju vozlišča za naročanje", "red")
 			return
 		}
 
@@ -201,7 +200,6 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 			gc.displayStatus("Napaka pri povezovanju z vozliščem za naročanje", "red")
 			return
 		}
-		defer conn.Close()
 
 		// Create a subscription client
 		subClient := pb.NewMessageBoardSubscriptionsClient(conn)
