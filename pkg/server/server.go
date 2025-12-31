@@ -115,6 +115,22 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 	return n
 }
 
+func (n *Node) requireHead() error {
+	if !n.IsHead() {
+		return status.Error(codes.FailedPrecondition, "write operation requires HEAD node")
+	}
+
+	return nil
+}
+
+func (n *Node) requireTail() error {
+	if !n.IsTail() {
+		return status.Error(codes.FailedPrecondition, "read operation requires TAIL node")
+	}
+
+	return nil
+}
+
 func (n *Node) startEventReplicationGoroutine() {
 	ctx, cancel := context.WithCancel(context.Background())
 	n.cancelCtx = ctx

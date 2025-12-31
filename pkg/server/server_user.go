@@ -9,6 +9,11 @@ import (
 )
 
 func (n *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.User, error) {
+	// Writes are allowed only on HEAD
+	if err := n.requireHead(); err != nil {
+		return nil, err
+	}
+
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name cannot be empty")
 	}
@@ -33,6 +38,11 @@ func (n *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.U
 
 // Retrieve user by their ID
 func (n *Node) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {
+	// Reads are allowed only on TAIL
+	if err := n.requireTail(); err != nil {
+		return nil, err
+	}
+
 	if req.UserId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id must be positive")
 	}

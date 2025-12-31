@@ -10,6 +10,11 @@ import (
 )
 
 func (n *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb.Topic, error) {
+	// Writes are allowed only on HEAD
+	if err := n.requireHead(); err != nil {
+		return nil, err
+	}
+
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name cannot be empty")
 	}
@@ -26,16 +31,21 @@ func (n *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb
 
 	topic, err := n.storage.CreateTopic(req.Name)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, handleStorageError(err)
 	}
 
 	return topic, nil
 }
 
 func (n *Node) ListTopics(ctx context.Context, req *emptypb.Empty) (*pb.ListTopicsResponse, error) {
+	// Reads are allowed only on TAIL
+	if err := n.requireTail(); err != nil {
+		return nil, err
+	}
+
 	topics, err := n.storage.ListTopics()
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, handleStorageError(err)
 	}
 
 	return &pb.ListTopicsResponse{Topics: topics}, nil

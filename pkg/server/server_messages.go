@@ -10,8 +10,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TODO: If this is not HEAD node, we should probably reject the request
 func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb.Message, error) {
+	// Writes are allowed only on HEAD
+	if err := n.requireHead(); err != nil {
+		return nil, err
+	}
+
 	if req.Text == "" {
 		return nil, status.Error(codes.InvalidArgument, "text cannot be empty")
 	}
@@ -47,6 +51,11 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 }
 
 func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) (*pb.Message, error) {
+	// Writes are allowed only on HEAD
+	if err := n.requireHead(); err != nil {
+		return nil, err
+	}
+
 	if req.Text == "" {
 		return nil, status.Error(codes.InvalidArgument, "text cannot be empty")
 	}
@@ -84,6 +93,11 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 }
 
 func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) (*emptypb.Empty, error) {
+	// Writes are allowed only on HEAD
+	if err := n.requireHead(); err != nil {
+		return nil, err
+	}
+
 	if req.TopicId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "topic_id must be positive")
 	}
@@ -118,6 +132,11 @@ func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 }
 
 func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb.Message, error) {
+	// Writes are allowed only on HEAD
+	if err := n.requireHead(); err != nil {
+		return nil, err
+	}
+
 	if req.TopicId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "topic_id must be positive")
 	}
@@ -152,6 +171,11 @@ func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 }
 
 func (n *Node) GetMessages(ctx context.Context, req *pb.GetMessagesRequest) (*pb.GetMessagesResponse, error) {
+	// Reads are allowd only on TAIL
+	if err := n.requireTail(); err != nil {
+		return nil, err
+	}
+
 	if req.TopicId <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "topic_id must be positive")
 	}
