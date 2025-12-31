@@ -366,7 +366,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 }
 
 func (gc *guiClient) handleSubscriptionStream(msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
-	// Wrapping this in a goroutine is not wanted since that simplifies connection closing.
+	// Wrapping this in a goroutine is not wanted since that makes connection closing harder.
 	for {
 		msgEvent, err := msgEventStream.Recv()
 
