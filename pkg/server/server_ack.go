@@ -9,52 +9,66 @@ import (
 )
 
 func (n *Node) handleEventAcknowledgment(seqNum int64) {
-	go n.doSendAllUnacknowledged(seqNum)
+	n.bufferAck(seqNum)
 }
 
-func (n *Node) doSendAllUnacknowledged(seqNum int64) {
+func (n *Node) bufferAck(seqNum int64) {
 	n.ackMu.Lock()
 	defer n.ackMu.Unlock()
 
+	n.logger.Info("Received ACK for event", "sequence_number", seqNum)
+
+	if seqNum < n.nextAckSeq {
+		n.logger.Warn("Received ACK for already acknowledged event - not forwarding", "sequence_number", seqNum, "last_applied", n.eventBuffer.GetLastApplied())
+		return
+	}
+
+	// Retrieve the event from the buffer
 	event := n.eventBuffer.GetEvent(seqNum)
 
-	if seqNum == n.nextAckSeq {
-		n.logger.Info("Handling next expected ACK", "sequence_number", seqNum)
+	// Buffer it
+	n.ackQueue[event.SequenceNumber] = event
+
+	// Wake up the ACK processor goroutine to process the new ACK in a non-blocking way
+	select {
+	case n.ackChan <- struct{}{}:
+		// Successfully notified the ACK processor
+	default:
+		// ACK processor is already notified or busy
+	}
+}
+
+func (n *Node) ackProcessor() {
+	// TODO: Should we make it stoppable?
+	defer n.logger.Warn("Stopping ACK processor goroutine")
+
+	n.logger.Info("Starting ACK processor goroutine")
+
+	for range n.ackChan {
+		n.processNextAcks()
+	}
+}
+
+func (n *Node) processNextAcks() {
+	n.ackMu.Lock()
+	defer n.ackMu.Unlock()
+
+	for {
+		event, exists := n.ackQueue[n.nextAckSeq]
+		if !exists {
+			return
+		}
+
+		n.logger.Info("Processing ACK to predecessor", "sequence_number", event.SequenceNumber)
 
 		// Acknowledge the event in the buffer
-		n.eventBuffer.AcknowledgeEvent(seqNum)
+		n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 
-		// ACK is the next expected, process it immediately
 		n.acknowledgeEvent(event)
 
-		// Update the next expected ACK sequence number
+		// Remove from buffer and increment expected ACK sequence number
+		delete(n.ackQueue, n.nextAckSeq)
 		n.nextAckSeq++
-
-		// Check if there are buffered ACKs that can now be processed
-		for {
-			bufferedEvent, exists := n.ackQueue[n.nextAckSeq]
-			if !exists {
-				break
-			}
-
-			n.logger.Info("Handling buffered ACK", "sequence_number", bufferedEvent.SequenceNumber)
-
-			// Acknowledge the event in the buffer
-			n.eventBuffer.AcknowledgeEvent(bufferedEvent.SequenceNumber)
-
-			// Process the buffered ACK
-			n.acknowledgeEvent(bufferedEvent)
-
-			// Remove from buffer and update next expected ACK sequence number
-			delete(n.ackQueue, n.nextAckSeq)
-			n.nextAckSeq++
-		}
-	} else if seqNum > n.nextAckSeq {
-		// ACK is out of order, buffer it
-		n.ackQueue[event.SequenceNumber] = event
-		n.logger.Info("ACK buffered due to out-of-order reception", "sequence_number", event.SequenceNumber, "expected_sequence_number", n.nextAckSeq)
-	} else {
-		n.logger.Warn("Received ACK for already acknowledged event - not forwarding", "sequence_number", seqNum, "last_applied", n.eventBuffer.GetLastApplied())
 	}
 }
 
@@ -66,18 +80,20 @@ func (n *Node) acknowledgeEvent(event *pb.Event) {
 		// non-HEAD: Apply it to storage (errors ignored in replication protocol)
 		_ = n.applyEvent(event)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
 		predClient := n.getPredecessorClient()
 
 		if predClient == nil {
-			panic("ackEvent called on non-HEAD node with no predecessor?")
+			panic("Predecessor client is nil when trying to propagate ACK")
 		}
 
-		if _, err := predClient.AcknowledgeEvent(ctx, &pb.AcknowledgeEventRequest{
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		_, err := predClient.AcknowledgeEvent(ctx, &pb.AcknowledgeEventRequest{
 			SequenceNumber: event.SequenceNumber,
-		}); err != nil {
+		})
+
+		if err != nil {
 			n.logger.Error("Failed to propagate ACK to predecessor", "sequence_number", event.SequenceNumber, "error", err)
 		} else {
 			n.logger.Info("ACK propagated to predecessor", "sequence_number", event.SequenceNumber)

@@ -19,7 +19,7 @@ func (n *Node) GetLastSequenceNumbers(ctx context.Context, empty *emptypb.Empty)
 }
 
 func (n *Node) syncWithSuccessor() {
-	defer n.syncMu.Unlock()
+	defer n.startEventReplicationGoroutine()
 
 	// 1. Get the last applied event number from the successor (it might have newer ACKs from the TAIL)
 	successorClient := n.getSuccessorClient()
@@ -60,7 +60,7 @@ func (n *Node) syncWithSuccessor() {
 
 // Handle transition to TAIL role (called when successor is set to nil)
 func (n *Node) applyAllUnacknowledgedEvents() {
-	defer n.syncMu.Unlock()
+	defer n.startEventReplicationGoroutine()
 
 	lastReceived := n.eventBuffer.GetLastReceived()
 	n.logger.Info("Becoming new TAIL, acknowledging all events up to last received", "upTo", lastReceived)
