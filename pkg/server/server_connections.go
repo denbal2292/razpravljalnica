@@ -34,6 +34,9 @@ func (n *Node) setSuccessor(nodeInfo *pb.NodeInfo) {
 
 // A method which actually sets the predecessor connection
 func (n *Node) setPredecessor(nodeInfo *pb.NodeInfo) {
+	n.syncMu.Lock()
+	defer n.syncMu.Unlock()
+
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
@@ -56,6 +59,11 @@ func (n *Node) setPredecessor(nodeInfo *pb.NodeInfo) {
 	} else {
 		n.predecessor = predecessorConn
 	}
+
+	// 3. Clear any pending events (we are resent events)
+	n.eventMu.Lock()
+	n.eventQueue = make(map[int64]*pb.Event)
+	n.eventMu.Unlock()
 }
 
 func (n *Node) IsHead() bool {

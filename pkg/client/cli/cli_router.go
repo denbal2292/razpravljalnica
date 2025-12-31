@@ -65,6 +65,8 @@ func route(client *shared.ClientSet, command string, args []string) error {
 		return getSubscriptionNode(client.Subscriptions, args)
 	case "loop":
 		return loopCommand(client, args)
+	case "loopslow":
+		return loopSlowCommand(client, args)
 	default:
 		return fmt.Errorf("unknown command: %s\n", command)
 	}
@@ -126,6 +128,41 @@ func loopCommand(client *shared.ClientSet, args []string) error {
 				}
 			}()
 			atomic.AddUint64(&sent, 1)
+		}
+	}
+}
+
+func loopSlowCommand(client *shared.ClientSet, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: loop <command> [args...]")
+	}
+
+	innerCmd := args[0]
+	innerArgs := args[1:]
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
+	fmt.Println("Looping. Press Ctrl+C to stop...")
+
+	for {
+		err := route(client, innerCmd, innerArgs)
+		if err != nil {
+			if errors.Is(err, errExit) {
+				return errExit
+			}
+			fmt.Printf("Error: %v\n", err)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+
+		select {
+		case <-sigCh:
+			fmt.Println("\nLoop interrupted by user.")
+			return nil
+		default:
+			// continue looping
 		}
 	}
 }
