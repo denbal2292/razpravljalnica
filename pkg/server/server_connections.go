@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -27,9 +28,21 @@ func (n *Node) setSuccessor(nodeInfo *pb.NodeInfo) {
 
 	if err != nil {
 		panic(fmt.Errorf("Failed to create client connection to successor: %w", err))
-	} else {
-		n.successor = successorConn
 	}
+
+	n.successor = successorConn
+
+	n.cancelFunc() // Cancel any existing sending goroutine
+
+	ctx, cancel := context.WithCancel(context.Background())
+	n.cancelCtx = ctx
+	n.cancelFunc = cancel
+
+	// Open new channel for sending events
+	n.sendEventChan = make(chan *pb.Event, 100)
+
+	// Start the event replicator goroutine
+	go n.eventReplicator()
 }
 
 // A method which actually sets the predecessor connection

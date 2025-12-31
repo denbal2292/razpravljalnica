@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -14,7 +13,7 @@ func (n *Node) handleEventReplication(event *pb.Event) {
 
 func (n *Node) handleSyncEventReplication(event *pb.Event) {
 	n.logger.Info("Replicating missing event to successor", "sequence_number", event.SequenceNumber)
-	n.forwardEvent(event)
+	n.sendEventChan <- event
 }
 
 func (n *Node) doForwardAllEvents(event *pb.Event) {
@@ -35,7 +34,7 @@ func (n *Node) doForwardAllEvents(event *pb.Event) {
 		}
 
 		// Event is the next expected, send it immediately
-		n.forwardEvent(event)
+		n.sendEventChan <- event
 
 		// Update the next expected sequence number
 		n.nextEventSeq++
@@ -55,7 +54,7 @@ func (n *Node) doForwardAllEvents(event *pb.Event) {
 			}
 
 			// Send the buffered event
-			n.forwardEvent(bufferedEvent)
+			n.sendEventChan <- bufferedEvent
 
 			// Remove from buffer and update next expected sequence number
 			delete(n.eventQueue, n.nextEventSeq)
@@ -71,24 +70,33 @@ func (n *Node) doForwardAllEvents(event *pb.Event) {
 	}
 }
 
-func (n *Node) forwardEvent(event *pb.Event) {
-	if n.IsTail() {
-		// If this is the tail, apply the event and send ACK back
-		n.handleEventAcknowledgment(event.SequenceNumber)
-	} else {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+func (n *Node) eventReplicator() {
+	defer n.logger.Warn("Exiting event replicator!")
+	defer close(n.sendEventChan)
 
-		succClient := n.getSuccessorClient()
+	n.logger.Info("Starting event replicator goroutine")
 
-		if succClient == nil {
-			panic("sendEventToSuccessor called on non-tail node with no successor?")
-		}
+	for {
+		select {
+		case event := <-n.sendEventChan:
+			if n.IsTail() {
+				// If this is TAIL, apply the event and send ACK back
+				n.handleEventAcknowledgment(event.SequenceNumber)
+			} else {
+				// else, forward the event to the successor
+				successorClient := n.getSuccessorClient()
+				_, err := successorClient.ReplicateEvent(context.Background(), event)
 
-		if _, err := succClient.ReplicateEvent(ctx, event); err != nil {
-			n.logger.Error("Failed to forward event to successor", "error", err)
-		} else {
-			n.logger.Info("Event forwarded to successor", "sequence_number", event.SequenceNumber)
+				if err != nil {
+					n.logger.Error("Failed to replicate event to successor", "sequence_number", event.SequenceNumber, "error", err)
+				} else {
+					n.logger.Info("Event replicated to successor successfully", "sequence_number", event.SequenceNumber)
+				}
+			}
+
+		case <-n.cancelCtx.Done():
+			n.logger.Info("Event replicator goroutine exiting due to cancellation")
+			return
 		}
 	}
 }

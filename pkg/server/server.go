@@ -47,6 +47,10 @@ type Node struct {
 
 	syncMu sync.RWMutex // RLock = writing events, Lock = syncing
 
+	sendEventChan chan *pb.Event // channel for sending events to successor
+	cancelCtx     context.Context
+	cancelFunc    context.CancelFunc
+
 	logger *slog.Logger // logger for the node
 }
 
@@ -57,6 +61,8 @@ type NodeConnection struct {
 }
 
 func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) *Node {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	n := &Node{
 		storage:     storage.NewStorage(),
 		eventBuffer: NewEventBuffer(),
@@ -75,6 +81,9 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 		eventMu:             sync.Mutex{},
 		predecessor:         nil,
 		successor:           nil,
+		sendEventChan:       make(chan *pb.Event, 100),
+		cancelCtx:           ctx,
+		cancelFunc:          cancel,
 		heartbeatInterval:   5 * time.Second, // TODO: Configurable
 		// Keep this as os.Stdout for simplicity - can be easily extended
 		// to use file or other logging backends
@@ -121,6 +130,7 @@ func (n *Node) connectToControlPlane() {
 		panic("New node cannot have a successor at registration")
 	} else {
 		n.logger.Info("No successor (this node is TAIL)")
+		go n.eventReplicator()
 	}
 }
 
