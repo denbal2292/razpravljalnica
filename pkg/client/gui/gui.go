@@ -108,6 +108,7 @@ func (gc *guiClient) setupWidgets() {
 	})
 
 	gc.topicsList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// Refresh topics on 'r' key
 		if event.Rune() == 'r' || event.Rune() == 'R' {
 			gc.refreshTopics()
 			return nil
