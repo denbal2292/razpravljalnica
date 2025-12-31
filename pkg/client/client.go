@@ -82,7 +82,7 @@ func newClientSet(controlPlaneUrl string) (*shared.ClientSet, error) {
 	// Create gRPC clients for all services
 	clients.Writes = pb.NewMessageBoardWritesClient(connHead)
 	clients.Reads = pb.NewMessageBoardReadsClient(connTail)
-	clients.Subscriptions = pb.NewMessageBoardSubscriptionsClient(connHead)
+	// clients.Subscriptions = pb.NewMessageBoardSubscriptionsClient(connHead)
 
 	return clients, nil
 }
