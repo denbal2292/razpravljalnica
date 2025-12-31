@@ -112,7 +112,7 @@ func (gc *guiClient) updateMessageView(topicId int64) {
 			msg, ok := msgs[msgId]
 			if !ok || msg == nil {
 				// there is no message corresponding to the ID in the order
-				// slice - this should not happen
+				// slice - this can happen if the message was deleted
 				continue
 			}
 
@@ -149,7 +149,7 @@ func (gc *guiClient) handlePostMessage() {
 		currentTopicId := gc.currentTopicId
 		gc.clientMu.RUnlock()
 
-		_, err := gc.clients.Writes.PostMessage(ctx, &pb.PostMessageRequest{
+		message, err := gc.clients.Writes.PostMessage(ctx, &pb.PostMessageRequest{
 			UserId:  userId,
 			TopicId: currentTopicId,
 			Text:    message,
@@ -162,11 +162,20 @@ func (gc *guiClient) handlePostMessage() {
 			gc.displayStatus("Sporočilo uspešno ustvarjeno", "green")
 		}
 
+		// We now append the message to the cache
+		gc.clientMu.Lock()
+		if entry, ok := gc.messageCache[currentTopicId]; ok {
+			entry.messages[message.Id] = message
+			// This arrived later since we posted it
+			entry.order = append(entry.order, message.Id)
+		}
+		gc.clientMu.Unlock()
+
 		// Clear the input field after processing
 		gc.app.QueueUpdateDraw(func() {
 			gc.messageInput.SetText("")
-			gc.loadMessagesForCurrentTopic()
 		})
+		gc.updateMessageView(currentTopicId)
 	}()
 }
 
@@ -191,8 +200,54 @@ func (gc *guiClient) deleteMessage(messageId int64) {
 			return
 		}
 
-		// This is good for consistency BUT bad for performance
-		gc.loadMessagesForCurrentTopic()
+		gc.displayStatus("Sporočilo uspešno izbrisano", "green")
+
+		// Remove the message from the cache
+		gc.clientMu.Lock()
+		if entry, ok := gc.messageCache[topicId]; ok {
+			delete(entry.messages, messageId)
+			// We don't remove from the order slice - the ID just doesn't
+			// exist - that is checked in updateMessageView when iterting
+			// over the order slice
+		}
+		gc.clientMu.Unlock()
+
+		gc.updateMessageView(topicId)
+	}()
+}
+
+func (gc *guiClient) likeMessage(messageId int64) {
+	gc.clientMu.RLock()
+	userId := gc.userId
+	topicId := gc.currentTopicId
+	gc.clientMu.RUnlock()
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		defer cancel()
+
+		// We just replace the message in the cache with the updated one
+		message, err := gc.clients.Writes.LikeMessage(ctx, &pb.LikeMessageRequest{
+			UserId:    userId,
+			TopicId:   topicId,
+			MessageId: messageId,
+		})
+
+		if err != nil {
+			gc.displayStatus("Napaka pri všečkanju sporočila", "red")
+			return
+		}
+
+		gc.displayStatus("Sporočilo uspešno všečkano", "green")
+
+		// Update the message in the cache
+		gc.clientMu.Lock()
+		if entry, ok := gc.messageCache[topicId]; ok {
+			entry.messages[message.Id] = message
+		}
+		gc.clientMu.Unlock()
+
+		gc.updateMessageView(topicId)
 	}()
 }
 
@@ -220,6 +275,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		tcell.ColorWhite,
 	)
 	likeButton.SetSelectedFunc(func() {
+		gc.likeMessage(messageId)
 		// Close the modal
 		gc.pages.RemovePage("modal")
 		// Unighlight all text to remove visual selection
