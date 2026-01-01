@@ -217,6 +217,17 @@ func (gc *guiClient) deleteMessage(messageId int64) {
 
 		// Remove the message from the cache
 		gc.clientMu.Lock()
+
+		// If we are subscribed to the current topic,
+		// the deletion will arrive through the subscription stream
+		// so we don't need to update the cache here
+		subscribedToCurrentTopic, exists := gc.subscribedTopics[topicId]
+
+		if exists && subscribedToCurrentTopic {
+			gc.clientMu.Unlock()
+			return
+		}
+
 		if entry, ok := gc.messageCache[topicId]; ok {
 			delete(entry.messages, messageId)
 			// We don't remove from the order slice - the ID just doesn't
@@ -255,6 +266,17 @@ func (gc *guiClient) likeMessage(messageId int64) {
 
 		// Update the message in the cache
 		gc.clientMu.Lock()
+
+		// If we are subscribed to the current topic,
+		// the like update will arrive through the subscription stream
+		// so we don't need to update the cache here
+		subscribedToCurrentTopic, exists := gc.subscribedTopics[topicId]
+
+		if exists && subscribedToCurrentTopic {
+			gc.clientMu.Unlock()
+			return
+		}
+
 		if entry, ok := gc.messageCache[topicId]; ok {
 			entry.messages[message.Id] = message
 		}
