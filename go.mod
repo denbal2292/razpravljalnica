@@ -4,11 +4,16 @@ go 1.25.5
 
 require (
 	github.com/gdamore/tcell/v2 v2.8.1
+	github.com/hashicorp/raft v1.7.3
 	github.com/lmittmann/tint v1.1.2
 	github.com/rivo/tview v0.42.1-0.20250929082832-e113793670e2
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
-	github.com/hashicorp/raft v1.7.3
+)
+
+require (
+	github.com/boltdb/bolt v1.3.1 // indirect
+	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 )
 
 require (
@@ -20,7 +25,7 @@ require (
 	github.com/hashicorp/go-metrics v0.5.4 // indirect
 	github.com/hashicorp/go-msgpack/v2 v2.1.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.0 // indirect
-	github.com/hashicorp/raft v1.7.3 // indirect
+	github.com/hashicorp/raft-boltdb v0.0.0-20251103221153-05f9dd7a5148
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect

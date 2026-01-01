@@ -228,6 +228,10 @@ message AddSubscriptionResponse {
   string subscribe_token = 1; // token to be used when opening the subscription
 }
 
+service RaftService {
+  rpc AddVoter(NodeInfo) returns (google.protobuf.Empty);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Chain replication messages (between nodes)
 ////////////////////////////////////////////////////////////////////////////////

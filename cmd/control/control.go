@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -10,17 +12,26 @@ import (
 	"sync"
 	"time"
 
+	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/hashicorp/raft"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// Command represents a set operation for the FSM
+/*
+====================
+FSM
+====================
+*/
+
 type Command struct {
 	Op    string
 	Key   string
 	Value string
 }
 
-// KVStoreFSM is a simple FSM for a key-value store
 type KVStoreFSM struct {
 	mu   sync.Mutex
 	data map[string]string
@@ -43,31 +54,24 @@ func (f *KVStoreFSM) Apply(log *raft.Log) interface{} {
 		f.data[cmd.Key] = cmd.Value
 		return nil
 	}
-
-	return fmt.Errorf("unknown op: %s", cmd.Op)
+	return fmt.Errorf("unknown op")
 }
 
 func (f *KVStoreFSM) Snapshot() (raft.FSMSnapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	clone := make(map[string]string)
+
+	c := make(map[string]string)
 	for k, v := range f.data {
-		clone[k] = v
+		c[k] = v
 	}
-	return &kvSnapshot{store: clone}, nil
+
+	return &kvSnapshot{store: c}, nil
 }
 
 func (f *KVStoreFSM) Restore(rc io.ReadCloser) error {
 	defer rc.Close()
-	dec := json.NewDecoder(rc)
-	data := make(map[string]string)
-	if err := dec.Decode(&data); err != nil {
-		return err
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.data = data
-	return nil
+	return json.NewDecoder(rc).Decode(&f.data)
 }
 
 type kvSnapshot struct {
@@ -86,109 +90,202 @@ func (s *kvSnapshot) Persist(sink raft.SnapshotSink) error {
 	}
 	return sink.Close()
 }
-
 func (s *kvSnapshot) Release() {}
 
-// createRaftNode creates a raft node with the given id and bind address
-func createRaftNode(id, bindAddr string, fsm raft.FSM, peers []raft.Server) (*raft.Raft, error) {
-	config := raft.DefaultConfig()
-	config.LocalID = raft.ServerID(id)
+/*
+====================
+Raft setup
+====================
+*/
 
-	// Use in-memory log and stable store
+func createRaft(id, addr string, fsm raft.FSM, bootstrap bool) (*raft.Raft, error) {
+	cfg := raft.DefaultConfig()
+	cfg.LocalID = raft.ServerID(id)
+
 	logStore := raft.NewInmemStore()
 	stableStore := raft.NewInmemStore()
 	snapStore := raft.NewInmemSnapshotStore()
 
-	// TCP transport
-	addr, err := net.ResolveTCPAddr("tcp", bindAddr)
-	if err != nil {
-		return nil, err
-	}
-	transport, err := raft.NewTCPTransport(bindAddr, addr, 3, 10*time.Second, os.Stderr)
+	// Persistent log & metadata stores
+	// logStore, err := raftboltdb.NewBoltStore(fmt.Sprintf("raft-log-%s.bolt", id))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// stableStore, err := raftboltdb.NewBoltStore(fmt.Sprintf("raft-stable-%s.bolt", id))
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// // Snapshot store on disk
+	// snapStore, err := raft.NewFileSnapshotStore(".", 1, os.Stderr)
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := raft.NewRaft(config, fsm, logStore, stableStore, snapStore, transport)
+	transport, err := raft.NewTCPTransport(
+		addr,
+		tcpAddr,
+		3,
+		10*time.Second,
+		os.Stderr,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	// Bootstrap cluster if this is the first node
-	if id == "node1" {
-		configuration := raft.Configuration{Servers: peers}
-		r.BootstrapCluster(configuration)
+	r, err := raft.NewRaft(cfg, fsm, logStore, stableStore, snapStore, transport)
+	if err != nil {
+		return nil, err
+	}
+
+	if bootstrap {
+		f := r.BootstrapCluster(raft.Configuration{
+			Servers: []raft.Server{
+				{
+					ID:      raft.ServerID(id),
+					Address: raft.ServerAddress(addr),
+				},
+			},
+		})
+		if err := f.Error(); err != nil {
+			return nil, err
+		}
 	}
 
 	return r, nil
 }
 
-func main() {
-	// Node addresses
-	nodes := []struct {
-		id   string
-		addr string
-	}{
-		{"node1", "127.0.0.1:9001"},
-		{"node2", "127.0.0.1:9002"},
-		{"node3", "127.0.0.1:9003"},
+/*
+====================
+gRPC RaftService
+====================
+*/
+
+type RaftService struct {
+	pb.UnimplementedRaftServiceServer
+	r *raft.Raft
+}
+
+func NewRaftService(r *raft.Raft) *RaftService {
+	return &RaftService{r: r}
+}
+
+func (s *RaftService) AddVoter(
+	ctx context.Context,
+	req *pb.NodeInfo,
+) (*emptypb.Empty, error) {
+
+	if s.r.State() != raft.Leader {
+		return nil, fmt.Errorf("not leader")
 	}
 
-	// Peers for bootstrap
-	peers := []raft.Server{
-		{ID: "node1", Address: "127.0.0.1:9001"},
-		{ID: "node2", Address: "127.0.0.1:9002"},
-		{ID: "node3", Address: "127.0.0.1:9003"},
+	cfg := s.r.GetConfiguration()
+	if err := cfg.Error(); err != nil {
+		return nil, err
 	}
 
-	// Create FSMs and Raft nodes
-	fsms := make([]*KVStoreFSM, 3)
-	rafts := make([]*raft.Raft, 3)
-	for i, n := range nodes {
-		fsms[i] = NewKVStoreFSM()
-
-		r, err := createRaftNode(n.id, n.addr, fsms[i], peers)
-
-		if err != nil {
-			log.Fatalf("failed to create raft node %s: %v", n.id, err)
-		}
-
-		rafts[i] = r
-	}
-
-	// Wait for leader election
-	time.Sleep(2 * time.Second)
-
-	// Find leader
-	var leader *raft.Raft
-	for i, r := range rafts {
-		if r.State() == raft.Leader {
-			leader = r
-			fmt.Printf("Leader is %s\n", nodes[i].id)
-			break
+	for _, srv := range cfg.Configuration().Servers {
+		if srv.ID == raft.ServerID(req.NodeId) {
+			return &emptypb.Empty{}, nil
 		}
 	}
-	if leader == nil {
-		log.Fatal("No leader elected")
-	}
 
-	// Propose a command (set foo=bar)
-	cmd := Command{Op: "set", Key: "foo", Value: "bar"}
-	b, _ := json.Marshal(cmd)
-	f := leader.Apply(b, 2*time.Second)
+	f := s.r.AddVoter(
+		raft.ServerID(req.NodeId),
+		raft.ServerAddress(req.Address),
+		0,
+		0,
+	)
 	if err := f.Error(); err != nil {
-		log.Fatalf("apply error: %v", err)
+		return nil, err
 	}
-	fmt.Println("Set foo=bar via Raft")
 
-	// Wait for replication
-	time.Sleep(1 * time.Second)
+	log.Printf("Added voter %s @ %s", req.NodeId, req.Address)
+	return &emptypb.Empty{}, nil
+}
 
-	// Print state from all FSMs
-	for i, fsm := range fsms {
-		fsm.mu.Lock()
-		v := fsm.data["foo"]
-		fsm.mu.Unlock()
-		fmt.Printf("Node %s: foo=%q\n", nodes[i].id, v)
+/*
+====================
+Join client
+====================
+*/
+
+func joinCluster(leaderAddr, id, raftAddr string) error {
+	conn, err := grpc.NewClient(leaderAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return err
 	}
+	defer conn.Close()
+
+	client := pb.NewRaftServiceClient(conn)
+
+	_, err = client.AddVoter(
+		context.Background(),
+		&pb.NodeInfo{
+			NodeId:  id,
+			Address: raftAddr,
+		},
+	)
+	return err
+}
+
+/*
+====================
+main
+====================
+*/
+
+func main() {
+	id := flag.String("id", "", "node id")
+	addr := flag.String("addr", "", "raft bind address")
+	bootstrap := flag.Bool("bootstrap", false, "bootstrap cluster")
+	join := flag.String("join", "", "leader gRPC address")
+	grpcAddr := flag.String("grpc", ":8000", "gRPC bind address")
+	flag.Parse()
+
+	if *id == "" || *addr == "" {
+		log.Fatal("id and addr are required")
+	}
+
+	fsm := NewKVStoreFSM()
+
+	r, err := createRaft(*id, *addr, fsm, *bootstrap)
+	if err != nil {
+		log.Fatalf("raft init failed: %v", err)
+	}
+
+	// gRPC server (runs on all nodes; leader-only logic inside)
+	lis, err := net.Listen("tcp", *grpcAddr)
+	if err != nil {
+		log.Fatalf("grpc listen failed: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	pb.RegisterRaftServiceServer(grpcServer, NewRaftService(r))
+
+	go func() {
+		log.Printf("gRPC listening on %s", *grpcAddr)
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("grpc serve failed: %v", err)
+		}
+	}()
+
+	// Join loop
+	if *join != "" {
+		go func() {
+			for {
+				time.Sleep(2 * time.Second)
+				if err := joinCluster(*join, *id, *addr); err != nil {
+					log.Printf("join failed, retrying: %v", err)
+					continue
+				}
+				log.Println("successfully joined raft cluster")
+				return
+			}
+		}()
+	}
+
+	select {}
 }
