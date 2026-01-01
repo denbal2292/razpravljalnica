@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"crypto/rand"
 	"fmt"
 	"sync"
@@ -47,8 +46,9 @@ func (sm *SubscriptionManager) CreateMessageEvent(message *pb.Message, seqNum in
 
 func (sm *SubscriptionManager) AddMessageEvent(event *pb.MessageEvent, topicId int64) {
 	sm.topicMu.RLock()
+	defer sm.topicMu.RUnlock()
+
 	subscribers, exists := sm.subscriptionsByTopic[topicId]
-	sm.topicMu.RUnlock()
 
 	if !exists {
 		// No subscribers for this topic
@@ -66,7 +66,7 @@ func (sm *SubscriptionManager) AddMessageEvent(event *pb.MessageEvent, topicId i
 }
 
 // Control plane calls this RPC to inform the node about a new subscription request
-func (sm *SubscriptionManager) AddSubscriptionRequest(ctx context.Context, req *pb.SubscriptionNodeRequest) (*pb.AddSubscriptionResponse, error) {
+func (sm *SubscriptionManager) AddSubscriptionRequest(req *pb.SubscriptionNodeRequest) (*pb.AddSubscriptionResponse, error) {
 	sm.availMu.Lock()
 	defer sm.availMu.Unlock()
 
@@ -129,15 +129,17 @@ func (sm *SubscriptionManager) OpenSubscriptionChannel(req *pb.SubscribeTopicReq
 	}
 
 	sm.activeMu.Lock()
+	sm.topicMu.Lock()
+
+	defer sm.activeMu.Unlock()
+	defer sm.topicMu.Unlock()
+
 	sm.activeSubscriptions[req.SubscribeToken] = subscription
-	sm.activeMu.Unlock()
 
 	// 3. Update subscriptionsByTopic mapping
-	sm.topicMu.Lock()
 	for _, topicId := range subscription.topicIds {
 		sm.subscriptionsByTopic[topicId] = append(sm.subscriptionsByTopic[topicId], subscription)
 	}
-	sm.topicMu.Unlock()
 
 	return eventChan
 }
@@ -155,11 +157,11 @@ func (sm *SubscriptionManager) ClearSubscription(subscribeToken string) {
 		return // No active subscription to clear
 	}
 
-	close(subDelete.channel)
 	delete(sm.activeSubscriptions, subscribeToken)
+	close(subDelete.channel)
 
 	for _, topicId := range subDelete.topicIds {
-		subs:= sm.subscriptionsByTopic[topicId]
+		subs := sm.subscriptionsByTopic[topicId]
 
 		for i, topicSub := range subs {
 			if subDelete == topicSub {

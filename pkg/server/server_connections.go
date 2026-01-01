@@ -11,8 +11,6 @@ func (n *Node) setSuccessor(nodeInfo *pb.NodeInfo) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	n.cancelFunc() // Cancel any existing sending goroutine
-
 	// 1. Try to close existing connection if any
 	if n.successor != nil {
 		n.successor.conn.Close()
@@ -36,8 +34,8 @@ func (n *Node) setSuccessor(nodeInfo *pb.NodeInfo) {
 
 // A method which actually sets the predecessor connection
 func (n *Node) setPredecessor(nodeInfo *pb.NodeInfo) {
-	n.syncMu.Lock()
-	defer n.syncMu.Unlock()
+	n.eventMu.Lock()
+	defer n.eventMu.Unlock()
 
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -63,9 +61,7 @@ func (n *Node) setPredecessor(nodeInfo *pb.NodeInfo) {
 	}
 
 	// 3. Clear any pending events (we are resent events)
-	n.eventMu.Lock()
 	n.eventQueue = make(map[int64]*pb.Event)
-	n.eventMu.Unlock()
 }
 
 func (n *Node) IsHead() bool {

@@ -174,6 +174,13 @@ func (eb *EventBuffer) GetEvent(sequenceNumber int64) *pb.Event {
 	return eb.events[sequenceNumber]
 }
 
+func (eb *EventBuffer) GetLastReceivedAndApplied() (int64, int64) {
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
+
+	return eb.nextEventSeq - 1, eb.lastConfirmed
+}
+
 func (eb *EventBuffer) GetLastApplied() int64 {
 	eb.mu.RLock()
 	defer eb.mu.RUnlock()

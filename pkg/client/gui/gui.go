@@ -48,6 +48,8 @@ type guiClient struct {
 	// Messages
 	selectedMessageId int64
 	messageCache      map[int64]*messageCacheEntry // topicId -> messages
+
+	isNavigating bool
 }
 
 func StartGUIClient(clients *shared.ClientSet) {
@@ -201,10 +203,13 @@ func (gc *guiClient) setupWidgets() {
 			// Store the selected message ID
 			gc.clientMu.Lock()
 			gc.selectedMessageId = messageId
+			navigating := gc.isNavigating
 			gc.clientMu.Unlock()
 
 			// Handle message click
-			gc.showMessageActionsModal(messageId)
+			if !navigating {
+				gc.showMessageActionsModal(messageId)
+			}
 		} else {
 			gc.clientMu.Lock()
 			gc.selectedMessageId = 0
@@ -213,6 +218,22 @@ func (gc *guiClient) setupWidgets() {
 	})
 
 	gc.messageView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyUp {
+			gc.navigateMessages(-1)
+			return nil
+		} else if event.Key() == tcell.KeyDown {
+			gc.navigateMessages(1)
+			return nil
+		} else if event.Key() == tcell.KeyEnter {
+			gc.clientMu.RLock()
+			msgId := gc.selectedMessageId
+			gc.clientMu.RUnlock()
+			if msgId > 0 {
+				gc.showMessageActionsModal(msgId)
+			}
+			return nil
+		}
+
 		// Refresh messages on 'r' key
 		if event.Rune() == 'r' || event.Rune() == 'R' {
 			gc.loadMessagesForCurrentTopic()

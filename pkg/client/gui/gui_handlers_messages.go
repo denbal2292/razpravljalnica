@@ -10,6 +10,7 @@ import (
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"google.golang.org/grpc"
 )
 
 func (gc *guiClient) loadMessagesForCurrentTopic() {
@@ -158,12 +159,28 @@ func (gc *guiClient) handlePostMessage() {
 		if err != nil {
 			gc.displayStatus("Napaka pri pošiljanju sporočila", "red")
 			return
-		} else {
-			gc.displayStatus("Sporočilo uspešno ustvarjeno", "green")
 		}
+
+		gc.displayStatus("Sporočilo uspešno ustvarjeno", "green")
+
+		// Clear the input field
+		gc.app.QueueUpdateDraw(func() {
+			gc.messageInput.SetText("")
+		})
 
 		// We now append the message to the cache
 		gc.clientMu.Lock()
+
+		// If we are subscribed to the current topic,
+		// the message will arrive through the subscription stream
+		// so we don't need to add it to the cache here
+		subscribedToCurrentTopic, exists := gc.subscribedTopics[currentTopicId]
+
+		if exists && subscribedToCurrentTopic {
+			gc.clientMu.Unlock()
+			return
+		}
+
 		if entry, ok := gc.messageCache[currentTopicId]; ok {
 			entry.messages[message.Id] = message
 			// This arrived later since we posted it
@@ -171,15 +188,11 @@ func (gc *guiClient) handlePostMessage() {
 		}
 		gc.clientMu.Unlock()
 
-		// Clear the input field after processing
-		gc.app.QueueUpdateDraw(func() {
-			gc.messageInput.SetText("")
-		})
 		gc.updateMessageView(currentTopicId)
 	}()
 }
 
-func (gc *guiClient) deleteMessage(messageId int64) {
+func (gc *guiClient) handleDeleteMessage(messageId int64) {
 	gc.clientMu.RLock()
 	userId := gc.userId
 	topicId := gc.currentTopicId
@@ -204,19 +217,35 @@ func (gc *guiClient) deleteMessage(messageId int64) {
 
 		// Remove the message from the cache
 		gc.clientMu.Lock()
+
+		// If we are subscribed to the current topic,
+		// the deletion will arrive through the subscription stream
+		// so we don't need to update the cache here
+		subscribedToCurrentTopic, exists := gc.subscribedTopics[topicId]
+
+		if exists && subscribedToCurrentTopic {
+			gc.clientMu.Unlock()
+			return
+		}
+
 		if entry, ok := gc.messageCache[topicId]; ok {
 			delete(entry.messages, messageId)
 			// We don't remove from the order slice - the ID just doesn't
 			// exist - that is checked in updateMessageView when iterting
 			// over the order slice
 		}
+		gc.selectedMessageId = 0
 		gc.clientMu.Unlock()
+
+		gc.app.QueueUpdateDraw(func() {
+			gc.messageView.Highlight()
+		})
 
 		gc.updateMessageView(topicId)
 	}()
 }
 
-func (gc *guiClient) likeMessage(messageId int64) {
+func (gc *guiClient) handleLikeMessage(messageId int64) {
 	gc.clientMu.RLock()
 	userId := gc.userId
 	topicId := gc.currentTopicId
@@ -242,8 +271,68 @@ func (gc *guiClient) likeMessage(messageId int64) {
 
 		// Update the message in the cache
 		gc.clientMu.Lock()
+
+		// If we are subscribed to the current topic,
+		// the like update will arrive through the subscription stream
+		// so we don't need to update the cache here
+		subscribedToCurrentTopic, exists := gc.subscribedTopics[topicId]
+
+		if exists && subscribedToCurrentTopic {
+			gc.clientMu.Unlock()
+			return
+		}
+
 		if entry, ok := gc.messageCache[topicId]; ok {
 			entry.messages[message.Id] = message
+		}
+		gc.clientMu.Unlock()
+
+		gc.updateMessageView(topicId)
+	}()
+}
+
+func (gc *guiClient) handleUpdateMessage(messageId int64, editInput *tview.InputField) {
+	message := strings.TrimSpace(editInput.GetText())
+
+	if message == "" {
+		gc.displayStatus("Sporočilo ne sme biti prazno", "red")
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		defer cancel()
+
+		gc.clientMu.RLock()
+		userId := gc.userId
+		topicId := gc.currentTopicId
+		gc.clientMu.RUnlock()
+
+		updatedMessage, err := gc.clients.Writes.UpdateMessage(ctx, &pb.UpdateMessageRequest{
+			TopicId:   topicId,
+			UserId:    userId,
+			MessageId: messageId,
+			Text:      message,
+		})
+
+		if err != nil {
+			gc.displayStatus("Napaka pri urejanju sporočila", "red")
+			return
+		}
+
+		gc.displayStatus("Sporočilo uspešno urejeno", "green")
+
+		gc.clientMu.Lock()
+
+		subscribedToCurrentTopic, exists := gc.subscribedTopics[topicId]
+
+		if exists && subscribedToCurrentTopic {
+			gc.clientMu.Unlock()
+			return
+		}
+
+		if entry, ok := gc.messageCache[topicId]; ok {
+			entry.messages[updatedMessage.Id] = updatedMessage
 		}
 		gc.clientMu.Unlock()
 
@@ -267,6 +356,21 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		return
 	}
 
+	editInput := tview.NewInputField().
+		SetLabel("Uredi > ").
+		SetLabelColor(tcell.ColorGreen).
+		SetFieldTextColor(tcell.ColorBlack).
+		SetFieldWidth(0).
+		SetFieldBackgroundColor(tcell.ColorDarkGray)
+	// Handle edit on Enter key
+	editInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			gc.handleUpdateMessage(messageId, editInput)
+		}
+		gc.pages.RemovePage("modal")
+		gc.messageView.Highlight()
+	})
+
 	likeButton := createButton(
 		"Všeč mi je",
 		tcell.ColorDarkGray,
@@ -275,7 +379,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		tcell.ColorWhite,
 	)
 	likeButton.SetSelectedFunc(func() {
-		gc.likeMessage(messageId)
+		gc.handleLikeMessage(messageId)
 		// Close the modal
 		gc.pages.RemovePage("modal")
 		// Unighlight all text to remove visual selection
@@ -290,7 +394,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		tcell.ColorWhite,
 	)
 	deleteButton.SetSelectedFunc(func() {
-		gc.deleteMessage(messageId)
+		gc.handleDeleteMessage(messageId)
 		// Close the modal
 		gc.pages.RemovePage("modal")
 		// Unighlight all text to remove visual selection
@@ -311,49 +415,57 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	})
 
 	// Create button layout
-	buttons := tview.NewFlex().
+	items := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(likeButton, 1, 0, true).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(editInput, 1, 0, true).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(likeButton, 1, 0, false).
 		AddItem(tview.NewBox(), 1, 0, false).
 		AddItem(deleteButton, 1, 0, false).
 		AddItem(tview.NewBox(), 1, 0, false).
-		AddItem(closeButton, 1, 0, false)
-	buttons.
-		SetBorder(true).
-		SetTitle("Akcije").
-		SetBorderColor(tcell.ColorWhite).
-		SetBorderPadding(1, 1, 1, 1)
+		AddItem(closeButton, 1, 0, false).
+		AddItem(tview.NewBox(), 1, 0, false)
 
-	// Center the modal
+	// Handmade padding for to overlap the background
+	paddedItems := tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(items, 0, 1, true).
+		AddItem(tview.NewBox(), 1, 0, false)
+
+	paddedItems.SetBorder(true).SetTitle("Akcije")
+
+	// // Center the modal
 	flex := tview.NewFlex().
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(nil, 0, 1, false).
-			AddItem(buttons, 9, 1, true).
-			AddItem(nil, 0, 1, false), 50, 1, true).
+			AddItem(paddedItems, 11, 1, true).
+			AddItem(nil, 0, 1, false), 50, 1, false).
 		AddItem(nil, 0, 1, false)
 
-	// Define the order of focus
-	btns := []*tview.Button{likeButton, deleteButton, closeButton}
+	// Define the order of items
+	focusables := []tview.Primitive{editInput, likeButton, deleteButton, closeButton}
 
 	// We need this if we want different styles for different buttons
-	buttons.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	items.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyTab, tcell.KeyDown:
 			// Move to next button
-			for i, btn := range btns {
-				if btn.HasFocus() {
-					next := (i + 1) % len(btns)
-					gc.app.SetFocus(btns[next])
+			for i, focusable := range focusables {
+				if focusable.HasFocus() {
+					next := (i + 1) % len(focusables)
+					gc.app.SetFocus(focusables[next])
 					return nil
 				}
 			}
 		case tcell.KeyBacktab, tcell.KeyUp:
 			// Move to previous button
-			for i, btn := range btns {
-				if btn.HasFocus() {
-					prev := (i - 1 + len(btns)) % len(btns)
-					gc.app.SetFocus(btns[prev])
+			for i, focusable := range focusables {
+				if focusable.HasFocus() {
+					prev := (i - 1 + len(focusables)) % len(focusables)
+					gc.app.SetFocus(focusables[prev])
 					return nil
 				}
 			}
@@ -361,5 +473,137 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		return event
 	})
 	gc.pages.AddPage("modal", flex, true, true)
-	gc.app.SetFocus(likeButton)
+	gc.app.SetFocus(editInput)
+}
+
+func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
+	// Wrapping this in a goroutine is not wanted since that makes connection closing harder.
+	for {
+		msgEvent, err := msgEventStream.Recv()
+
+		if err != nil {
+			gc.displayStatus("Prekinjena povezava za naročanje na temo", "red")
+
+			// Mark the topic as unsubscribed
+			gc.clientMu.Lock()
+			gc.subscribedTopics[topicId] = false
+			gc.clientMu.Unlock()
+
+			// Update the topics display to show subscription status
+			gc.displayTopics()
+			return
+		}
+
+		msg := msgEvent.Message
+		topicId := msg.TopicId
+
+		gc.clientMu.Lock()
+		entry, ok := gc.messageCache[topicId]
+		if !ok {
+			entry = &messageCacheEntry{
+				messages: make(map[int64]*pb.Message),
+				order:    make([]int64, 0),
+			}
+			gc.messageCache[topicId] = entry
+		}
+		switch msgEvent.Op {
+		case pb.OpType_OP_POST:
+			if msg != nil {
+				entry.messages[msg.Id] = msg
+				entry.order = append(entry.order, msg.Id)
+			}
+		case pb.OpType_OP_DELETE:
+			if msg != nil {
+				delete(entry.messages, msg.Id)
+				// We don't remove from the order slice - the ID just doesn't
+				// exist - that is checked in updateMessageView when iterting
+				// over the order slice
+			}
+		case pb.OpType_OP_UPDATE, pb.OpType_OP_LIKE:
+			if msg != nil {
+				entry.messages[msg.Id] = msg
+			}
+		}
+		gc.clientMu.Unlock()
+		// Special care is taken on the other GUI update handlers to not redraw
+		// twice
+		gc.updateMessageView(topicId)
+	}
+}
+
+func (gc *guiClient) navigateMessages(delta int) {
+	gc.clientMu.RLock()
+	topicId := gc.currentTopicId
+	cache, ok := gc.messageCache[topicId]
+	gc.clientMu.RUnlock()
+
+	if !ok || len(cache.order) == 0 {
+		return
+	}
+
+	highlights := gc.messageView.GetHighlights()
+
+	// Find the index (position) of the currently highlighted message
+	var currentIndex int = -1
+
+	if len(highlights) > 0 {
+		var currentMsgId int64
+		fmt.Sscanf(highlights[0], "msg-%d", &currentMsgId)
+
+		for i, id := range cache.order {
+			if id == currentMsgId {
+				currentIndex = i
+				break
+			}
+		}
+	}
+
+	var nextIndex int
+	if currentIndex == -1 {
+		if delta > 0 {
+			nextIndex = 0
+		} else {
+			nextIndex = len(cache.order) - 1
+		}
+	} else {
+		nextIndex = currentIndex + delta
+		if nextIndex < 0 {
+			nextIndex = 0
+		} else if nextIndex >= len(cache.order) {
+			nextIndex = len(cache.order) - 1
+		}
+	}
+
+	if nextIndex != currentIndex || (currentIndex == -1 && len(cache.order) > 0) {
+		// Find the next valid (non-deleted) message
+		for {
+			if nextIndex < 0 || nextIndex >= len(cache.order) {
+				break
+			}
+
+			msgId := cache.order[nextIndex]
+			// Check if message still exists (not deleted)
+			if _, exists := cache.messages[msgId]; exists {
+				regionId := fmt.Sprintf("msg-%d", msgId)
+
+				gc.clientMu.Lock()
+				gc.isNavigating = true
+				gc.clientMu.Unlock()
+
+				gc.messageView.Highlight(regionId)
+				gc.messageView.ScrollToHighlight()
+
+				gc.clientMu.Lock()
+				gc.isNavigating = false
+				gc.clientMu.Unlock()
+				return
+			}
+			// Message was deleted, try next/previous
+			if delta > 0 {
+				nextIndex++
+			} else {
+				nextIndex--
+			}
+		}
+	}
 }

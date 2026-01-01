@@ -52,7 +52,7 @@ func (n *Node) eventReplicator() {
 		case <-n.sendChan:
 			n.replicateNextEvents()
 
-		case <-n.cancelCtx.Done():
+		case <-n.sendCancelCtx.Done():
 			n.logger.Info("Event replicator goroutine exiting due to cancellation")
 			return
 		}
@@ -71,16 +71,22 @@ func (n *Node) replicateNextEvents() {
 
 		n.logger.Info("Replicating event to successor", "sequence_number", event.SequenceNumber)
 
+		// Remove from buffer and increment expected sequence number
+		delete(n.eventQueue, n.nextEventSeq)
+		n.nextEventSeq++
+
 		// Add the event to the buffer unless we're the HEAD (it already applied when created)
 		if !n.IsHead() {
 			n.eventBuffer.AddEvent(event)
 		}
 
-		n.replicateEvent(event)
+		// Since there is only one goroutine sending events, we can unlock here
+		// NOTE: The go routine will be blocked for the duration of event replication
+		// so no out-of-order sending can happen (no other goroutine can send events)
+		n.eventMu.Unlock()
 
-		// Remove from buffer and increment expected sequence number
-		delete(n.eventQueue, n.nextEventSeq)
-		n.nextEventSeq++
+		n.replicateEvent(event)
+		n.eventMu.Lock()
 	}
 }
 
