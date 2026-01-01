@@ -286,8 +286,8 @@ func (gc *guiClient) likeMessage(messageId int64) {
 	}()
 }
 
-func (gc *guiClient) handleUpdateMessage(messageId int64) {
-	message := strings.TrimSpace(gc.messageInput.GetText())
+func (gc *guiClient) handleUpdateMessage(messageId int64, editInput *tview.InputField) {
+	message := strings.TrimSpace(editInput.GetText())
 
 	if message == "" {
 		gc.displayStatus("Sporočilo ne sme biti prazno", "red")
@@ -295,31 +295,36 @@ func (gc *guiClient) handleUpdateMessage(messageId int64) {
 	}
 
 	go func() {
-		// ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
-		// defer cancel()
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		defer cancel()
 
-		// gc.clientMu.RLock()
-		// userId := gc.userId
-		// topicId := gc.currentTopicId
-		// gc.clientMu.RUnlock()
+		gc.clientMu.RLock()
+		userId := gc.userId
+		topicId := gc.currentTopicId
+		gc.clientMu.RUnlock()
 
-		// // updatedMessage, err := gc.clients.Writes.UpdateMessage(ctx, &pb.UpdateMessageRequest{
-		// // 	TopicId:   topicId,
-		// // 	UserId:    userId,
-		// // 	MessageId: messageId,
-		// // 	Text:      message,
-		// // })
+		updatedMessage, err := gc.clients.Writes.UpdateMessage(ctx, &pb.UpdateMessageRequest{
+			TopicId:   topicId,
+			UserId:    userId,
+			MessageId: messageId,
+			Text:      message,
+		})
 
-		// if err != nil {
-		// 	gc.displayStatus("Napaka pri urejanju sporočila", "red")
-		// 	return
-		// }
+		if err != nil {
+			gc.displayStatus("Napaka pri urejanju sporočila", "red")
+			return
+		}
 
-		// gc.displayStatus("Sporočilo uspešno urejeno", "green")
+		gc.displayStatus("Sporočilo uspešno urejeno", "green")
 
-		// gc.clientMu.Lock()
+		gc.clientMu.Lock()
 
-		// gc.clientMu.Unlock()
+		if entry, ok := gc.messageCache[topicId]; ok {
+			entry.messages[updatedMessage.Id] = updatedMessage
+		}
+		gc.clientMu.Unlock()
+
+		gc.updateMessageView(topicId)
 	}()
 }
 
@@ -348,8 +353,10 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	// Handle edit on Enter key
 	editInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
-			gc.handleUpdateMessage(messageId)
+			gc.handleUpdateMessage(messageId, editInput)
 		}
+		gc.pages.RemovePage("modal")
+		gc.messageView.Highlight()
 	})
 
 	likeButton := createButton(
