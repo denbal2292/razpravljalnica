@@ -39,13 +39,19 @@ func (n *Node) bufferAck(seqNum int64) {
 }
 
 func (n *Node) ackProcessor() {
-	// TODO: Should we make it stoppable?
 	defer n.logger.Warn("Stopping ACK processor goroutine")
 
 	n.logger.Info("Starting ACK processor goroutine")
 
-	for range n.ackChan {
-		n.processNextAcks()
+	for {
+		select {
+		case <-n.ackChan:
+			n.processNextAcks()
+
+		case <-n.ackCancelCtx.Done():
+			n.logger.Info("ACK processor goroutine exiting due to cancellation")
+			return
+		}
 	}
 }
 
@@ -59,16 +65,20 @@ func (n *Node) processNextAcks() {
 			return
 		}
 
+		// Remove from buffer and increment expected ACK sequence number
+		delete(n.ackQueue, n.nextAckSeq)
+		n.nextAckSeq++
+		n.ackMu.Unlock()
+
+		// Since we have only one ACK processor goroutine, it's safe to process the ACK without further locking
 		n.logger.Info("Processing ACK to predecessor", "sequence_number", event.SequenceNumber)
 
 		// Acknowledge the event in the buffer
 		n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
 
+		// Propagate the ACK to the predecessor or apply it if HEAD
 		n.acknowledgeEvent(event)
-
-		// Remove from buffer and increment expected ACK sequence number
-		delete(n.ackQueue, n.nextAckSeq)
-		n.nextAckSeq++
+		n.ackMu.Lock()
 	}
 }
 

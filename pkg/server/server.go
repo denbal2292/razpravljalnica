@@ -45,12 +45,18 @@ type Node struct {
 	nextEventSeq int64               // next expected event sequence number
 	eventMu      sync.Mutex          // protects eventQueue and nextEventSeq
 
-	syncMu sync.RWMutex // RLock = writing events, Lock = syncing events
+	syncMu sync.Mutex // protects multiple sync operations from being run concurrently
 
-	sendChan   chan struct{} // sync channel for signaling new events to send
-	ackChan    chan struct{} // sync channel for signaling new ACKs to process
-	cancelCtx  context.Context
-	cancelFunc context.CancelFunc
+	sendChan       chan struct{} // sync channel for signaling new events to send
+	sendCancelCtx  context.Context
+	sendCancelFunc context.CancelFunc
+	sendWg         sync.WaitGroup // for waiting for sync goroutine to finish
+
+	ackGoroutineMu sync.Mutex    // protects starting/stopping ACK processor goroutine
+	ackChan        chan struct{} // sync channel for signaling new ACKs to process
+	ackCancelCtx   context.Context
+	ackCancelFunc  context.CancelFunc
+	ackWg          sync.WaitGroup // for waiting for ACK processor goroutine to finish
 
 	logger *slog.Logger // logger for the node
 }
@@ -62,7 +68,8 @@ type NodeConnection struct {
 }
 
 func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) *Node {
-	ctx, cancel := context.WithCancel(context.Background())
+	sendCtx, sendCancel := context.WithCancel(context.Background())
+	ackCtx, ackCancel := context.WithCancel(context.Background())
 
 	n := &Node{
 		storage:     storage.NewStorage(),
@@ -83,10 +90,19 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 		predecessor:         nil,
 		successor:           nil,
 
-		cancelCtx:  ctx,
-		cancelFunc: cancel,
-		sendChan:   make(chan struct{}),
-		ackChan:    make(chan struct{}),
+		// NOTE: cancelCtx and cancelFunc can be accessed only when holding syncMu
+		sendCancelCtx:  sendCtx,    // for cancelling event replication goroutine
+		sendCancelFunc: sendCancel, // for cancelling event replication goroutine
+		sendChan:       make(chan struct{}),
+		sendWg:         sync.WaitGroup{},
+
+		ackGoroutineMu: sync.Mutex{},
+		ackCancelCtx:   ackCtx,
+		ackCancelFunc:  ackCancel,
+		ackChan:        make(chan struct{}),
+		ackWg:          sync.WaitGroup{},
+
+		syncMu: sync.Mutex{},
 
 		heartbeatInterval: 5 * time.Second, // TODO: Configurable
 		// Keep this as os.Stdout for simplicity - can be easily extended
@@ -105,12 +121,10 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 	n.connectToControlPlane()
 
 	n.startEventReplicationGoroutine()
+	n.startAckProcessorGoroutine()
 
 	// Start sending heartbeats to the control plane in the background
 	go n.startHeartbeat()
-
-	// Start ACK processor goroutine (we don't need to stop it)
-	go n.ackProcessor()
 
 	return n
 }
@@ -133,11 +147,20 @@ func (n *Node) requireTail() error {
 
 func (n *Node) startEventReplicationGoroutine() {
 	ctx, cancel := context.WithCancel(context.Background())
-	n.cancelCtx = ctx
-	n.cancelFunc = cancel
+	n.sendCancelCtx = ctx
+	n.sendCancelFunc = cancel
 
 	// Start the event replicator goroutine
-	go n.eventReplicator()
+	n.sendWg.Go(n.eventReplicator)
+}
+
+func (n *Node) startAckProcessorGoroutine() {
+	ctx, cancel := context.WithCancel(context.Background())
+	n.ackCancelCtx = ctx
+	n.ackCancelFunc = cancel
+
+	// Start the ACK processor goroutine
+	n.ackWg.Go(n.ackProcessor)
 }
 
 func (n *Node) connectToControlPlane() {
