@@ -371,6 +371,15 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		return
 	}
 
+	// Get original input capture to restore later - so the modal focus
+	// isn't messed up
+	originalCapture := gc.app.GetInputCapture()
+	closeModal := func() {
+		gc.pages.RemovePage("modal")
+		gc.messageView.Highlight()
+		gc.app.SetInputCapture(originalCapture)
+	}
+
 	// Check if the current user is the author of the message
 	isAuthor := (userId == messageAuthorId)
 
@@ -394,7 +403,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 			if key == tcell.KeyEnter {
 				gc.handleUpdateMessage(messageId, editInput)
 			}
-			gc.pages.RemovePage("modal")
+			closeModal()
 		})
 		items.AddItem(tview.NewBox(), 1, 0, false)
 		items.AddItem(editInput, 1, 0, true)
@@ -411,8 +420,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	)
 	likeButton.SetSelectedFunc(func() {
 		gc.handleLikeMessage(messageId)
-		// Close the modal
-		gc.pages.RemovePage("modal")
+		closeModal()
 	})
 	items.AddItem(tview.NewBox(), 1, 0, false)
 	items.AddItem(likeButton, 1, 0, false)
@@ -430,11 +438,13 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		deleteButton.SetSelectedFunc(func() {
 			gc.handleDeleteMessage(messageId)
 			// Close the modal
-			gc.pages.RemovePage("modal")
+			// gc.pages.RemovePage("modal")
+			closeModal()
 		})
 		items.AddItem(tview.NewBox(), 1, 0, false)
 		items.AddItem(deleteButton, 1, 0, false)
 		focusables = append(focusables, deleteButton)
+
 	}
 
 	// Close button for everyone
@@ -446,7 +456,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		tcell.ColorWhite,
 	)
 	closeButton.SetSelectedFunc(func() {
-		gc.pages.RemovePage("modal")
+		closeModal()
 	})
 	items.AddItem(tview.NewBox(), 1, 0, false)
 	items.AddItem(closeButton, 1, 0, false)
@@ -470,16 +480,11 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 			AddItem(nil, 0, 1, false), 50, 1, false).
 		AddItem(nil, 0, 1, false)
 
-	// We need this if we want different styles for different buttons
-	items.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	// Set modal-specific input capture
+	gc.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		case tcell.KeyEscape:
-			// Close the modal with Escape key
-			gc.pages.RemovePage("modal")
-			return nil
-
-		case tcell.KeyDown:
-			// Move to next button
+		case tcell.KeyTab:
+			// Move to next focusable
 			for i, focusable := range focusables {
 				if focusable.HasFocus() {
 					next := (i + 1) % len(focusables)
@@ -487,8 +492,10 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 					return nil
 				}
 			}
-		case tcell.KeyUp:
-			// Move to previous button
+			gc.app.SetFocus(focusables[0])
+			return nil
+		case tcell.KeyBacktab:
+			// Move to previous focusable
 			for i, focusable := range focusables {
 				if focusable.HasFocus() {
 					prev := (i - 1 + len(focusables)) % len(focusables)
@@ -496,8 +503,22 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 					return nil
 				}
 			}
+			gc.app.SetFocus(focusables[len(focusables)-1])
+			return nil
+		case tcell.KeyEscape:
+			// Close modal and restore original capture
+			gc.pages.RemovePage("modal")
+			gc.messageView.Highlight()
+			gc.app.SetInputCapture(originalCapture)
+			return nil
 		}
 		return event
+	})
+
+	// Use closeModal in your buttons
+	likeButton.SetSelectedFunc(func() {
+		gc.handleLikeMessage(messageId)
+		closeModal()
 	})
 
 	gc.pages.AddPage("modal", flex, true, true)

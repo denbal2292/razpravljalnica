@@ -132,7 +132,8 @@ func (gc *guiClient) setupWidgets() {
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(14)
+		SetFieldWidth(14).
+		SetAutocompleteFunc(nil)
 
 	gc.newUserInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
@@ -145,7 +146,8 @@ func (gc *guiClient) setupWidgets() {
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(14)
+		SetFieldWidth(14).
+		SetAutocompleteFunc(nil)
 
 	gc.logInUserInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
@@ -249,7 +251,8 @@ func (gc *guiClient) setupWidgets() {
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(0)
+		SetFieldWidth(0).
+		SetAutocompleteFunc(nil)
 
 	// Handle message posting on Enter key
 	gc.messageInput.SetDoneFunc(func(key tcell.Key) {
@@ -267,9 +270,9 @@ func (gc *guiClient) setupLayout() {
 
 	userCredentialsColumn := tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(gc.newUserInput, 30, 0, false).
+		AddItem(gc.newUserInput, 35, 0, false).
 		AddItem(tview.NewBox(), 2, 0, false).
-		AddItem(gc.logInUserInput, 40, 0, false).
+		AddItem(gc.logInUserInput, 45, 0, false).
 		AddItem(gc.loggedInUserView, 0, 1, false)
 
 	// Topics Column
@@ -298,20 +301,29 @@ func (gc *guiClient) setupLayout() {
 	// Add main layout as a page
 	gc.pages.AddPage("main", grid, true, true)
 
-	// Cycle focus between topics list and message view with Tab/Shift-Tab
 	gc.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		focusables := []tview.Primitive{gc.topicsList, gc.messageView}
+		// Only capture Tab keys
 		if event.Key() == tcell.KeyTab {
+			focusables := []tview.Primitive{
+				gc.newUserInput,
+				gc.logInUserInput,
+				gc.topicsList,
+				gc.messageView,
+				gc.newTopicInput,
+				gc.messageInput,
+			}
+
 			cur := gc.app.GetFocus()
 			for i, p := range focusables {
-				if p == cur {
+				// Check if p is focused or if p contains the focused item
+				if p == cur || p.HasFocus() {
 					next := (i + 1) % len(focusables)
 					gc.app.SetFocus(focusables[next])
 					return nil
 				}
 			}
-			gc.app.SetFocus(focusables[0])
-			return nil
+			// If we didn't find the current focus, do NOTHING.
+			return event
 		}
 		return event
 	})
