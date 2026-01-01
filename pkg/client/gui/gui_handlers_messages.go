@@ -64,6 +64,12 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 }
 
 func (gc *guiClient) updateMessageView(topicId int64) {
+	// At the beggining, display the instructions - if no topic is selected
+	if topicId <= 0 {
+		gc.renderCenteredMessage(titleText)
+		return
+	}
+
 	gc.clientMu.RLock()
 	topic, topicOk := gc.topics[topicId]
 	msgCache, msgOk := gc.messageCache[topicId]
@@ -128,15 +134,11 @@ func (gc *guiClient) updateMessageView(topicId int64) {
 				messageLine := fmt.Sprintf(`["%s"][yellow]%s[-]: %s ([green]Všečki: %d[-]) [%s][""]`+"\n", regionId, user.Name, msg.Text, msg.Likes, timestamp)
 				gc.messageView.Write([]byte(messageLine))
 			}
+			gc.messageView.ScrollToEnd()
 		} else {
 			// No messages in this topic yet - write a centered message
-			_, _, _, height := gc.messageView.GetInnerRect()
-			// Pad vertically to center the message
-			verticalPadding := strings.Repeat("\n", height/2)
-			gc.messageView.SetTextAlign(tview.AlignCenter)
-			fmt.Fprintf(gc.messageView, "%s[yellow]Znotraj %s še ni nobenih sporočil[-]", verticalPadding, topicName)
+			gc.renderCenteredMessage(fmt.Sprintf("[yellow]Znotraj %s še ni nobenih sporočil[-]", topicName))
 		}
-		gc.messageView.ScrollToEnd()
 	})
 }
 

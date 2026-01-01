@@ -59,10 +59,14 @@ func StartGUIClient(clients *shared.ClientSet) {
 	// Set initial focus to the input field
 	gc := newGuiClient(clients)
 
-	if err := gc.app.Run(); err != nil {
+	err := gc.app.Run()
+	if err != nil {
 		panic(err)
 	}
 }
+
+// Initial basic instructions and title when starting the application
+const titleText = "Dobrodošel v [blue]RAZPRAVLJALNICI[-]!\n1. Ustvari novega uporabnika ali se prijavi z obstoječim ID-jem.\n2. Ustvari ali izberi temo.\n3. Pošlji svoje prvo sporočilo!\n4. Če želiš osvežiti teme ali sporočila, izberi ustrezno okno in pritisni 'r'.\n5. Če se želiš naročiti na izbrano temo, pritisni 's'."
 
 func newGuiClient(clients *shared.ClientSet) *guiClient {
 	// Initialize GUI client structure
@@ -95,6 +99,8 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 
 	// Once it's setup, refresh the topics list
 	gc.refreshTopics()
+
+	gc.updateMessageView(0)
 
 	return gc
 }

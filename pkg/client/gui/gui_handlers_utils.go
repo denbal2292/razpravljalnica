@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -35,4 +36,17 @@ func createButton(text string, color tcell.Color, activeColor tcell.Color, textC
 	btn.SetActivatedStyle(activeStyle)
 
 	return btn
+}
+
+// renderCenteredMessage displays a centered message in the message view
+func (gc *guiClient) renderCenteredMessage(message string) {
+	// Clear existing text
+	gc.messageView.SetText("")
+
+	// Get the dimensions of the message view
+	_, _, _, height := gc.messageView.GetInnerRect()
+	// Pad vertically to center the message
+	verticalPadding := strings.Repeat("\n", height/2)
+	gc.messageView.SetTextAlign(tview.AlignCenter)
+	fmt.Fprintf(gc.messageView, "%s%s", verticalPadding, message)
 }
