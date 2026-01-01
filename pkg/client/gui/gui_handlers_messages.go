@@ -553,7 +553,13 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 		gc.clientMu.Unlock()
 		// Special care is taken on the other GUI update handlers to not redraw
 		// twice
-		gc.updateMessageView(topicId)
+		gc.clientMu.RLock()
+		currentTopicId := gc.currentTopicId
+		gc.clientMu.RUnlock()
+
+		if topicId == currentTopicId {
+			gc.updateMessageView(topicId)
+		}
 	}
 }
 
