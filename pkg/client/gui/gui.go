@@ -298,5 +298,23 @@ func (gc *guiClient) setupLayout() {
 	// Add main layout as a page
 	gc.pages.AddPage("main", grid, true, true)
 
+	// Cycle focus between topics list and message view with Tab/Shift-Tab
+	gc.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		focusables := []tview.Primitive{gc.topicsList, gc.messageView}
+		if event.Key() == tcell.KeyTab {
+			cur := gc.app.GetFocus()
+			for i, p := range focusables {
+				if p == cur {
+					next := (i + 1) % len(focusables)
+					gc.app.SetFocus(focusables[next])
+					return nil
+				}
+			}
+			gc.app.SetFocus(focusables[0])
+			return nil
+		}
+		return event
+	})
+
 	gc.app.SetRoot(gc.pages, true)
 }
