@@ -23,8 +23,10 @@ func (gc *guiClient) handleCreateUser() {
 		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 		defer cancel()
 
-		user, err := gc.clients.Writes.CreateUser(ctx, &pb.CreateUserRequest{
-			Name: userName,
+		user, err := shared.RetryFetch(ctx, gc.clients, func(ctx context.Context) (*pb.User, error) {
+			return gc.clients.Writes.CreateUser(ctx, &pb.CreateUserRequest{
+				Name: userName,
+			})
 		})
 
 		if err != nil {
@@ -88,8 +90,10 @@ func (gc *guiClient) getUserName(id int64) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
-	user, err := gc.clients.Reads.GetUser(ctx, &pb.GetUserRequest{
-		UserId: id,
+	user, err := shared.RetryFetch(ctx, gc.clients, func(ctx context.Context) (*pb.User, error) {
+		return gc.clients.Reads.GetUser(ctx, &pb.GetUserRequest{
+			UserId: id,
+		})
 	})
 
 	if err != nil {

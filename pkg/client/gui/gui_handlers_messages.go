@@ -3,7 +3,6 @@ package gui
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
@@ -11,6 +10,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (gc *guiClient) loadMessagesForCurrentTopic() {
@@ -22,22 +22,18 @@ func (gc *guiClient) loadMessagesForCurrentTopic() {
 		currentTopicId := gc.currentTopicId
 		gc.clientMu.RUnlock()
 
-		// This should be more dynamic
-		messages, err := gc.clients.Reads.GetMessages(ctx, &pb.GetMessagesRequest{
-			TopicId:       currentTopicId,
-			FromMessageId: 0,
-			Limit:         50,
+		messages, err := shared.RetryFetch(ctx, gc.clients, func(ctx context.Context) (*pb.GetMessagesResponse, error) {
+			return gc.clients.Reads.GetMessages(ctx, &pb.GetMessagesRequest{
+				TopicId:       currentTopicId,
+				FromMessageId: 0,
+				Limit:         50,
+			})
 		})
 
 		if err != nil {
 			gc.displayStatus("Napaka pri pridobivanju sporočil", "red")
 			return
 		}
-
-		// Sort messages by createdAt ascending
-		sort.Slice(messages.Messages, func(i, j int) bool {
-			return messages.Messages[i].CreatedAt.AsTime().Before(messages.Messages[j].CreatedAt.AsTime())
-		})
 
 		gc.clientMu.Lock()
 		if entry, ok := gc.messageCache[currentTopicId]; !ok {
@@ -150,12 +146,13 @@ func (gc *guiClient) handlePostMessage() {
 		currentTopicId := gc.currentTopicId
 		gc.clientMu.RUnlock()
 
-		message, err := gc.clients.Writes.PostMessage(ctx, &pb.PostMessageRequest{
-			UserId:  userId,
-			TopicId: currentTopicId,
-			Text:    message,
+		message, err := shared.RetryFetch[*pb.Message](ctx, gc.clients, func(ctx context.Context) (*pb.Message, error) {
+			return gc.clients.Writes.PostMessage(ctx, &pb.PostMessageRequest{
+				UserId:  userId,
+				TopicId: currentTopicId,
+				Text:    message,
+			})
 		})
-
 		if err != nil {
 			gc.displayStatus("Napaka pri pošiljanju sporočila", "red")
 			return
@@ -202,10 +199,12 @@ func (gc *guiClient) handleDeleteMessage(messageId int64) {
 		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 		defer cancel()
 
-		_, err := gc.clients.Writes.DeleteMessage(ctx, &pb.DeleteMessageRequest{
-			UserId:    userId,
-			TopicId:   topicId,
-			MessageId: messageId,
+		_, err := shared.RetryFetch(ctx, gc.clients, func(ctx context.Context) (*emptypb.Empty, error) {
+			return gc.clients.Writes.DeleteMessage(ctx, &pb.DeleteMessageRequest{
+				UserId:    userId,
+				TopicId:   topicId,
+				MessageId: messageId,
+			})
 		})
 
 		if err != nil {
@@ -256,12 +255,13 @@ func (gc *guiClient) handleLikeMessage(messageId int64) {
 		defer cancel()
 
 		// We just replace the message in the cache with the updated one
-		message, err := gc.clients.Writes.LikeMessage(ctx, &pb.LikeMessageRequest{
-			UserId:    userId,
-			TopicId:   topicId,
-			MessageId: messageId,
+		message, err := shared.RetryFetch(ctx, gc.clients, func(ctx context.Context) (*pb.Message, error) {
+			return gc.clients.Writes.LikeMessage(ctx, &pb.LikeMessageRequest{
+				UserId:    userId,
+				TopicId:   topicId,
+				MessageId: messageId,
+			})
 		})
-
 		if err != nil {
 			gc.displayStatus("Napaka pri všečkanju sporočila", "red")
 			return
@@ -308,11 +308,13 @@ func (gc *guiClient) handleUpdateMessage(messageId int64, editInput *tview.Input
 		topicId := gc.currentTopicId
 		gc.clientMu.RUnlock()
 
-		updatedMessage, err := gc.clients.Writes.UpdateMessage(ctx, &pb.UpdateMessageRequest{
-			TopicId:   topicId,
-			UserId:    userId,
-			MessageId: messageId,
-			Text:      message,
+		updatedMessage, err := shared.RetryFetch(ctx, gc.clients, func(ctx context.Context) (*pb.Message, error) {
+			return gc.clients.Writes.UpdateMessage(ctx, &pb.UpdateMessageRequest{
+				TopicId:   topicId,
+				UserId:    userId,
+				MessageId: messageId,
+				Text:      message,
+			})
 		})
 
 		if err != nil {

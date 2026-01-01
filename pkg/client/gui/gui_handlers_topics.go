@@ -39,8 +39,10 @@ func (gc *guiClient) handleCreateTopic() {
 
 		// We ignore the response - and refetch the topic in order for
 		// the state to be consistent
-		topic, err := gc.clients.Writes.CreateTopic(ctx, &pb.CreateTopicRequest{
-			Name: topicName,
+		topic, err := shared.RetryFetch(ctx, gc.clients, func(ctx context.Context) (*pb.Topic, error) {
+			return gc.clients.Writes.CreateTopic(ctx, &pb.CreateTopicRequest{
+				Name: topicName,
+			})
 		})
 
 		if err != nil {
@@ -77,7 +79,9 @@ func (gc *guiClient) refreshTopics() {
 		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 		defer cancel()
 
-		topics, err := gc.clients.Reads.ListTopics(ctx, &emptypb.Empty{})
+		topics, err := shared.RetryFetch(ctx, gc.clients, func(ctx context.Context) (*pb.ListTopicsResponse, error) {
+			return gc.clients.Reads.ListTopics(ctx, &emptypb.Empty{})
+		})
 		if err != nil {
 			gc.displayStatus("Napaka pri pridobivanju tem", "red")
 			return
