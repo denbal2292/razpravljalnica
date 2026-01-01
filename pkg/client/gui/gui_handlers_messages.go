@@ -343,6 +343,19 @@ func (gc *guiClient) handleUpdateMessage(messageId int64, editInput *tview.Input
 func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	gc.clientMu.RLock()
 	userId := gc.userId
+	var messageAuthorId int64
+	entry, ok := gc.messageCache[gc.currentTopicId]
+	if ok && entry != nil {
+		if entry.messages != nil {
+			if msg, exists := entry.messages[messageId]; exists {
+				messageAuthorId = msg.UserId
+			} else {
+				gc.clientMu.RUnlock()
+				gc.displayStatus("Sporočilo ne obstaja", "red")
+				return
+			}
+		}
+	}
 	gc.clientMu.RUnlock()
 
 	if userId <= 0 {
@@ -356,21 +369,37 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		return
 	}
 
-	editInput := tview.NewInputField().
-		SetLabel("Uredi > ").
-		SetLabelColor(tcell.ColorGreen).
-		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(0).
-		SetFieldBackgroundColor(tcell.ColorDarkGray)
-	// Handle edit on Enter key
-	editInput.SetDoneFunc(func(key tcell.Key) {
-		if key == tcell.KeyEnter {
-			gc.handleUpdateMessage(messageId, editInput)
-		}
-		gc.pages.RemovePage("modal")
-		gc.messageView.Highlight()
-	})
+	// Check if the current user is the author of the message
+	isAuthor := (userId == messageAuthorId)
 
+	// Build items conditionally
+	items := tview.NewFlex().
+		SetDirection(tview.FlexRow)
+
+	focusables := []tview.Primitive{}
+	// Edit option for author
+	var editInput *tview.InputField
+	if isAuthor {
+		editInput = tview.NewInputField().
+			SetLabel("Uredi > ").
+			SetLabelColor(tcell.ColorGreen).
+			SetFieldTextColor(tcell.ColorBlack).
+			SetFieldWidth(0).
+			SetFieldBackgroundColor(tcell.ColorDarkGray)
+		// Handle edit on Enter key
+		editInput.SetDoneFunc(func(key tcell.Key) {
+			if key == tcell.KeyEnter {
+				gc.handleUpdateMessage(messageId, editInput)
+			}
+			gc.pages.RemovePage("modal")
+			gc.messageView.Highlight()
+		})
+		items.AddItem(tview.NewBox(), 1, 0, false)
+		items.AddItem(editInput, 1, 0, true)
+		focusables = append(focusables, editInput)
+	}
+
+	// Like option for everyone
 	likeButton := createButton(
 		"Všeč mi je",
 		tcell.ColorDarkGray,
@@ -385,22 +414,32 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		// Unighlight all text to remove visual selection
 		gc.messageView.Highlight()
 	})
+	items.AddItem(tview.NewBox(), 1, 0, false)
+	items.AddItem(likeButton, 1, 0, false)
+	focusables = append(focusables, likeButton)
 
-	deleteButton := createButton(
-		"Izbriši",
-		tcell.ColorDarkGray,
-		tcell.ColorRed,
-		tcell.ColorBlack,
-		tcell.ColorWhite,
-	)
-	deleteButton.SetSelectedFunc(func() {
-		gc.handleDeleteMessage(messageId)
-		// Close the modal
-		gc.pages.RemovePage("modal")
-		// Unighlight all text to remove visual selection
-		gc.messageView.Highlight()
-	})
+	// Delete option for author
+	if isAuthor {
+		deleteButton := createButton(
+			"Izbriši",
+			tcell.ColorDarkGray,
+			tcell.ColorRed,
+			tcell.ColorBlack,
+			tcell.ColorWhite,
+		)
+		deleteButton.SetSelectedFunc(func() {
+			gc.handleDeleteMessage(messageId)
+			// Close the modal
+			gc.pages.RemovePage("modal")
+			// Unighlight all text to remove visual selection
+			gc.messageView.Highlight()
+		})
+		items.AddItem(tview.NewBox(), 1, 0, false)
+		items.AddItem(deleteButton, 1, 0, false)
+		focusables = append(focusables, deleteButton)
+	}
 
+	// Close button for everyone
 	closeButton := createButton(
 		"Zapri",
 		tcell.ColorDarkGray,
@@ -413,21 +452,11 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		// Unighlight all text to remove visual selection
 		gc.messageView.Highlight()
 	})
+	items.AddItem(tview.NewBox(), 1, 0, false)
+	items.AddItem(closeButton, 1, 0, false)
+	items.AddItem(tview.NewBox(), 1, 0, false)
+	focusables = append(focusables, closeButton)
 
-	// Create button layout
-	items := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(tview.NewBox(), 1, 0, false).
-		AddItem(editInput, 1, 0, true).
-		AddItem(tview.NewBox(), 1, 0, false).
-		AddItem(likeButton, 1, 0, false).
-		AddItem(tview.NewBox(), 1, 0, false).
-		AddItem(deleteButton, 1, 0, false).
-		AddItem(tview.NewBox(), 1, 0, false).
-		AddItem(closeButton, 1, 0, false).
-		AddItem(tview.NewBox(), 1, 0, false)
-
-	// Handmade padding for to overlap the background
 	paddedItems := tview.NewFlex().
 		SetDirection(tview.FlexColumn).
 		AddItem(tview.NewBox(), 1, 0, false).
@@ -436,17 +465,14 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 
 	paddedItems.SetBorder(true).SetTitle("Akcije")
 
-	// // Center the modal
+	// Center the modal
 	flex := tview.NewFlex().
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(nil, 0, 1, false).
-			AddItem(paddedItems, 11, 1, true).
+			AddItem(paddedItems, len(focusables)*2+3, 1, true).
 			AddItem(nil, 0, 1, false), 50, 1, false).
 		AddItem(nil, 0, 1, false)
-
-	// Define the order of items
-	focusables := []tview.Primitive{editInput, likeButton, deleteButton, closeButton}
 
 	// We need this if we want different styles for different buttons
 	items.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -473,7 +499,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		return event
 	})
 	gc.pages.AddPage("modal", flex, true, true)
-	gc.app.SetFocus(editInput)
+	gc.app.SetFocus(focusables[0])
 }
 
 func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
