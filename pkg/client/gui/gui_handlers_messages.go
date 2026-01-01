@@ -451,7 +451,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	// We need this if we want different styles for different buttons
 	items.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		case tcell.KeyTab, tcell.KeyDown:
+		case tcell.KeyDown:
 			// Move to next button
 			for i, focusable := range focusables {
 				if focusable.HasFocus() {
@@ -460,7 +460,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 					return nil
 				}
 			}
-		case tcell.KeyBacktab, tcell.KeyUp:
+		case tcell.KeyUp:
 			// Move to previous button
 			for i, focusable := range focusables {
 				if focusable.HasFocus() {
