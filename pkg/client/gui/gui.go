@@ -270,9 +270,9 @@ func (gc *guiClient) setupLayout() {
 
 	userCredentialsColumn := tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(gc.newUserInput, 30, 0, false).
+		AddItem(gc.newUserInput, 35, 0, false).
 		AddItem(tview.NewBox(), 2, 0, false).
-		AddItem(gc.logInUserInput, 40, 0, false).
+		AddItem(gc.logInUserInput, 45, 0, false).
 		AddItem(gc.loggedInUserView, 0, 1, false)
 
 	// Topics Column
@@ -323,7 +323,6 @@ func (gc *guiClient) setupLayout() {
 				}
 			}
 			// If we didn't find the current focus, do NOTHING.
-			// Allow the event to bubble down to the widget (Step 2).
 			return event
 		}
 		return event
