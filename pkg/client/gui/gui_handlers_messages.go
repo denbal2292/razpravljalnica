@@ -192,7 +192,7 @@ func (gc *guiClient) handlePostMessage() {
 	}()
 }
 
-func (gc *guiClient) deleteMessage(messageId int64) {
+func (gc *guiClient) handleDeleteMessage(messageId int64) {
 	gc.clientMu.RLock()
 	userId := gc.userId
 	topicId := gc.currentTopicId
@@ -240,7 +240,7 @@ func (gc *guiClient) deleteMessage(messageId int64) {
 	}()
 }
 
-func (gc *guiClient) likeMessage(messageId int64) {
+func (gc *guiClient) handleLikeMessage(messageId int64) {
 	gc.clientMu.RLock()
 	userId := gc.userId
 	topicId := gc.currentTopicId
@@ -319,6 +319,13 @@ func (gc *guiClient) handleUpdateMessage(messageId int64, editInput *tview.Input
 
 		gc.clientMu.Lock()
 
+		subscribedToCurrentTopic, exists := gc.subscribedTopics[topicId]
+
+		if exists && subscribedToCurrentTopic {
+			gc.clientMu.Unlock()
+			return
+		}
+
 		if entry, ok := gc.messageCache[topicId]; ok {
 			entry.messages[updatedMessage.Id] = updatedMessage
 		}
@@ -367,7 +374,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		tcell.ColorWhite,
 	)
 	likeButton.SetSelectedFunc(func() {
-		gc.likeMessage(messageId)
+		gc.handleLikeMessage(messageId)
 		// Close the modal
 		gc.pages.RemovePage("modal")
 		// Unighlight all text to remove visual selection
@@ -382,7 +389,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		tcell.ColorWhite,
 	)
 	deleteButton.SetSelectedFunc(func() {
-		gc.deleteMessage(messageId)
+		gc.handleDeleteMessage(messageId)
 		// Close the modal
 		gc.pages.RemovePage("modal")
 		// Unighlight all text to remove visual selection
@@ -506,6 +513,10 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 				// We don't remove from the order slice - the ID just doesn't
 				// exist - that is checked in updateMessageView when iterting
 				// over the order slice
+			}
+		case pb.OpType_OP_UPDATE:
+			if msg != nil {
+				entry.messages[msg.Id] = msg
 			}
 		case pb.OpType_OP_LIKE:
 			if msg != nil {
