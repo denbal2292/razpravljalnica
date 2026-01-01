@@ -234,7 +234,12 @@ func (gc *guiClient) deleteMessage(messageId int64) {
 			// exist - that is checked in updateMessageView when iterting
 			// over the order slice
 		}
+		gc.selectedMessageId = 0
 		gc.clientMu.Unlock()
+
+		gc.app.QueueUpdateDraw(func() {
+			gc.messageView.Highlight()
+		})
 
 		gc.updateMessageView(topicId)
 	}()
@@ -449,5 +454,82 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 		}
 		gc.clientMu.Unlock()
 		gc.updateMessageView(topicId)
+	}
+}
+
+func (gc *guiClient) navigateMessages(delta int) {
+	gc.clientMu.RLock()
+	topicId := gc.currentTopicId
+	cache, ok := gc.messageCache[topicId]
+	gc.clientMu.RUnlock()
+
+	if !ok || len(cache.order) == 0 {
+		return
+	}
+
+	highlights := gc.messageView.GetHighlights()
+
+	// Find the index (position) of the currently highlighted message
+	var currentIndex int = -1
+
+	if len(highlights) > 0 {
+		var currentMsgId int64
+		fmt.Sscanf(highlights[0], "msg-%d", &currentMsgId)
+
+		for i, id := range cache.order {
+			if id == currentMsgId {
+				currentIndex = i
+				break
+			}
+		}
+	}
+
+	var nextIndex int
+	if currentIndex == -1 {
+		if delta > 0 {
+			nextIndex = 0
+		} else {
+			nextIndex = len(cache.order) - 1
+		}
+	} else {
+		nextIndex = currentIndex + delta
+		if nextIndex < 0 {
+			nextIndex = 0
+		} else if nextIndex >= len(cache.order) {
+			nextIndex = len(cache.order) - 1
+		}
+	}
+
+	if nextIndex != currentIndex || (currentIndex == -1 && len(cache.order) > 0) {
+		// Find the next valid (non-deleted) message
+		for {
+			if nextIndex < 0 || nextIndex >= len(cache.order) {
+				break
+			}
+
+			msgId := cache.order[nextIndex]
+			// Check if message still exists (not deleted)
+			if _, exists := cache.messages[msgId]; exists {
+				regionId := fmt.Sprintf("msg-%d", msgId)
+
+				gc.clientMu.Lock()
+				gc.isNavigating = true
+				gc.clientMu.Unlock()
+
+				gc.messageView.Highlight(regionId)
+				gc.messageView.ScrollToHighlight()
+
+				gc.clientMu.Lock()
+				gc.isNavigating = false
+				gc.clientMu.Unlock()
+				return
+			}
+			// Message was deleted, try next/previous
+			if delta > 0 {
+				nextIndex++
+			} else {
+				nextIndex--
+			}
+		}
 	}
 }
