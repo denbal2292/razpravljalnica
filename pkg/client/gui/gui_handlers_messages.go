@@ -302,6 +302,13 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		return
 	}
 
+	editInput := tview.NewInputField().
+		SetLabel("Uredi > ").
+		SetLabelColor(tcell.ColorGreen).
+		SetFieldTextColor(tcell.ColorBlack).
+		SetFieldWidth(0).
+		SetFieldBackgroundColor(tcell.ColorDarkGray)
+
 	likeButton := createButton(
 		"Všeč mi je",
 		tcell.ColorDarkGray,
@@ -346,49 +353,57 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	})
 
 	// Create button layout
-	buttons := tview.NewFlex().
+	items := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(likeButton, 1, 0, true).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(editInput, 1, 0, true).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(likeButton, 1, 0, false).
 		AddItem(tview.NewBox(), 1, 0, false).
 		AddItem(deleteButton, 1, 0, false).
 		AddItem(tview.NewBox(), 1, 0, false).
-		AddItem(closeButton, 1, 0, false)
-	buttons.
-		SetBorder(true).
-		SetTitle("Akcije").
-		SetBorderColor(tcell.ColorWhite).
-		SetBorderPadding(1, 1, 1, 1)
+		AddItem(closeButton, 1, 0, false).
+		AddItem(tview.NewBox(), 1, 0, false)
 
-	// Center the modal
+	// Handmade padding for to overlap the background
+	paddedItems := tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(tview.NewBox(), 1, 0, false).
+		AddItem(items, 0, 1, true).
+		AddItem(tview.NewBox(), 1, 0, false)
+
+	paddedItems.SetBorder(true).SetTitle("Akcije")
+
+	// // Center the modal
 	flex := tview.NewFlex().
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(nil, 0, 1, false).
-			AddItem(buttons, 9, 1, true).
-			AddItem(nil, 0, 1, false), 50, 1, true).
+			AddItem(paddedItems, 11, 1, true).
+			AddItem(nil, 0, 1, false), 50, 1, false).
 		AddItem(nil, 0, 1, false)
 
-	// Define the order of focus
-	btns := []*tview.Button{likeButton, deleteButton, closeButton}
+	// Define the order of items
+	focusables := []tview.Primitive{editInput, likeButton, deleteButton, closeButton}
 
 	// We need this if we want different styles for different buttons
-	buttons.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	items.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyTab, tcell.KeyDown:
 			// Move to next button
-			for i, btn := range btns {
-				if btn.HasFocus() {
-					next := (i + 1) % len(btns)
-					gc.app.SetFocus(btns[next])
+			for i, focusable := range focusables {
+				if focusable.HasFocus() {
+					next := (i + 1) % len(focusables)
+					gc.app.SetFocus(focusables[next])
 					return nil
 				}
 			}
 		case tcell.KeyBacktab, tcell.KeyUp:
 			// Move to previous button
-			for i, btn := range btns {
-				if btn.HasFocus() {
-					prev := (i - 1 + len(btns)) % len(btns)
-					gc.app.SetFocus(btns[prev])
+			for i, focusable := range focusables {
+				if focusable.HasFocus() {
+					prev := (i - 1 + len(focusables)) % len(focusables)
+					gc.app.SetFocus(focusables[prev])
 					return nil
 				}
 			}
@@ -396,7 +411,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		return event
 	})
 	gc.pages.AddPage("modal", flex, true, true)
-	gc.app.SetFocus(likeButton)
+	gc.app.SetFocus(editInput)
 }
 
 func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
@@ -448,6 +463,8 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 			}
 		}
 		gc.clientMu.Unlock()
+		// Special care is taken on the other GUI update handlers to not redraw
+		// twice
 		gc.updateMessageView(topicId)
 	}
 }
