@@ -286,6 +286,43 @@ func (gc *guiClient) likeMessage(messageId int64) {
 	}()
 }
 
+func (gc *guiClient) handleUpdateMessage(messageId int64) {
+	message := strings.TrimSpace(gc.messageInput.GetText())
+
+	if message == "" {
+		gc.displayStatus("Sporočilo ne sme biti prazno", "red")
+		return
+	}
+
+	go func() {
+		// ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		// defer cancel()
+
+		// gc.clientMu.RLock()
+		// userId := gc.userId
+		// topicId := gc.currentTopicId
+		// gc.clientMu.RUnlock()
+
+		// // updatedMessage, err := gc.clients.Writes.UpdateMessage(ctx, &pb.UpdateMessageRequest{
+		// // 	TopicId:   topicId,
+		// // 	UserId:    userId,
+		// // 	MessageId: messageId,
+		// // 	Text:      message,
+		// // })
+
+		// if err != nil {
+		// 	gc.displayStatus("Napaka pri urejanju sporočila", "red")
+		// 	return
+		// }
+
+		// gc.displayStatus("Sporočilo uspešno urejeno", "green")
+
+		// gc.clientMu.Lock()
+
+		// gc.clientMu.Unlock()
+	}()
+}
+
 func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	gc.clientMu.RLock()
 	userId := gc.userId
@@ -308,6 +345,12 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		SetFieldTextColor(tcell.ColorBlack).
 		SetFieldWidth(0).
 		SetFieldBackgroundColor(tcell.ColorDarkGray)
+	// Handle edit on Enter key
+	editInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			gc.handleUpdateMessage(messageId)
+		}
+	})
 
 	likeButton := createButton(
 		"Všeč mi je",
