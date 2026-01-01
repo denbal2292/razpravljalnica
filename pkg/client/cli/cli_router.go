@@ -41,25 +41,25 @@ func route(client *shared.ClientSet, command string, args []string) error {
 	case "exit", "quit", "q":
 		return errExit
 	case "createuser":
-		return createUser(client.Writes, args)
+		return createUser(client, args)
 	case "createtopic":
-		return createTopic(client.Writes, args)
+		return createTopic(client, args)
 	case "post":
-		return postMessage(client.Writes, args)
+		return postMessage(client, args)
 	case "update":
-		return updateMessage(client.Writes, args)
+		return updateMessage(client, args)
 	case "delete":
-		return deleteMessage(client.Writes, args)
+		return deleteMessage(client, args)
 	case "like":
-		return likeMessage(client.Writes, args)
+		return likeMessage(client, args)
 	case "topics":
-		return listTopics(client.Reads, args)
+		return listTopics(client, args)
 	case "messages":
-		return getMessages(client.Reads, args)
+		return getMessages(client, args)
 	case "user":
-		return getUser(client.Reads, args)
+		return getUser(client, args)
 	case "subscribe":
-		subscribeTopics(client.ControlConn, args)
+		return subscribeTopics(client, args)
 	case "loop":
 		return loopCommand(client, args)
 	case "loopslow":
