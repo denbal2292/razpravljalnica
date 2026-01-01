@@ -582,6 +582,8 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 
 		if topicId == currentTopicId {
 			gc.updateMessageView(topicId)
+		} else {
+			// Add a small notification that there are new messages in another topic
 		}
 	}
 }

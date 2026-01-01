@@ -41,7 +41,10 @@ type guiClient struct {
 	// Current selected topic ID and list of topic IDs
 	currentTopicId int64
 	topics         map[int64]*pb.Topic
-	topicOrder     []int64
+	// Tracks topics with unread messages - for subscribed topics
+	unreadTopic map[int64]bool
+	topicOrder  []int64
+
 	// Topics we are subscribed to
 	subscribedTopics map[int64]bool
 
@@ -77,6 +80,7 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 		modal:            tview.NewModal(),
 
 		subscribedTopics: make(map[int64]bool),
+		unreadTopic:      make(map[int64]bool),
 
 		clients: clients,
 
