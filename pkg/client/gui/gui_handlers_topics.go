@@ -132,6 +132,10 @@ func (gc *guiClient) displayTopics() {
 					// Mark subscribed topics with an asterisk
 					topicName = topicName + " [yellow]*[-]"
 				}
+				if unread, ok := gc.unreadTopic[topicId]; ok && unread {
+					// Mark topics with unread messages with a plus sign
+					topicName = topicName + " [green]N[-]"
+				}
 
 				gc.topicsList.AddItem(topicName, "", 0, nil)
 				if topicId == selectedTopicId {
@@ -152,7 +156,12 @@ func (gc *guiClient) handleSelectTopic(topicId int64) {
 	// Set the current topic ID
 	gc.clientMu.Lock()
 	gc.currentTopicId = topicId
+	// Remove the unread marker for this topic - it was selected
+	gc.unreadTopic[topicId] = false
 	gc.clientMu.Unlock()
+
+	// Display the topics
+	gc.displayTopics()
 
 	// Load the messages from the selected topic
 	gc.loadMessagesForCurrentTopic()
