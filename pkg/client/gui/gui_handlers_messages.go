@@ -514,11 +514,7 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 				// exist - that is checked in updateMessageView when iterting
 				// over the order slice
 			}
-		case pb.OpType_OP_UPDATE:
-			if msg != nil {
-				entry.messages[msg.Id] = msg
-			}
-		case pb.OpType_OP_LIKE:
+		case pb.OpType_OP_UPDATE, pb.OpType_OP_LIKE:
 			if msg != nil {
 				entry.messages[msg.Id] = msg
 			}
