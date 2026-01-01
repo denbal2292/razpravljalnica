@@ -105,25 +105,36 @@ func (gc *guiClient) updateMessageView(topicId int64) {
 	gc.clientMu.Unlock()
 
 	gc.app.QueueUpdateDraw(func() {
-		for _, msgId := range order {
-			msg, ok := msgs[msgId]
-			if !ok || msg == nil {
-				// there is no message corresponding to the ID in the order
-				// slice - this can happen if the message was deleted
-				continue
+		if len(order) > 0 {
+			// Make sure to align left when there are messages
+			gc.messageView.SetTextAlign(tview.AlignLeft)
+			for _, msgId := range order {
+				msg, ok := msgs[msgId]
+				if !ok || msg == nil {
+					// there is no message corresponding to the ID in the order
+					// slice - this can happen if the message was deleted
+					continue
+				}
+
+				user, ok := users[msg.UserId]
+				if !ok || user == nil {
+					// User doesn't exist, skip message - for robustness
+					continue
+				}
+
+				timestamp := msg.CreatedAt.AsTime().Local().Format("02-01-2006 15:04")
+				regionId := fmt.Sprintf("msg-%d", msg.Id)
+
+				messageLine := fmt.Sprintf(`["%s"][yellow]%s[-]: %s ([green]Všečki: %d[-]) [%s][""]`+"\n", regionId, user.Name, msg.Text, msg.Likes, timestamp)
+				gc.messageView.Write([]byte(messageLine))
 			}
-
-			user, ok := users[msg.UserId]
-			if !ok || user == nil {
-				// User doesn't exist, skip message - for robustness
-				continue
-			}
-
-			timestamp := msg.CreatedAt.AsTime().Local().Format("02-01-2006 15:04")
-			regionId := fmt.Sprintf("msg-%d", msg.Id)
-
-			messageLine := fmt.Sprintf(`["%s"][yellow]%s[-]: %s ([green]Všečki: %d[-]) [%s][""]`+"\n", regionId, user.Name, msg.Text, msg.Likes, timestamp)
-			gc.messageView.Write([]byte(messageLine))
+		} else {
+			// No messages in this topic yet - write a centered message
+			_, _, _, height := gc.messageView.GetInnerRect()
+			// Pad vertically to center the message
+			verticalPadding := strings.Repeat("\n", height/2)
+			gc.messageView.SetTextAlign(tview.AlignCenter)
+			fmt.Fprintf(gc.messageView, "%s[yellow]Znotraj %s še ni nobenih sporočil[-]", verticalPadding, topicName)
 		}
 		gc.messageView.ScrollToEnd()
 	})
