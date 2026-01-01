@@ -483,7 +483,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	// Set modal-specific input capture
 	gc.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		case tcell.KeyTab:
+		case tcell.KeyTab, tcell.KeyDown:
 			// Move to next focusable
 			for i, focusable := range focusables {
 				if focusable.HasFocus() {
@@ -494,7 +494,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 			}
 			gc.app.SetFocus(focusables[0])
 			return nil
-		case tcell.KeyBacktab:
+		case tcell.KeyBacktab, tcell.KeyUp:
 			// Move to previous focusable
 			for i, focusable := range focusables {
 				if focusable.HasFocus() {
@@ -584,6 +584,17 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 			gc.updateMessageView(topicId)
 		} else {
 			// Add a small notification that there are new messages in another topic
+			gc.clientMu.RLock()
+			// Se if it's already marked as having unread messages
+			status := gc.unreadTopic[topicId]
+			gc.clientMu.RUnlock()
+
+			if !status {
+				gc.clientMu.Lock()
+				gc.unreadTopic[topicId] = true
+				gc.clientMu.Unlock()
+				gc.displayTopics()
+			}
 		}
 	}
 }
