@@ -386,13 +386,13 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 			SetFieldTextColor(tcell.ColorBlack).
 			SetFieldWidth(0).
 			SetFieldBackgroundColor(tcell.ColorDarkGray)
+
 		// Handle edit on Enter key
 		editInput.SetDoneFunc(func(key tcell.Key) {
 			if key == tcell.KeyEnter {
 				gc.handleUpdateMessage(messageId, editInput)
 			}
 			gc.pages.RemovePage("modal")
-			gc.messageView.Highlight()
 		})
 		items.AddItem(tview.NewBox(), 1, 0, false)
 		items.AddItem(editInput, 1, 0, true)
@@ -411,8 +411,6 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		gc.handleLikeMessage(messageId)
 		// Close the modal
 		gc.pages.RemovePage("modal")
-		// Unighlight all text to remove visual selection
-		gc.messageView.Highlight()
 	})
 	items.AddItem(tview.NewBox(), 1, 0, false)
 	items.AddItem(likeButton, 1, 0, false)
@@ -431,8 +429,6 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 			gc.handleDeleteMessage(messageId)
 			// Close the modal
 			gc.pages.RemovePage("modal")
-			// Unighlight all text to remove visual selection
-			gc.messageView.Highlight()
 		})
 		items.AddItem(tview.NewBox(), 1, 0, false)
 		items.AddItem(deleteButton, 1, 0, false)
@@ -449,8 +445,6 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	)
 	closeButton.SetSelectedFunc(func() {
 		gc.pages.RemovePage("modal")
-		// Unighlight all text to remove visual selection
-		gc.messageView.Highlight()
 	})
 	items.AddItem(tview.NewBox(), 1, 0, false)
 	items.AddItem(closeButton, 1, 0, false)
@@ -477,6 +471,11 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	// We need this if we want different styles for different buttons
 	items.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
+		case tcell.KeyEscape:
+			// Close the modal with Escape key
+			gc.pages.RemovePage("modal")
+			return nil
+
 		case tcell.KeyDown:
 			// Move to next button
 			for i, focusable := range focusables {
@@ -498,6 +497,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		}
 		return event
 	})
+
 	gc.pages.AddPage("modal", flex, true, true)
 	gc.app.SetFocus(focusables[0])
 }

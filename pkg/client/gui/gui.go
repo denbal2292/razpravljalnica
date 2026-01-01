@@ -128,7 +128,7 @@ func (gc *guiClient) setupWidgets() {
 
 	// Configure new user input
 	gc.newUserInput.
-		SetLabel("Nov uporabnik > ").
+		SetLabel(" Nov uporabnik > ").
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
@@ -164,7 +164,7 @@ func (gc *guiClient) setupWidgets() {
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(0)
+		SetFieldWidth(17)
 
 	// Handle new topic creation on Enter key
 	gc.newTopicInput.SetDoneFunc(func(key tcell.Key) {
@@ -245,7 +245,7 @@ func (gc *guiClient) setupWidgets() {
 
 	// Configure message input
 	gc.messageInput.
-		SetLabel("Vnesi sporočilo > ").
+		SetLabel(" Vnesi sporočilo > ").
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
