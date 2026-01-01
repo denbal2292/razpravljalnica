@@ -109,7 +109,7 @@ func isServerUnavailableError(err error) bool {
 	code := status.Code(err)
 
 	switch code {
-	case codes.Unavailable, codes.FailedPrecondition, codes.DeadlineExceeded, codes.Internal:
+	case codes.Unavailable, codes.FailedPrecondition, codes.Internal:
 		return true
 	default:
 		return false

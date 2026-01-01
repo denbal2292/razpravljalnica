@@ -7,9 +7,10 @@ import (
 
 	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func createUser(grpcClient pb.MessageBoardWritesClient, args []string) error {
+func createUser(clients *shared.ClientSet, args []string) error {
 	if err := requireArgs(args, 1, "createuser <name>"); err != nil {
 		return err
 	}
@@ -21,8 +22,10 @@ func createUser(grpcClient pb.MessageBoardWritesClient, args []string) error {
 	// resources associated with the context
 	defer cancel()
 
-	_, err := grpcClient.CreateUser(ctx, &pb.CreateUserRequest{
-		Name: username,
+	_, err := shared.RetryFetch(ctx, clients, func(ctx context.Context) (*pb.User, error) {
+		return clients.Writes.CreateUser(ctx, &pb.CreateUserRequest{
+			Name: username,
+		})
 	})
 
 	if err != nil {
@@ -34,7 +37,7 @@ func createUser(grpcClient pb.MessageBoardWritesClient, args []string) error {
 	return nil
 }
 
-func createTopic(grpcClient pb.MessageBoardWritesClient, args []string) error {
+func createTopic(clients *shared.ClientSet, args []string) error {
 	if err := requireArgs(args, 1, "createtopic <name>"); err != nil {
 		return err
 	}
@@ -44,8 +47,10 @@ func createTopic(grpcClient pb.MessageBoardWritesClient, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
-	_, err := grpcClient.CreateTopic(ctx, &pb.CreateTopicRequest{
-		Name: topicName,
+	_, err := shared.RetryFetch(ctx, clients, func(ctx context.Context) (*pb.Topic, error) {
+		return clients.Writes.CreateTopic(ctx, &pb.CreateTopicRequest{
+			Name: topicName,
+		})
 	})
 
 	if err != nil {
@@ -55,7 +60,7 @@ func createTopic(grpcClient pb.MessageBoardWritesClient, args []string) error {
 	return nil
 }
 
-func postMessage(grpcClient pb.MessageBoardWritesClient, args []string) error {
+func postMessage(clients *shared.ClientSet, args []string) error {
 	if err := requireArgs(args, 3, "post <user_id> <topic_id> <content>"); err != nil {
 		return err
 	}
@@ -75,10 +80,12 @@ func postMessage(grpcClient pb.MessageBoardWritesClient, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
-	_, err = grpcClient.PostMessage(ctx, &pb.PostMessageRequest{
-		UserId:  userId,
-		TopicId: topicId,
-		Text:    content,
+	_, err = shared.RetryFetch(ctx, clients, func(ctx context.Context) (*pb.Message, error) {
+		return clients.Writes.PostMessage(ctx, &pb.PostMessageRequest{
+			UserId:  userId,
+			TopicId: topicId,
+			Text:    content,
+		})
 	})
 
 	if err != nil {
@@ -88,7 +95,7 @@ func postMessage(grpcClient pb.MessageBoardWritesClient, args []string) error {
 	return nil
 }
 
-func updateMessage(grpcClient pb.MessageBoardWritesClient, args []string) error {
+func updateMessage(clients *shared.ClientSet, args []string) error {
 	if err := requireArgs(args, 4, "update <topic_id> <user_id> <msg_id> <text>"); err != nil {
 		return err
 	}
@@ -112,11 +119,13 @@ func updateMessage(grpcClient pb.MessageBoardWritesClient, args []string) error 
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
-	_, err = grpcClient.UpdateMessage(ctx, &pb.UpdateMessageRequest{
-		TopicId:   topicId,
-		UserId:    userId,
-		MessageId: msgId,
-		Text:      text,
+	_, err = shared.RetryFetch(ctx, clients, func(ctx context.Context) (*pb.Message, error) {
+		return clients.Writes.UpdateMessage(ctx, &pb.UpdateMessageRequest{
+			TopicId:   topicId,
+			UserId:    userId,
+			MessageId: msgId,
+			Text:      text,
+		})
 	})
 
 	if err != nil {
@@ -126,7 +135,7 @@ func updateMessage(grpcClient pb.MessageBoardWritesClient, args []string) error 
 	return nil
 }
 
-func deleteMessage(grpcClient pb.MessageBoardWritesClient, args []string) error {
+func deleteMessage(clients *shared.ClientSet, args []string) error {
 	if err := requireArgs(args, 3, "delete <topic_id> <user_id> <msg_id>"); err != nil {
 		return err
 	}
@@ -149,10 +158,12 @@ func deleteMessage(grpcClient pb.MessageBoardWritesClient, args []string) error 
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
-	_, err = grpcClient.DeleteMessage(ctx, &pb.DeleteMessageRequest{
-		TopicId:   topicId,
-		UserId:    userId,
-		MessageId: msgId,
+	_, err = shared.RetryFetch(ctx, clients, func(ctx context.Context) (*emptypb.Empty, error) {
+		return clients.Writes.DeleteMessage(ctx, &pb.DeleteMessageRequest{
+			TopicId:   topicId,
+			UserId:    userId,
+			MessageId: msgId,
+		})
 	})
 
 	if err != nil {
@@ -162,7 +173,7 @@ func deleteMessage(grpcClient pb.MessageBoardWritesClient, args []string) error 
 	return nil
 }
 
-func likeMessage(grpcClient pb.MessageBoardWritesClient, args []string) error {
+func likeMessage(clients *shared.ClientSet, args []string) error {
 	if err := requireArgs(args, 3, "like <topic_id> <msg_id> <user_id>"); err != nil {
 		return err
 	}
@@ -185,10 +196,12 @@ func likeMessage(grpcClient pb.MessageBoardWritesClient, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
-	_, err = grpcClient.LikeMessage(ctx, &pb.LikeMessageRequest{
-		TopicId:   topicId,
-		MessageId: msgId,
-		UserId:    userId,
+	_, err = shared.RetryFetch(ctx, clients, func(ctx context.Context) (*pb.Message, error) {
+		return clients.Writes.LikeMessage(ctx, &pb.LikeMessageRequest{
+			TopicId:   topicId,
+			MessageId: msgId,
+			UserId:    userId,
+		})
 	})
 
 	if err != nil {
