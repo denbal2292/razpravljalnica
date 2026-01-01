@@ -168,11 +168,19 @@ func (gc *guiClient) handleTopicSubscription() {
 	gc.clientMu.RUnlock()
 
 	gc.subscribeToTopic(topicId)
-
 }
 
 func (gc *guiClient) subscribeToTopic(topicId int64) {
 	go func() {
+		gc.clientMu.RLock()
+		subscribedToCurrentTopic, exists := gc.subscribedTopics[topicId]
+		gc.clientMu.RUnlock()
+
+		if exists && subscribedToCurrentTopic {
+			gc.displayStatus("Že naročen na izbrano temo", "yellow")
+			return
+		}
+
 		controlPlaneClient := pb.NewClientDiscoveryClient(gc.clients.ControlConn)
 
 		gc.clientMu.RLock()
@@ -229,7 +237,15 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 			return
 		}
 
+		// Mark the topic as subscribed
+		gc.clientMu.Lock()
+		gc.subscribedTopics[topicId] = true
+		gc.clientMu.Unlock()
+
+		// Update the topics display to show subscription status
+		gc.displayTopics()
+
 		gc.displayStatus("Uspešna naročnina na temo", "green")
-		gc.handleSubscriptionStream(subscriptionStream)
+		gc.handleSubscriptionStream(topicId, subscriptionStream)
 	}()
 }

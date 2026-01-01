@@ -61,7 +61,7 @@ func subscribeTopics(grpcClient *grpc.ClientConn, args []string) error {
 
 	// Create a subscription client
 	subClient := pb.NewMessageBoardSubscriptionsClient(conn)
-	// Start from the beggining - for easier debugging
+	// Start from the beginning - for easier debugging
 	fromMessageId := int64(0)
 
 	subscriptionStream, err := subClient.SubscribeTopic(context.Background(), &pb.SubscribeTopicRequest{
@@ -70,6 +70,7 @@ func subscribeTopics(grpcClient *grpc.ClientConn, args []string) error {
 		FromMessageId:  fromMessageId,
 		SubscribeToken: subResponse.SubscribeToken,
 	})
+
 	if err != nil {
 		panic(err)
 	}
@@ -86,7 +87,7 @@ func subscribeTopics(grpcClient *grpc.ClientConn, args []string) error {
 
 func handleSubscriptionStream(stream pb.MessageBoardSubscriptions_SubscribeTopicClient, sigCh <-chan os.Signal) error {
 	// Read from the message stream
-	fmt.Println("Listening for message evenets... Press Ctrl+C to stop.")
+	fmt.Println("Listening for message events... Press Ctrl+C to stop.")
 	for {
 		msgCh := make(chan *pb.MessageEvent, 1)
 		errCh := make(chan error, 1)
@@ -110,6 +111,7 @@ func handleSubscriptionStream(stream pb.MessageBoardSubscriptions_SubscribeTopic
 				"Received message event: Op=%v, TopicID=%d, MessageID=%d, UserID=%d, Content=%s\n", msgEvent.Op, msg.TopicId, msg.Id, msg.UserId, msg.Text,
 			)
 		case err := <-errCh:
+			fmt.Printf("Stream error: %v\n", err)
 			return err
 		}
 	}

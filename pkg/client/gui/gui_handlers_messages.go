@@ -159,12 +159,28 @@ func (gc *guiClient) handlePostMessage() {
 		if err != nil {
 			gc.displayStatus("Napaka pri pošiljanju sporočila", "red")
 			return
-		} else {
-			gc.displayStatus("Sporočilo uspešno ustvarjeno", "green")
 		}
+
+		gc.displayStatus("Sporočilo uspešno ustvarjeno", "green")
+
+		// Clear the input field
+		gc.app.QueueUpdateDraw(func() {
+			gc.messageInput.SetText("")
+		})
 
 		// We now append the message to the cache
 		gc.clientMu.Lock()
+
+		// If we are subscribed to the current topic,
+		// the message will arrive through the subscription stream
+		// so we don't need to add it to the cache here
+		subscribedToCurrentTopic, exists := gc.subscribedTopics[currentTopicId]
+
+		if exists && subscribedToCurrentTopic {
+			gc.clientMu.Unlock()
+			return
+		}
+
 		if entry, ok := gc.messageCache[currentTopicId]; ok {
 			entry.messages[message.Id] = message
 			// This arrived later since we posted it
@@ -172,10 +188,6 @@ func (gc *guiClient) handlePostMessage() {
 		}
 		gc.clientMu.Unlock()
 
-		// Clear the input field after processing
-		gc.app.QueueUpdateDraw(func() {
-			gc.messageInput.SetText("")
-		})
 		gc.updateMessageView(currentTopicId)
 	}()
 }
@@ -365,18 +377,27 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	gc.app.SetFocus(likeButton)
 }
 
-func (gc *guiClient) handleSubscriptionStream(msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
+func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
 	// Wrapping this in a goroutine is not wanted since that makes connection closing harder.
 	for {
 		msgEvent, err := msgEventStream.Recv()
 
 		if err != nil {
 			gc.displayStatus("Prekinjena povezava za naročanje na temo", "red")
+
+			// Mark the topic as unsubscribed
+			gc.clientMu.Lock()
+			gc.subscribedTopics[topicId] = false
+			gc.clientMu.Unlock()
+
+			// Update the topics display to show subscription status
+			gc.displayTopics()
 			return
 		}
 
 		msg := msgEvent.Message
 		topicId := msg.TopicId
+
 		gc.clientMu.Lock()
 		entry, ok := gc.messageCache[topicId]
 		if !ok {
@@ -388,7 +409,7 @@ func (gc *guiClient) handleSubscriptionStream(msgEventStream grpc.ServerStreamin
 		}
 		switch msgEvent.Op {
 		case pb.OpType_OP_POST:
-			if msg != nil && msg.UserId != gc.userId {
+			if msg != nil {
 				entry.messages[msg.Id] = msg
 				entry.order = append(entry.order, msg.Id)
 			}
