@@ -16,22 +16,21 @@ func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo
 	defer cp.mu.Unlock()
 
 	// Find the node and update its last heartbeat time
-	// Here we don't use a map for nodes since we need to keep them in order
-	for _, node := range cp.nodes {
-		if node.Info.NodeId == nodeInfo.NodeId && node.Info.Address == nodeInfo.Address {
-			cp.logNodeDebug(node, "Heartbeat received")
+	node, exists := cp.nodes[nodeInfo.NodeId]
 
-			node.LastHeartbeat = time.Now()
-			return &emptypb.Empty{}, nil
-		}
+	if !exists {
+		cp.logger.Warn("Heartbeat: Node not registered",
+			"node_id", nodeInfo.NodeId,
+			"address", nodeInfo.Address,
+		)
+
+		return nil, status.Error(codes.NotFound, "node not registered")
 	}
 
-	cp.logger.Warn("Heartbeat: Node not registered",
-		"node_id", nodeInfo.NodeId,
-		"address", nodeInfo.Address,
-	)
+	cp.logNodeDebug(node, "Heartbeat received")
 
-	return nil, status.Error(codes.NotFound, "node not registered")
+	node.LastHeartbeat = time.Now()
+	return &emptypb.Empty{}, nil
 }
 
 // Monitor heartbeats and remove nodes that have not sent a heartbeat in time
@@ -48,10 +47,15 @@ func (cp *ControlPlane) monitorHeartbeats() {
 		var lastAlive *NodeInfo = nil
 		var deadInBetween bool = false
 
-		activeNodes := make([]*NodeInfo, 0, len(cp.nodes))
+		activeChain := make([]string, 0, len(cp.chain))
 
-		// 1. Create a list of active nodes
-		for _, node := range cp.nodes {
+		// 1. Create a list of active nodes in the chain
+		for _, nodeId := range cp.chain {
+			node, exists := cp.nodes[nodeId]
+			if !exists {
+				continue
+			}
+
 			// Check if the last heartbeat was within the timeout
 			if now.Sub(node.LastHeartbeat) <= cp.heartbeatTimeout {
 				if deadInBetween {
@@ -60,11 +64,15 @@ func (cp *ControlPlane) monitorHeartbeats() {
 					deadInBetween = false
 				}
 
-				activeNodes = append(activeNodes, node)
+				activeChain = append(activeChain, nodeId)
 				lastAlive = node // Update last alive node for reconnection
 			} else {
 				// Node considered dead
 				cp.logNodeInfo(node, "Node considered dead due to missed heartbeats")
+
+				// Remove from nodes map
+				delete(cp.nodes, nodeId)
+
 				deadInBetween = true
 			}
 		}
@@ -76,7 +84,7 @@ func (cp *ControlPlane) monitorHeartbeats() {
 		}
 
 		// 2. Update the control plane's node list
-		cp.nodes = activeNodes
+		cp.chain = activeChain
 		cp.mu.Unlock()
 	}
 }

@@ -11,25 +11,20 @@ func (cp *ControlPlane) GetClusterState(context context.Context, empty *emptypb.
 	cp.mu.RLock()
 	defer cp.mu.RUnlock()
 
-	if len(cp.nodes) == 0 {
-		cp.logger.Info("GetClusterState: No nodes registered")
+	head := cp.getHead()
+	tail := cp.getTail()
 
-		return &pb.GetClusterStateResponse{
-			Head: nil,
-			Tail: nil,
-		}, nil
+	if head == nil || tail == nil {
+		cp.logger.Info("GetClusterState: No nodes registered")
+	} else {
+		cp.logger.Info("GetClusterState",
+			"head", head.Info,
+			"tail", tail.Info,
+		)
 	}
 
-	head := cp.nodes[0].Info
-	tail := cp.nodes[len(cp.nodes)-1].Info
-
-	cp.logger.Info("GetClusterState",
-		"head", head,
-		"tail", tail,
-	)
-
 	return &pb.GetClusterStateResponse{
-		Head: head,
-		Tail: tail,
+		Head: head.Info,
+		Tail: tail.Info,
 	}, nil
 }

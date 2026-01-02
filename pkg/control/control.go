@@ -21,7 +21,8 @@ type ControlPlane struct {
 	pb.UnimplementedControlPlaneServer    // For nodes connecting to report heartbeats
 
 	mu                sync.RWMutex
-	nodes             []*NodeInfo // nodes in order: [HEAD, ..., TAIL] (easier to get neighbors)
+	nodes             map[string]*NodeInfo // node id -> nodeinfo
+	chain             []string             // nodes in order: [HEAD, ..., TAIL] (easier to get neighbors)
 	heartbeatInterval time.Duration
 	heartbeatTimeout  time.Duration
 
@@ -32,7 +33,8 @@ type ControlPlane struct {
 
 func NewControlPlane() *ControlPlane {
 	cb := &ControlPlane{
-		nodes:             make([]*NodeInfo, 0),
+		nodes:             make(map[string]*NodeInfo),
+		chain:             make([]string, 0),
 		heartbeatInterval: 5 * time.Second,
 		heartbeatTimeout:  7 * time.Second,
 		logger: slog.New(tint.NewHandler(
@@ -49,4 +51,41 @@ func NewControlPlane() *ControlPlane {
 	go cb.monitorHeartbeats()
 
 	return cb
+}
+
+func (cp *ControlPlane) getTail() *NodeInfo {
+	if len(cp.chain) == 0 {
+		return nil
+	}
+	tailId := cp.chain[len(cp.chain)-1]
+	return cp.nodes[tailId]
+}
+
+func (cp *ControlPlane) getHead() *NodeInfo {
+	if len(cp.chain) == 0 {
+		return nil
+	}
+	headId := cp.chain[0]
+	return cp.nodes[headId]
+}
+
+func (cp *ControlPlane) appendNode(newNode *NodeInfo) {
+	cp.chain = append(cp.chain, newNode.Info.NodeId)
+	cp.nodes[newNode.Info.NodeId] = newNode
+}
+
+func (cp *ControlPlane) findNodeIndex(nodeId string) int {
+	for idx, id := range cp.chain {
+		if id == nodeId {
+			return idx
+		}
+	}
+
+	return -1
+}
+
+func (cp *ControlPlane) removeNode(nodeIdx int) {
+	nodeId := cp.chain[nodeIdx]
+	cp.chain = append(cp.chain[:nodeIdx], cp.chain[nodeIdx+1:]...)
+	delete(cp.nodes, nodeId)
 }

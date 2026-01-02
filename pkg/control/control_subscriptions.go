@@ -18,8 +18,10 @@ func (cp *ControlPlane) GetSubscriptionNode(ctx context.Context, req *pb.Subscri
 	}
 
 	// Simple round-robin selection of nodes for subscription
-	cp.lastControlIndex = (cp.lastControlIndex + 1) % uint64(len(cp.nodes))
-	selectedNode := cp.nodes[cp.lastControlIndex]
+	cp.lastControlIndex = (cp.lastControlIndex + 1) % uint64(len(cp.chain))
+
+	nodeId := cp.chain[cp.lastControlIndex]
+	selectedNode := cp.nodes[nodeId]
 
 	addSub, err := selectedNode.Client.AddSubscriptionRequest(ctx, req)
 	if err != nil {
