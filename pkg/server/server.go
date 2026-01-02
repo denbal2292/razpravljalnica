@@ -194,38 +194,45 @@ func (n *Node) AddSubscriptionRequest(ctx context.Context, req *pb.SubscriptionN
 	return n.subscriptionManager.AddSubscriptionRequest(req)
 }
 
+type EventApplicationResult struct {
+	message *pb.Message
+	user    *pb.User
+	topic   *pb.Topic
+	err     error
+}
+
 // Apply the given event to the local storage
-func (n *Node) applyEvent(event *pb.Event) error {
+func (n *Node) applyEvent(event *pb.Event) *EventApplicationResult {
 	switch event.Op {
 	case pb.OpType_OP_POST:
 		msgRequest := event.PostMessage
-		_, err := n.storage.PostMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.Text, event.EventAt)
-		return err
+		msg, err := n.storage.PostMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.Text, event.EventAt)
+		return &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_UPDATE:
 		msgRequest := event.UpdateMessage
-		_, err := n.storage.UpdateMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId, msgRequest.Text)
-		return err
+		msg, err := n.storage.UpdateMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId, msgRequest.Text)
+		return &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_DELETE:
 		msgRequest := event.DeleteMessage
-		_, err := n.storage.DeleteMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId)
-		return err
+		msg, err := n.storage.DeleteMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId)
+		return &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_LIKE:
 		likeRequest := event.LikeMessage
-		_, err := n.storage.LikeMessage(likeRequest.TopicId, likeRequest.UserId, likeRequest.MessageId)
-		return err
+		msg, err := n.storage.LikeMessage(likeRequest.TopicId, likeRequest.UserId, likeRequest.MessageId)
+		return &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_CREATE_USER:
 		userRequest := event.CreateUser
-		_, err := n.storage.CreateUser(userRequest.Name)
-		return err
+		user, err := n.storage.CreateUser(userRequest.Name)
+		return &EventApplicationResult{user: user, err: err}
 
 	case pb.OpType_OP_CREATE_TOPIC:
 		topicRequest := event.CreateTopic
-		_, err := n.storage.CreateTopic(topicRequest.Name)
-		return err
+		topic, err := n.storage.CreateTopic(topicRequest.Name)
+		return &EventApplicationResult{topic: topic, err: err}
 
 	default:
 		panic(fmt.Errorf("unknown event operation: %v", event.Op))

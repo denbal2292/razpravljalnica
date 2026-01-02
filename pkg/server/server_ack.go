@@ -83,18 +83,13 @@ func (n *Node) processNextAcks() {
 }
 
 func (n *Node) acknowledgeEvent(event *pb.Event) {
-	haveApplied := n.ackSync.HasAckChannel(event.SequenceNumber)
+	// Apply the event locally and get the result
+	result := n.applyEvent(event)
 
-	if !haveApplied {
-		_ = n.applyEvent(event)
-	}
-
-	// If HEAD, signal the client waiting for ACK
 	if n.IsHead() {
-		n.ackSync.SignalAck(event.SequenceNumber, nil)
+		n.ackSync.SignalAckIfWaiting(event.SequenceNumber, result)
 		n.logger.Info("ACK reached HEAD successfully - sending to client", "sequence_number", event.SequenceNumber)
 	} else {
-		// If not HEAD, propagate the ACK to the predecessor
 		predClient := n.getPredecessorClient()
 
 		if predClient == nil {

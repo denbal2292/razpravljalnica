@@ -26,22 +26,19 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "user_id must be positive")
 	}
 
-	// TODO: Don't apply it here in createEvent method!
 	// Send event to replication chain and wait for confirmation
 	event := n.eventBuffer.CreateMessageEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
-		return nil, err
+	result := n.handleEventReplicationAndWaitForAck(event)
+
+	if result.err != nil {
+		return nil, handleStorageError(result.err)
 	}
 
 	// We can now safely commit the message to storage with the event timestamp
 	n.logApplyEvent(event)
-
-	message, err := n.storage.PostMessage(req.TopicId, req.UserId, req.Text, event.EventAt)
-	if err != nil {
-		return nil, handleStorageError(err)
-	}
+	message := result.message
 
 	// Notify subscription manager about the new message event
 	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_POST)
@@ -73,17 +70,14 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 	event := n.eventBuffer.UpdateMessageEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
-		return nil, err
-	}
-
-	// We can now safely commit the message update to storage
+	result := n.handleEventReplicationAndWaitForAck(event)
 	n.logApplyEvent(event)
 
-	message, err := n.storage.UpdateMessage(req.TopicId, req.UserId, req.MessageId, req.Text)
-	if err != nil {
-		return nil, handleStorageError(err)
+	if result.err != nil {
+		return nil, handleStorageError(result.err)
 	}
+
+	message := result.message
 
 	// Notify subscription manager about the new message event
 	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_UPDATE)
@@ -112,17 +106,14 @@ func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 	event := n.eventBuffer.DeleteMessageEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
-		return nil, err
-	}
-
-	// We can now safely commit the message deletion to storage
+	result := n.handleEventReplicationAndWaitForAck(event)
 	n.logApplyEvent(event)
 
-	message, err := n.storage.DeleteMessage(req.TopicId, req.UserId, req.MessageId)
-	if err != nil {
-		return nil, handleStorageError(err)
+	if result.err != nil {
+		return nil, handleStorageError(result.err)
 	}
+
+	message := result.message
 
 	// Notify subscription manager about the new message event
 	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_DELETE)
@@ -151,17 +142,15 @@ func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 	event := n.eventBuffer.LikeMessageEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
-		return nil, err
+	result := n.handleEventReplicationAndWaitForAck(event)
+	n.logApplyEvent(event)
+
+	if result.err != nil {
+		return nil, handleStorageError(result.err)
 	}
 
 	// We can now safely commit the like to storage
-	n.logApplyEvent(event)
-
-	message, err := n.storage.LikeMessage(req.TopicId, req.UserId, req.MessageId)
-	if err != nil {
-		return nil, handleStorageError(err)
-	}
+	message := result.message
 
 	// Notify subscription manager about the new message event
 	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_LIKE)

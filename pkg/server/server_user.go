@@ -22,17 +22,14 @@ func (n *Node) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.U
 	event := n.eventBuffer.CreateUserEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
-		return nil, err
-	}
-
+	result := n.handleEventReplicationAndWaitForAck(event)
 	n.logApplyEvent(event)
 
-	user, err := n.storage.CreateUser(req.Name)
-	if err != nil {
-		return nil, handleStorageError(err)
+	if result.err != nil {
+		return nil, handleStorageError(result.err)
 	}
 
+	user := result.user
 	return user, nil
 }
 

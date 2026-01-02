@@ -75,10 +75,8 @@ func (n *Node) replicateNextEvents() {
 		delete(n.eventQueue, n.nextEventSeq)
 		n.nextEventSeq++
 
-		// Add the event to the buffer if we didn't create it ourselves
-		if !n.ackSync.HasAckChannel(event.SequenceNumber) {
-			n.eventBuffer.AddEvent(event)
-		}
+		// Add the event to the buffer unless we're the HEAD (it already applied when created)
+		n.eventBuffer.AddEvent(event)
 
 		// Since there is only one goroutine sending events, we can unlock here
 		// NOTE: The go routine will be blocked for the duration of event replication
@@ -115,7 +113,7 @@ func (n *Node) replicateEvent(event *pb.Event) {
 	}
 }
 
-func (n *Node) handleEventReplicationAndWaitForAck(event *pb.Event) error {
+func (n *Node) handleEventReplicationAndWaitForAck(event *pb.Event) *EventApplicationResult {
 	// Register the ACK channel for this event (will be closed when ACK is received)
 	n.ackSync.OpenAckChannel(event.SequenceNumber)
 
