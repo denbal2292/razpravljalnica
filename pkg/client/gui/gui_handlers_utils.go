@@ -46,7 +46,9 @@ func (gc *guiClient) renderCenteredMessage(message string) {
 	// Get the dimensions of the message view
 	_, _, _, height := gc.messageView.GetInnerRect()
 	// Pad vertically to center the message
-	verticalPadding := strings.Repeat("\n", height/2)
 	gc.messageView.SetTextAlign(tview.AlignCenter)
+
+	// messageLines := strings.Count(message, "\n") + 1
+	verticalPadding := strings.Repeat("\n", height/2)
 	fmt.Fprintf(gc.messageView, "%s%s", verticalPadding, message)
 }
