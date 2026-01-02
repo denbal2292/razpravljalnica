@@ -17,6 +17,15 @@ func NewAckSynchronization() *AckSynchronization {
 	}
 }
 
+// Check if there is a pending client waiting for ACK on the given sequence number
+func (as *AckSynchronization) HasAckChannel(seqNum int64) bool {
+	as.mu.RLock()
+	defer as.mu.RUnlock()
+
+	_, exists := as.ackChannels[seqNum]
+	return exists
+}
+
 func (as *AckSynchronization) OpenAckChannel(seqNum int64) chan error {
 	as.mu.Lock()
 	defer as.mu.Unlock()

@@ -75,8 +75,8 @@ func (n *Node) replicateNextEvents() {
 		delete(n.eventQueue, n.nextEventSeq)
 		n.nextEventSeq++
 
-		// Add the event to the buffer unless we're the HEAD (it already applied when created)
-		if !n.IsHead() {
+		// Add the event to the buffer if we didn't create it ourselves
+		if !n.ackSync.HasAckChannel(event.SequenceNumber) {
 			n.eventBuffer.AddEvent(event)
 		}
 

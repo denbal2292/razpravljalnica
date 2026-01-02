@@ -16,12 +16,17 @@ func (cp *ControlPlane) GetClusterState(context context.Context, empty *emptypb.
 
 	if head == nil || tail == nil {
 		cp.logger.Info("GetClusterState: No nodes registered")
-	} else {
-		cp.logger.Info("GetClusterState",
-			"head", head.Info,
-			"tail", tail.Info,
-		)
+
+		return &pb.GetClusterStateResponse{
+			Head: nil,
+			Tail: nil,
+		}, nil
 	}
+
+	cp.logger.Info("GetClusterState",
+		"head", head.Info,
+		"tail", tail.Info,
+	)
 
 	return &pb.GetClusterStateResponse{
 		Head: head.Info,
