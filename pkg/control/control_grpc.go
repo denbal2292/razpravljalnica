@@ -5,12 +5,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/raft"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 )
+
+func (cp *ControlPlane) ensureLeader() error {
+	if cp.raft.State() != raft.Leader {
+		return status.Error(codes.FailedPrecondition, "Only the leader can process this request")
+	}
+	return nil
+}
 
 func serializeRaftCommand(cmd *pb.RaftCommand) []byte {
 	data, err := proto.Marshal(cmd)
@@ -43,8 +53,11 @@ func applyRaftCommand[T any](cp *ControlPlane, cmd *pb.RaftCommand) (T, error) {
 	return typedResult, nil
 }
 
-// TODO: Reject requests if not leader
 func (cp *ControlPlane) RegisterNode(ctx context.Context, nodeInfo *pb.NodeInfo) (*pb.NeighborsInfo, error) {
+	if err := cp.ensureLeader(); err != nil {
+		return nil, err
+	}
+
 	// Build the Raft command which will modify the cluster state
 	raftCommand := &pb.RaftCommand{
 		Op:        pb.RaftCommandType_OP_REGISTER,
@@ -78,6 +91,10 @@ func (cp *ControlPlane) RegisterNode(ctx context.Context, nodeInfo *pb.NodeInfo)
 }
 
 func (cp *ControlPlane) UnregisterNode(ctx context.Context, nodeInfo *pb.NodeInfo) (*emptypb.Empty, error) {
+	if err := cp.ensureLeader(); err != nil {
+		return nil, err
+	}
+
 	raftCommand := &pb.RaftCommand{
 		Op:        pb.RaftCommandType_OP_UNREGISTER,
 		Node:      nodeInfo,
@@ -120,6 +137,10 @@ func (cp *ControlPlane) UnregisterNode(ctx context.Context, nodeInfo *pb.NodeInf
 }
 
 func (cp *ControlPlane) GetSubscriptionNode(ctx context.Context, req *pb.SubscriptionNodeRequest) (*pb.SubscriptionNodeResponse, error) {
+	if err := cp.ensureLeader(); err != nil {
+		return nil, err
+	}
+
 	raftCommand := &pb.RaftCommand{
 		Op:        pb.RaftCommandType_OP_SUBSCRIBE,
 		CreatedAt: timestamppb.New(time.Now()),

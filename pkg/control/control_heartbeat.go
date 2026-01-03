@@ -14,6 +14,10 @@ import (
 
 // Heartbeat from a node to indicate it is alive
 func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo) (*emptypb.Empty, error) {
+	if err := cp.ensureLeader(); err != nil {
+		return nil, err
+	}
+
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 
