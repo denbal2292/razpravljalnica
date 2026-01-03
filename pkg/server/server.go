@@ -152,14 +152,6 @@ func (n *Node) startEventReplicationGoroutine() {
 
 	// Start the event replicator goroutine
 	n.sendWg.Go(n.eventReplicator)
-
-	// Wake up the replicator goroutine to process any new events in a non-blocking way
-	select {
-	case n.sendChan <- struct{}{}:
-		// Successfully notified the replicator
-	default:
-		// Replicator is already notified or busy
-	}
 }
 
 func (n *Node) startAckProcessorGoroutine() {
@@ -169,14 +161,6 @@ func (n *Node) startAckProcessorGoroutine() {
 
 	// Start the ACK processor goroutine
 	n.ackWg.Go(n.ackProcessor)
-
-	// Wake up the ACK processor goroutine to process any new ACKs in a non-blocking way
-	select {
-	case n.ackChan <- struct{}{}:
-		// Successfully notified the ACK processor
-	default:
-		// ACK processor is already notified or busy
-	}
 }
 
 func (n *Node) connectToControlPlane() {

@@ -47,6 +47,9 @@ func (n *Node) eventReplicator() {
 
 	n.logger.Info("Starting event replicator goroutine")
 
+	// Check if there are events to replicate right away
+	n.replicateNextEvents()
+
 	for {
 		select {
 		case <-n.sendChan:
