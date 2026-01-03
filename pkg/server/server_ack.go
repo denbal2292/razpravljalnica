@@ -43,6 +43,9 @@ func (n *Node) ackProcessor() {
 
 	n.logger.Info("Starting ACK processor goroutine")
 
+	// Check if there are ACKs to process right away
+	n.processNextAcks()
+
 	for {
 		select {
 		case <-n.ackChan:
