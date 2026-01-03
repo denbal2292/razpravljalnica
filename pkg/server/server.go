@@ -183,7 +183,6 @@ func (n *Node) connectToControlPlane() {
 	}
 
 	// A check only needed for stats
-	isHead := false
 	if neighbors.Predecessor != nil {
 		n.setPredecessor(neighbors.Predecessor)
 
@@ -191,7 +190,6 @@ func (n *Node) connectToControlPlane() {
 			"node_id", neighbors.Predecessor.NodeId,
 			"address", neighbors.Predecessor.Address,
 		)
-
 		if n.stats != nil {
 			n.stats.SetPredecessor(neighbors.Predecessor.Address)
 		}
@@ -199,8 +197,6 @@ func (n *Node) connectToControlPlane() {
 		n.logger.Info("No predecessor (this node is HEAD)")
 		if n.stats != nil {
 			n.stats.SetPredecessor("nil (HEAD)")
-			n.stats.SetRole("HEAD")
-			isHead = true
 		}
 	}
 
@@ -211,12 +207,11 @@ func (n *Node) connectToControlPlane() {
 		n.logger.Info("No successor (this node is TAIL)")
 		if n.stats != nil {
 			n.stats.SetSuccessor("nil (TAIL)")
-			if isHead {
-				n.stats.SetRole("SINGLE")
-			} else {
-				n.stats.SetRole("TAIL")
-			}
 		}
+	}
+
+	if n.stats != nil {
+		n.updateRole()
 	}
 }
 
