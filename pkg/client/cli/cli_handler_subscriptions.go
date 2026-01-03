@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func subscribeTopics(grpcClient *grpc.ClientConn, args []string) error {
+func subscribeTopics(clients *shared.ClientSet, args []string) error {
 	if err := requireArgs(args, 2, "subscribe <user_id> <topic_id>..."); err != nil {
 		return err
 	}
@@ -35,14 +35,16 @@ func subscribeTopics(grpcClient *grpc.ClientConn, args []string) error {
 	}
 
 	// Start with the subscription process
-	controlPlaneClient := pb.NewClientDiscoveryClient(grpcClient)
+	controlPlaneClient := pb.NewClientDiscoveryClient(clients.ControlConn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
 	// Request subscription node info
-	subResponse, err := controlPlaneClient.GetSubscriptionNode(ctx, &pb.SubscriptionNodeRequest{
-		UserId: userId,
+	subResponse, err := shared.RetryFetch[*pb.SubscriptionNodeResponse](ctx, clients, func(ctx context.Context) (*pb.SubscriptionNodeResponse, error) {
+		return controlPlaneClient.GetSubscriptionNode(ctx, &pb.SubscriptionNodeRequest{
+			UserId: userId,
+		})
 	})
 
 	if err != nil {

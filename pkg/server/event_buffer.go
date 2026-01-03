@@ -134,6 +134,10 @@ func (eb *EventBuffer) AddEvent(event *pb.Event) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
+	if event.SequenceNumber < eb.nextEventSeq {
+		return // already have this event
+	}
+
 	// Ensure events are added in order
 	if event.SequenceNumber != eb.nextEventSeq {
 		panic(fmt.Errorf("out-of-order event addition: got %d, expected %d", event.SequenceNumber, eb.nextEventSeq))

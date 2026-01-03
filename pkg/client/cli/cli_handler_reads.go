@@ -10,11 +10,13 @@ import (
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 )
 
-func listTopics(grpcClient pb.MessageBoardReadsClient, args []string) error {
+func listTopics(clients *shared.ClientSet, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
-	topics, err := grpcClient.ListTopics(ctx, &emptypb.Empty{})
+	topics, err := shared.RetryFetch(ctx, clients, func(ctx context.Context) (*pb.ListTopicsResponse, error) {
+		return clients.Reads.ListTopics(ctx, &emptypb.Empty{})
+	})
 
 	if err != nil {
 		return fmt.Errorf("failed to list topics: %w", err)
@@ -33,7 +35,7 @@ func listTopics(grpcClient pb.MessageBoardReadsClient, args []string) error {
 	return nil
 }
 
-func getUser(grpcClient pb.MessageBoardReadsClient, args []string) error {
+func getUser(clients *shared.ClientSet, args []string) error {
 	if err := requireArgs(args, 1, "user <user_id>"); err != nil {
 		return err
 	}
@@ -46,8 +48,10 @@ func getUser(grpcClient pb.MessageBoardReadsClient, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
-	user, err := grpcClient.GetUser(ctx, &pb.GetUserRequest{
-		UserId: userId,
+	user, err := shared.RetryFetch(ctx, clients, func(ctx context.Context) (*pb.User, error) {
+		return clients.Reads.GetUser(ctx, &pb.GetUserRequest{
+			UserId: userId,
+		})
 	})
 
 	if err != nil {
@@ -59,7 +63,7 @@ func getUser(grpcClient pb.MessageBoardReadsClient, args []string) error {
 	return nil
 }
 
-func getMessages(grpcClient pb.MessageBoardReadsClient, args []string) error {
+func getMessages(clients *shared.ClientSet, args []string) error {
 	if err := requireArgs(args, 3, "messages <topic_id> <from_id> <limit_id>"); err != nil {
 		return err
 	}
@@ -82,10 +86,12 @@ func getMessages(grpcClient pb.MessageBoardReadsClient, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
 	defer cancel()
 
-	messagesResp, err := grpcClient.GetMessages(ctx, &pb.GetMessagesRequest{
-		TopicId:       topicId,
-		FromMessageId: fromId,
-		Limit:         int32(limit),
+	messagesResp, err := shared.RetryFetch(ctx, clients, func(ctx context.Context) (*pb.GetMessagesResponse, error) {
+		return clients.Reads.GetMessages(ctx, &pb.GetMessagesRequest{
+			TopicId:       topicId,
+			FromMessageId: fromId,
+			Limit:         int32(limit),
+		})
 	})
 
 	if err != nil {

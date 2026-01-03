@@ -17,7 +17,19 @@ func (cp *ControlPlane) RegisterNode(ctx context.Context, nodeInfo *pb.NodeInfo)
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 
-	// Create gRPC client to the node's NodeSyncServer
+	// 1. Check if a node with the same ID is already registered
+	_, exists := cp.nodes[nodeInfo.NodeId]
+
+	if exists {
+		cp.logger.Warn("RegisterNode: Node already registered",
+			"node_id", nodeInfo.NodeId,
+			"address", nodeInfo.Address,
+		)
+
+		return nil, status.Error(codes.AlreadyExists, "Node already registered")
+	}
+
+	// 2. Create a gRPC client to the node's NodeSyncServer
 	client, err := grpc.NewClient(nodeInfo.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -33,10 +45,10 @@ func (cp *ControlPlane) RegisterNode(ctx context.Context, nodeInfo *pb.NodeInfo)
 
 	cp.logNodeInfo(newNode, "New node registered")
 
-	// Check if this is the first node to register
-	if len(cp.nodes) == 0 {
+	// 3. Check if this is the first node in the chain
+	if len(cp.chain) == 0 {
 		// First node becomes both HEAD and TAIL (no predecessor or successor)
-		cp.nodes = append(cp.nodes, newNode)
+		cp.appendNode(newNode)
 
 		return &pb.NeighborsInfo{
 			Predecessor: nil, // No predecessor
@@ -45,13 +57,13 @@ func (cp *ControlPlane) RegisterNode(ctx context.Context, nodeInfo *pb.NodeInfo)
 	}
 
 	// Get the current TAIL node
-	tailNode := cp.nodes[len(cp.nodes)-1]
+	tailNode := cp.getTail()
 
 	// Update its successor to point to the new node
 	tailNode.Client.SetSuccessor(ctx, &pb.NodeInfoMessage{Node: newNode.Info}) // Inform old TAIL about new successor
 
-	// New node's predecessor is the old TAIL
-	cp.nodes = append(cp.nodes, newNode)
+	// Append the new node to the chain
+	cp.appendNode(newNode)
 
 	return &pb.NeighborsInfo{
 		Predecessor: tailNode.Info, // Old TAIL is the predecessor of the new node
@@ -64,13 +76,7 @@ func (cp *ControlPlane) UnregisterNode(ctx context.Context, nodeInfo *pb.NodeInf
 	defer cp.mu.Unlock()
 
 	// Find the node to remove
-	var idxToRemove int = -1
-	for idx, node := range cp.nodes {
-		if node.Info.NodeId == nodeInfo.NodeId && node.Info.Address == nodeInfo.Address {
-			idxToRemove = idx
-			break
-		}
-	}
+	idxToRemove := cp.findNodeIndex(nodeInfo.NodeId)
 
 	if idxToRemove == -1 {
 		// Node not found
@@ -81,22 +87,22 @@ func (cp *ControlPlane) UnregisterNode(ctx context.Context, nodeInfo *pb.NodeInf
 		return &emptypb.Empty{}, status.Error(codes.NotFound, "Node not found")
 	}
 
-	cp.logNodeInfo(cp.nodes[idxToRemove], "Node unregistered successfully")
+	cp.logNodeInfo(cp.nodes[nodeInfo.NodeId], "Node unregistered successfully")
 
 	// Get predecessor and successor nodes
 	var pred, succ *NodeInfo
 	if idxToRemove > 0 {
-		pred = cp.nodes[idxToRemove-1]
+		pred = cp.nodes[cp.chain[idxToRemove-1]]
 	}
-	if idxToRemove < len(cp.nodes)-1 {
-		succ = cp.nodes[idxToRemove+1]
+	if idxToRemove < len(cp.chain)-1 {
+		succ = cp.nodes[cp.chain[idxToRemove+1]]
 	}
+
+	// Remove the node from the list
+	cp.removeNode(idxToRemove)
 
 	// Update neighbors
 	cp.reconnectNeighbors(pred, succ)
-
-	// Remove the node from the list
-	cp.nodes = append(cp.nodes[:idxToRemove], cp.nodes[idxToRemove+1:]...)
 
 	return &emptypb.Empty{}, nil
 }

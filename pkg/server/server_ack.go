@@ -83,13 +83,13 @@ func (n *Node) processNextAcks() {
 }
 
 func (n *Node) acknowledgeEvent(event *pb.Event) {
+	// Apply the event locally and get the result
+	result := n.applyEvent(event)
+
 	if n.IsHead() {
-		n.ackSync.SignalAck(event.SequenceNumber, nil)
+		n.ackSync.SignalAckIfWaiting(event.SequenceNumber, result)
 		n.logger.Info("ACK reached HEAD successfully - sending to client", "sequence_number", event.SequenceNumber)
 	} else {
-		// non-HEAD: Apply it to storage (errors ignored in replication protocol)
-		_ = n.applyEvent(event)
-
 		predClient := n.getPredecessorClient()
 
 		if predClient == nil {

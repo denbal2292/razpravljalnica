@@ -41,7 +41,10 @@ type guiClient struct {
 	// Current selected topic ID and list of topic IDs
 	currentTopicId int64
 	topics         map[int64]*pb.Topic
-	topicOrder     []int64
+	// Tracks topics with unread messages - for subscribed topics
+	unreadTopic map[int64]bool
+	topicOrder  []int64
+
 	// Topics we are subscribed to
 	subscribedTopics map[int64]bool
 
@@ -56,10 +59,16 @@ func StartGUIClient(clients *shared.ClientSet) {
 	// Set initial focus to the input field
 	gc := newGuiClient(clients)
 
-	if err := gc.app.Run(); err != nil {
+	gc.renderCenteredMessage(titleText)
+
+	err := gc.app.Run()
+	if err != nil {
 		panic(err)
 	}
 }
+
+// Initial basic instructions and title when starting the application
+const titleText = "Dobrodošel v [blue]RAZPRAVLJALNICI[-]!\n[yellow]1.[-] Ustvari novega uporabnika ali se prijavi z obstoječim ID-jem.\n[yellow]2.[-] Ustvari ali izberi temo.\n[yellow]3.[-] Pošlji svoje prvo sporočilo!\n[yellow]4.[-] Če želiš osvežiti teme ali sporočila, izberi ustrezno okno in pritisni 'r'.\n[yellow]5.[-] Če se želiš naročiti na izbrano temo, pritisni 's'\n\n[blue]Avtorja[-]: Denis Balant in Enej Hudobreznik"
 
 func newGuiClient(clients *shared.ClientSet) *guiClient {
 	// Initialize GUI client structure
@@ -77,6 +86,7 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 		modal:            tview.NewModal(),
 
 		subscribedTopics: make(map[int64]bool),
+		unreadTopic:      make(map[int64]bool),
 
 		clients: clients,
 
@@ -128,11 +138,12 @@ func (gc *guiClient) setupWidgets() {
 
 	// Configure new user input
 	gc.newUserInput.
-		SetLabel("Nov uporabnik > ").
+		SetLabel(" Nov uporabnik > ").
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(14)
+		SetFieldWidth(14).
+		SetAutocompleteFunc(nil)
 
 	gc.newUserInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
@@ -145,7 +156,8 @@ func (gc *guiClient) setupWidgets() {
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(14)
+		SetFieldWidth(14).
+		SetAutocompleteFunc(nil)
 
 	gc.logInUserInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
@@ -164,7 +176,7 @@ func (gc *guiClient) setupWidgets() {
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(0)
+		SetFieldWidth(17)
 
 	// Handle new topic creation on Enter key
 	gc.newTopicInput.SetDoneFunc(func(key tcell.Key) {
@@ -245,11 +257,12 @@ func (gc *guiClient) setupWidgets() {
 
 	// Configure message input
 	gc.messageInput.
-		SetLabel("Vnesi sporočilo > ").
+		SetLabel(" Vnesi sporočilo > ").
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldBackgroundColor(tcell.ColorDarkGrey).
 		SetFieldTextColor(tcell.ColorBlack).
-		SetFieldWidth(0)
+		SetFieldWidth(0).
+		SetAutocompleteFunc(nil)
 
 	// Handle message posting on Enter key
 	gc.messageInput.SetDoneFunc(func(key tcell.Key) {
@@ -267,9 +280,9 @@ func (gc *guiClient) setupLayout() {
 
 	userCredentialsColumn := tview.NewFlex().
 		SetDirection(tview.FlexColumn).
-		AddItem(gc.newUserInput, 30, 0, false).
+		AddItem(gc.newUserInput, 35, 0, false).
 		AddItem(tview.NewBox(), 2, 0, false).
-		AddItem(gc.logInUserInput, 40, 0, false).
+		AddItem(gc.logInUserInput, 45, 0, false).
 		AddItem(gc.loggedInUserView, 0, 1, false)
 
 	// Topics Column
@@ -297,6 +310,33 @@ func (gc *guiClient) setupLayout() {
 
 	// Add main layout as a page
 	gc.pages.AddPage("main", grid, true, true)
+
+	gc.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// Only capture Tab keys
+		if event.Key() == tcell.KeyTab {
+			focusables := []tview.Primitive{
+				gc.newUserInput,
+				gc.logInUserInput,
+				gc.topicsList,
+				gc.messageView,
+				gc.newTopicInput,
+				gc.messageInput,
+			}
+
+			cur := gc.app.GetFocus()
+			for i, p := range focusables {
+				// Check if p is focused or if p contains the focused item
+				if p == cur || p.HasFocus() {
+					next := (i + 1) % len(focusables)
+					gc.app.SetFocus(focusables[next])
+					return nil
+				}
+			}
+			// If we didn't find the current focus, do NOTHING.
+			return event
+		}
+		return event
+	})
 
 	gc.app.SetRoot(gc.pages, true)
 }

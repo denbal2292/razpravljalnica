@@ -23,16 +23,14 @@ func (n *Node) CreateTopic(ctx context.Context, req *pb.CreateTopicRequest) (*pb
 	event := n.eventBuffer.CreateTopicEvent(req)
 	n.logEventReceived(event)
 
-	if err := n.handleEventReplicationAndWaitForAck(event); err != nil {
-		return nil, err
-	}
-
+	result := n.handleEventReplicationAndWaitForAck(event)
 	n.logApplyEvent(event)
 
-	topic, err := n.storage.CreateTopic(req.Name)
-	if err != nil {
-		return nil, handleStorageError(err)
+	if result.err != nil {
+		return nil, handleStorageError(result.err)
 	}
+
+	topic := result.topic
 
 	return topic, nil
 }
