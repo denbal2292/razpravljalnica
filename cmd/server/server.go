@@ -4,9 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
-	"os/signal"
-	"syscall"
 
 	razpravljalnica "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/denbal2292/razpravljalnica/pkg/server"
@@ -78,16 +75,6 @@ func main() {
 		"control_plane", controlPlaneAddress,
 		"interface_type", *interfaceType,
 	)
-
-	// Shutdown handling
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		logger.Info("Shutting down node...")
-		gRPCServer.GracefulStop()
-	}()
 
 	// Start serving
 	if err := gRPCServer.Serve(lis); err != nil {

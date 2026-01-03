@@ -177,6 +177,13 @@ func (n *Node) connectToControlPlane() {
 
 	n.logger.Info("Registered node with control plane", "node_id", n.nodeInfo.NodeId, "address", n.nodeInfo.Address)
 
+	// Update stats - connection to control plane established
+	if n.stats != nil {
+		n.stats.SetConnected(true)
+	}
+
+	// A check only needed for stats
+	isHead := false
 	if neighbors.Predecessor != nil {
 		n.setPredecessor(neighbors.Predecessor)
 
@@ -184,8 +191,17 @@ func (n *Node) connectToControlPlane() {
 			"node_id", neighbors.Predecessor.NodeId,
 			"address", neighbors.Predecessor.Address,
 		)
+
+		if n.stats != nil {
+			n.stats.SetPredecessor(neighbors.Predecessor.Address)
+		}
 	} else {
 		n.logger.Info("No predecessor (this node is HEAD)")
+		if n.stats != nil {
+			n.stats.SetPredecessor("nil (HEAD)")
+			n.stats.SetRole("HEAD")
+			isHead = true
+		}
 	}
 
 	// This should never happen (new node is always TAIL at registration)
@@ -193,6 +209,14 @@ func (n *Node) connectToControlPlane() {
 		panic("New node cannot have a successor at registration")
 	} else {
 		n.logger.Info("No successor (this node is TAIL)")
+		if n.stats != nil {
+			n.stats.SetSuccessor("nil (TAIL)")
+			if isHead {
+				n.stats.SetRole("SINGLE")
+			} else {
+				n.stats.SetRole("TAIL")
+			}
+		}
 	}
 }
 
@@ -209,40 +233,53 @@ type EventApplicationResult struct {
 
 // Apply the given event to the local storage
 func (n *Node) applyEvent(event *pb.Event) *EventApplicationResult {
+	var result *EventApplicationResult
 	switch event.Op {
 	case pb.OpType_OP_POST:
 		msgRequest := event.PostMessage
 		msg, err := n.storage.PostMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.Text, event.EventAt)
-		return &EventApplicationResult{message: msg, err: err}
+		if n.stats != nil && err == nil {
+			n.stats.IncrementMessages()
+		}
+		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_UPDATE:
 		msgRequest := event.UpdateMessage
 		msg, err := n.storage.UpdateMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId, msgRequest.Text)
-		return &EventApplicationResult{message: msg, err: err}
+		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_DELETE:
 		msgRequest := event.DeleteMessage
 		msg, err := n.storage.DeleteMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId)
-		return &EventApplicationResult{message: msg, err: err}
+		if n.stats != nil && err == nil {
+			n.stats.DecrementMessages()
+		}
+		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_LIKE:
 		likeRequest := event.LikeMessage
 		msg, err := n.storage.LikeMessage(likeRequest.TopicId, likeRequest.UserId, likeRequest.MessageId)
-		return &EventApplicationResult{message: msg, err: err}
+		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_CREATE_USER:
 		userRequest := event.CreateUser
 		user, err := n.storage.CreateUser(userRequest.Name)
-		return &EventApplicationResult{user: user, err: err}
+		result = &EventApplicationResult{user: user, err: err}
 
 	case pb.OpType_OP_CREATE_TOPIC:
 		topicRequest := event.CreateTopic
 		topic, err := n.storage.CreateTopic(topicRequest.Name)
-		return &EventApplicationResult{topic: topic, err: err}
+		result = &EventApplicationResult{topic: topic, err: err}
 
 	default:
 		panic(fmt.Errorf("unknown event operation: %v", event.Op))
 	}
+
+	if n.stats != nil && result.err == nil {
+		n.stats.IncrementEvents()
+	}
+
+	return result
 }
 
 // Convert storage layer errors to appropriate gRPC status codes.

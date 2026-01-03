@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/rivo/tview"
 )
@@ -49,7 +50,8 @@ func (h *GUIHandler) Handle(_ context.Context, r slog.Record) error {
 	timestamp := r.Time.Format("15:04:05")
 
 	// Build the log line
-	line := fmt.Sprintf("[darkgray]%s[-] [%s][%s][-] %s", timestamp, color, levelPadded(r.Level), r.Message)
+	var line strings.Builder
+	fmt.Fprintf(&line, "[darkgray]%s[-] [%s] %s [-] %s", timestamp, color, levelPadded(r.Level), r.Message)
 
 	// Add attributes if present
 	attrs := h.attrs
@@ -59,19 +61,19 @@ func (h *GUIHandler) Handle(_ context.Context, r slog.Record) error {
 	})
 
 	if len(attrs) > 0 {
-		line += " [darkgray]|[-] "
+		line.WriteString(" [darkgray]|[-] ")
 		for i, attr := range attrs {
 			if i > 0 {
-				line += ", "
+				line.WriteString(", ")
 			}
-			line += fmt.Sprintf("[cyan]%s[-]=%v", attr.Key, attr.Value)
+			fmt.Fprintf(&line, "[cyan]%s[-]=%v", attr.Key, attr.Value)
 		}
 	}
 
-	line += "\n"
+	line.WriteString("\n")
 
 	h.app.QueueUpdateDraw(func() {
-		fmt.Fprint(h.view, line)
+		fmt.Fprint(h.view, line.String())
 	})
 
 	return nil
@@ -115,9 +117,9 @@ func levelPadded(level slog.Level) string {
 	case slog.LevelDebug:
 		return "DEBUG"
 	case slog.LevelInfo:
-		return "INFO "
+		return "INFO"
 	case slog.LevelWarn:
-		return "WARN "
+		return "WARN"
 	case slog.LevelError:
 		return "ERROR"
 	default:

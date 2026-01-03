@@ -38,7 +38,18 @@ func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) 
 	n.ackWg.Wait()    // Wait for it to finish
 
 	n.setPredecessor(pred)
+
 	n.logger.Info("SetPredecessor called", "node_info", pred)
+
+	if n.stats != nil {
+		if pred == nil {
+			n.stats.SetPredecessor("(none)")
+		} else {
+			n.stats.SetPredecessor(pred.Address)
+		}
+		n.updateRole() // Use helper to determine role based on both pred and succ
+	}
+
 	n.startAckProcessorGoroutine()
 
 	return &emptypb.Empty{}, nil
@@ -59,6 +70,15 @@ func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*
 		// Update the successor connection
 		n.setSuccessor(succ)
 
+		if n.stats != nil {
+			if succ == nil {
+				n.stats.SetSuccessor("(none)")
+			} else {
+				n.stats.SetSuccessor(succ.Address)
+			}
+			n.updateRole() // Use helper to determine role
+		}
+
 		// Start syncing with the new successor if not nil
 		if succ == nil {
 			n.logger.Info("This node is TAIL, applying all unacknowledged events")
@@ -74,4 +94,27 @@ func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*
 	}()
 
 	return &emptypb.Empty{}, nil
+}
+
+// Helper function to correctly determine role based on both neighbors
+func (n *Node) updateRole() {
+	if n.stats == nil {
+		return
+	}
+
+	n.mu.RLock()
+	hasPred := n.predecessor != nil
+	hasSucc := n.successor != nil
+	n.mu.RUnlock()
+
+	switch {
+	case !hasPred && !hasSucc:
+		n.stats.SetRole("SINGLE")
+	case !hasPred && hasSucc:
+		n.stats.SetRole("HEAD")
+	case hasPred && !hasSucc:
+		n.stats.SetRole("TAIL")
+	case hasPred && hasSucc:
+		n.stats.SetRole("MIDDLE")
+	}
 }

@@ -17,7 +17,7 @@ type Stats struct {
 	eventsProcessed int
 	messagesReplied int
 
-	// Node information
+	// General node info
 	nodeId   string
 	nodeAddr string
 	role     string // HEAD, MIDDLE, TAIL, or SINGLE
@@ -51,7 +51,7 @@ func (s *Stats) IncrementEvents() {
 	s.eventsProcessed++
 }
 
-// IncrementMessages increments the messages replied counter.
+// IncrementMessages increments the messages counter.
 func (s *Stats) IncrementMessages() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -59,10 +59,19 @@ func (s *Stats) IncrementMessages() {
 	s.messagesReplied++
 }
 
+// DecrementMessages decrements the messages counter.
+func (s *Stats) DecrementMessages() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.messagesReplied--
+}
+
 // SetRole updates the current role of the node.
 func (s *Stats) SetRole(role string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.role = role
 }
 
@@ -70,6 +79,7 @@ func (s *Stats) SetRole(role string) {
 func (s *Stats) SetPredecessor(addr string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.predAddr = addr
 }
 
@@ -77,6 +87,7 @@ func (s *Stats) SetPredecessor(addr string) {
 func (s *Stats) SetSuccessor(addr string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.succAddr = addr
 }
 
@@ -84,6 +95,7 @@ func (s *Stats) SetSuccessor(addr string) {
 func (s *Stats) SetConnected(connected bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.connected = connected
 }
 
@@ -154,6 +166,7 @@ func (sc *StatsCollector) updateDisplay() {
 	uptime := sc.stats.GetUptime()
 	events := numEvents
 	messages := numMessages
+	// Get number of goroutines - interesting to look at
 	goroutines := runtime.NumGoroutine()
 
 	// Format the role with color
@@ -166,7 +179,7 @@ func (sc *StatsCollector) updateDisplay() {
 	case "MIDDLE":
 		roleColor = "yellow"
 	case "SINGLE":
-		roleColor = "cyan"
+		roleColor = "orange"
 	default:
 		roleColor = "gray"
 	}
