@@ -385,7 +385,6 @@ func TestGetMessagesWithLimit(t *testing.T) {
 			t.Errorf("Expected second message ID 3, got %d", messages[1].Id)
 		}
 	})
-
 }
 
 func TestGetMessagesFromTopics(t *testing.T) {
