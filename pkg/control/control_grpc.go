@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -60,8 +62,16 @@ func (cp *ControlPlane) RegisterNode(ctx context.Context, nodeInfo *pb.NodeInfo)
 
 	predecessor := cp.getNode(result.predecessorId)
 
+	var predecessorInfo *pb.NodeInfo
+	if predecessor != nil {
+		predecessorInfo = predecessor.Info
+
+		// Inform old TAIL about new successor
+		predecessor.Client.SetSuccessor(ctx, &pb.NodeInfoMessage{Node: nodeInfo})
+	}
+
 	return &pb.NeighborsInfo{
-		Predecessor: predecessor.Info,
+		Predecessor: predecessorInfo,
 		Successor:   nil, // New node is always TAIL, so no successor
 	}, result.err
 }
@@ -94,13 +104,17 @@ func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo
 		CreatedAt: timestamppb.New(time.Now()),
 	}
 
-	heartbeatErr, raftErr := applyRaftCommand[error](cp, raftCommand)
+	heartbeatSucc, raftErr := applyRaftCommand[bool](cp, raftCommand)
 
 	if raftErr != nil {
 		return &emptypb.Empty{}, raftErr
 	}
 
-	return &emptypb.Empty{}, heartbeatErr
+	if !heartbeatSucc {
+		return &emptypb.Empty{}, status.Error(codes.NotFound, "node not registered")
+	}
+
+	return &emptypb.Empty{}, nil
 }
 
 func (cp *ControlPlane) GetSubscriptionNode(ctx context.Context, req *pb.SubscriptionNodeRequest) (*pb.SubscriptionNodeResponse, error) {

@@ -21,7 +21,7 @@ type ControlPlane struct {
 	pb.UnimplementedClientDiscoveryServer // For clients connecting to find HEAD and TAIL nodes
 	pb.UnimplementedControlPlaneServer    // For nodes connecting to report heartbeats
 
-	raft *raft.Raft
+	raft *raft.Raft // Raft instance (set after creation)
 
 	mu                sync.RWMutex
 	nodes             map[string]*NodeInfo // node id -> nodeinfo
@@ -66,6 +66,8 @@ func (cp *ControlPlane) getNode(nodeId string) *NodeInfo {
 }
 
 // Returns two nodes for the given IDs under the same read lock to ensure consistency
+// If a nodeId is an empty string, the corresponding returned NodeInfo will be nil
+// Returns a boolean indicating whether both nodes were found (or nil for empty IDs)
 func (cp *ControlPlane) getNodes(nodeId1, nodeId2 string) (*NodeInfo, *NodeInfo, bool) {
 	cp.mu.RLock()
 	defer cp.mu.RUnlock()
@@ -128,4 +130,8 @@ func (cp *ControlPlane) removeNode(nodeIdx int) {
 	nodeId := cp.chain[nodeIdx]
 	cp.chain = append(cp.chain[:nodeIdx], cp.chain[nodeIdx+1:]...)
 	delete(cp.nodes, nodeId)
+}
+
+func (cp *ControlPlane) SetRaft(r *raft.Raft) {
+	cp.raft = r
 }

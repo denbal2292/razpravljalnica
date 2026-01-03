@@ -233,9 +233,9 @@ message AddSubscriptionResponse {
 // Raft-related messages (between nodes of the raft cluster)
 ////////////////////////////////////////////////////////////////////////////////
 
-service RaftService {
-  rpc AddVoter(NodeInfo) returns (google.protobuf.Empty);
-}
+// service RaftService {
+//   rpc AddVoter(NodeInfo) returns (google.protobuf.Empty);
+// }
 
 enum RaftCommandType {
   OP_REGISTER = 0;

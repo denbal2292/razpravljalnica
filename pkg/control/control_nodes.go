@@ -18,7 +18,7 @@ type registerNodeResult struct {
 }
 
 // Adds a new node to the nodes list, returns predecessor and successor IDs for the new node
-func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo, timestamp time.Time) registerNodeResult {
+func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo, timestamp time.Time) *registerNodeResult {
 	// 1. Check if a node with the same ID is already registered
 	_, exists := cp.nodes[nodeInfo.NodeId]
 
@@ -28,13 +28,13 @@ func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo, timestamp time.Time)
 			"address", nodeInfo.Address,
 		)
 
-		return registerNodeResult{"", "", status.Error(codes.AlreadyExists, "Node already registered")}
+		return &registerNodeResult{"", "", status.Error(codes.AlreadyExists, "Node already registered")}
 	}
 
 	// 2. Create a gRPC client to the node's NodeSyncServer
 	client, err := grpc.NewClient(nodeInfo.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return registerNodeResult{"", "", err}
+		return &registerNodeResult{"", "", err}
 	}
 
 	newNode := &NodeInfo{
@@ -53,7 +53,7 @@ func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo, timestamp time.Time)
 		cp.appendNode(newNode)
 
 		// No pred/succ for the first node
-		return registerNodeResult{"", "", nil}
+		return &registerNodeResult{"", "", nil}
 	}
 
 	// Get the current TAIL node
@@ -63,11 +63,11 @@ func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo, timestamp time.Time)
 	cp.appendNode(newNode)
 
 	// Predecessor is the old TAIL, successor is nil
-	return registerNodeResult{tailNode.Info.NodeId, "", nil}
+	return &registerNodeResult{tailNode.Info.NodeId, "", nil}
 }
 
 // Removes a node from the nodes list, returns successor and predecessor info of the removed node
-func (cp *ControlPlane) unregisterNode(nodeInfo *pb.NodeInfo) registerNodeResult {
+func (cp *ControlPlane) unregisterNode(nodeInfo *pb.NodeInfo) *registerNodeResult {
 	// Find the node to remove
 	idxToRemove := cp.findNodeIndex(nodeInfo.NodeId)
 
@@ -77,7 +77,7 @@ func (cp *ControlPlane) unregisterNode(nodeInfo *pb.NodeInfo) registerNodeResult
 			"node_id", nodeInfo.NodeId,
 			"address", nodeInfo.Address,
 		)
-		return registerNodeResult{"", "", status.Error(codes.NotFound, "Node not found")}
+		return &registerNodeResult{"", "", status.Error(codes.NotFound, "Node not found")}
 	}
 
 	cp.logNodeInfo(cp.nodes[nodeInfo.NodeId], "Node unregistered successfully")
@@ -95,5 +95,5 @@ func (cp *ControlPlane) unregisterNode(nodeInfo *pb.NodeInfo) registerNodeResult
 	cp.removeNode(idxToRemove)
 
 	// Return predecessor and successor IDs for neighbor reconnection
-	return registerNodeResult{predId, succId, nil}
+	return &registerNodeResult{predId, succId, nil}
 }

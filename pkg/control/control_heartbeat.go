@@ -5,12 +5,11 @@ import (
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/hashicorp/raft"
 )
 
 // Heartbeat from a node to indicate it is alive
-func (cp *ControlPlane) heartbeat(nodeInfo *pb.NodeInfo) error {
+func (cp *ControlPlane) heartbeat(nodeInfo *pb.NodeInfo) bool {
 	// Find the node and update its last heartbeat time
 	node, exists := cp.nodes[nodeInfo.NodeId]
 
@@ -20,15 +19,16 @@ func (cp *ControlPlane) heartbeat(nodeInfo *pb.NodeInfo) error {
 			"address", nodeInfo.Address,
 		)
 
-		return status.Error(codes.NotFound, "node not registered")
+		return false
 	}
 
 	cp.logNodeDebug(node, "Heartbeat received")
 
 	node.LastHeartbeat = time.Now()
-	return nil
+	return true
 }
 
+// TODO: This should apply events via Raft!
 // Monitor heartbeats and remove nodes that have not sent a heartbeat in time
 func (cp *ControlPlane) monitorHeartbeats() {
 	ticker := time.NewTicker(cp.heartbeatInterval)
@@ -37,6 +37,11 @@ func (cp *ControlPlane) monitorHeartbeats() {
 	// Periodically check for missed heartbeats by
 	// reading from the ticker channel which ticks at heartbeatInterval
 	for range ticker.C {
+		if cp.raft.State() != raft.Leader {
+			// Only the leader monitors heartbeats and removes dead nodes
+			continue
+		}
+
 		cp.mu.Lock()
 		now := time.Now()
 
