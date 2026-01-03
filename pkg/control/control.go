@@ -7,6 +7,7 @@ import (
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
+	"github.com/hashicorp/raft"
 	"github.com/lmittmann/tint"
 )
 
@@ -20,11 +21,14 @@ type ControlPlane struct {
 	pb.UnimplementedClientDiscoveryServer // For clients connecting to find HEAD and TAIL nodes
 	pb.UnimplementedControlPlaneServer    // For nodes connecting to report heartbeats
 
+	raft *raft.Raft
+
 	mu                sync.RWMutex
 	nodes             map[string]*NodeInfo // node id -> nodeinfo
 	chain             []string             // nodes in order: [HEAD, ..., TAIL] (easier to get neighbors)
 	heartbeatInterval time.Duration
 	heartbeatTimeout  time.Duration
+	raftTimeout       time.Duration
 
 	lastControlIndex uint64
 
@@ -37,6 +41,7 @@ func NewControlPlane() *ControlPlane {
 		chain:             make([]string, 0),
 		heartbeatInterval: 5 * time.Second,
 		heartbeatTimeout:  7 * time.Second,
+		raftTimeout:       5 * time.Second,
 		logger: slog.New(tint.NewHandler(
 			os.Stdout,
 			&tint.Options{
@@ -51,6 +56,41 @@ func NewControlPlane() *ControlPlane {
 	go cb.monitorHeartbeats()
 
 	return cb
+}
+
+func (cp *ControlPlane) getNode(nodeId string) *NodeInfo {
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
+	return cp.nodes[nodeId]
+}
+
+// Returns two nodes for the given IDs under the same read lock to ensure consistency
+func (cp *ControlPlane) getNodes(nodeId1, nodeId2 string) (*NodeInfo, *NodeInfo, bool) {
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
+	var firstNode, secondNode *NodeInfo
+
+	if nodeId1 != "" {
+		first, exists := cp.nodes[nodeId1]
+
+		if !exists {
+			return nil, nil, false
+		}
+		firstNode = first
+	}
+
+	if nodeId2 != "" {
+		second, exists := cp.nodes[nodeId2]
+
+		if !exists {
+			return nil, nil, false
+		}
+		secondNode = second
+	}
+
+	return firstNode, secondNode, true
 }
 
 func (cp *ControlPlane) getTail() *NodeInfo {

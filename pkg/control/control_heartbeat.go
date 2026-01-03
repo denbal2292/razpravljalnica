@@ -7,14 +7,10 @@ import (
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Heartbeat from a node to indicate it is alive
-func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo) (*emptypb.Empty, error) {
-	cp.mu.Lock()
-	defer cp.mu.Unlock()
-
+func (cp *ControlPlane) heartbeat(nodeInfo *pb.NodeInfo) error {
 	// Find the node and update its last heartbeat time
 	node, exists := cp.nodes[nodeInfo.NodeId]
 
@@ -24,13 +20,13 @@ func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo
 			"address", nodeInfo.Address,
 		)
 
-		return nil, status.Error(codes.NotFound, "node not registered")
+		return status.Error(codes.NotFound, "node not registered")
 	}
 
 	cp.logNodeDebug(node, "Heartbeat received")
 
 	node.LastHeartbeat = time.Now()
-	return &emptypb.Empty{}, nil
+	return nil
 }
 
 // Monitor heartbeats and remove nodes that have not sent a heartbeat in time
