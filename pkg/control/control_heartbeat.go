@@ -31,7 +31,9 @@ func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo
 
 	cp.logNodeDebug(node, "Heartbeat received")
 
-	node.LastHeartbeat = time.Now()
+	now := time.Now()
+	node.LastHeartbeat = &now
+
 	return &emptypb.Empty{}, nil
 }
 
@@ -85,7 +87,6 @@ func (cp *ControlPlane) monitorHeartbeats() {
 		// Apply removals via Raft
 		if err := cp.removeNodesViaRaft(deadNodeIds); err != nil {
 			cp.logger.Error("Error applying heartbeat removals via Raft", "error", err)
-			continue
 		}
 
 		// Reconnect chain around removed nodes
@@ -101,7 +102,14 @@ func (cp *ControlPlane) identifyDeadNodes() ([]string, []string) {
 
 	for _, nodeId := range cp.chain {
 		node := cp.nodes[nodeId]
-		if now.Sub(node.LastHeartbeat) > cp.heartbeatTimeout {
+
+		if node.LastHeartbeat == nil {
+			// No heartbeat received yet
+			node.LastHeartbeat = &now // Set to now to avoid immediate removal
+			continue
+		}
+
+		if now.Sub(*node.LastHeartbeat) > cp.heartbeatTimeout {
 			cp.logNodeInfo(node, "Node considered dead due to missed heartbeats")
 			deadNodes = append(deadNodes, nodeId)
 		}

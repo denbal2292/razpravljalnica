@@ -3,7 +3,6 @@ package control
 import (
 	"fmt"
 	"io"
-	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/hashicorp/raft"
@@ -26,7 +25,7 @@ func (cp *ControlPlane) Apply(l *raft.Log) interface{} {
 
 	switch cmd.Op {
 	case pb.RaftCommandType_OP_REGISTER:
-		return cp.registerNode(cmd.Node, cmd.CreatedAt.AsTime())
+		return cp.registerNode(cmd.Node)
 	case pb.RaftCommandType_OP_UNREGISTER:
 		return cp.unregisterNode(cmd.Node)
 	case pb.RaftCommandType_OP_UPDATE_CHAIN:
@@ -44,7 +43,6 @@ func (cp *ControlPlane) Snapshot() (raft.FSMSnapshot, error) {
 	cp.mu.RLock()
 	defer cp.mu.RUnlock()
 
-	// TODO: Add last heartbeat times?
 	nodes := make(map[string]*pb.NodeInfo)
 	for id, node := range cp.nodes {
 		nodes[id] = node.Info
@@ -86,7 +84,7 @@ func (cp *ControlPlane) Restore(rc io.ReadCloser) error {
 		cp.nodes[id] = &NodeInfo{
 			Info:          info,
 			Client:        pb.NewNodeUpdateClient(client),
-			LastHeartbeat: time.Now(),
+			LastHeartbeat: nil,
 		}
 	}
 	return nil

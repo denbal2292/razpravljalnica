@@ -14,7 +14,7 @@ import (
 type NodeInfo struct {
 	Info          *pb.NodeInfo
 	Client        pb.NodeUpdateClient
-	LastHeartbeat time.Time
+	LastHeartbeat *time.Time
 }
 
 type ControlPlane struct {

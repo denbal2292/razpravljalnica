@@ -1,8 +1,6 @@
 package control
 
 import (
-	"time"
-
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 
 	"google.golang.org/grpc"
@@ -18,7 +16,7 @@ type registerNodeResult struct {
 }
 
 // Adds a new node to the nodes list, returns predecessor and successor IDs for the new node
-func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo, timestamp time.Time) *registerNodeResult {
+func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo) *registerNodeResult {
 	// 1. Check if a node with the same ID is already registered
 	_, exists := cp.nodes[nodeInfo.NodeId]
 
@@ -42,7 +40,7 @@ func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo, timestamp time.Time)
 		// Maybe grpc.Peer?
 		Info:          nodeInfo,
 		Client:        pb.NewNodeUpdateClient(client),
-		LastHeartbeat: timestamp, // Initialize heartbeat time so it isn't considered dead immediately
+		LastHeartbeat: nil, // No heartbeat received yet
 	}
 
 	cp.logNodeInfo(newNode, "New node registered")
