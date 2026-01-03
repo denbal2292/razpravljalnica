@@ -10,21 +10,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-// TODO: Move this so we check the node role inside the node
 func registerServices(node *server.Node, gRPCServer *grpc.Server) {
-	// Only head nodes handle writes
-	// if node.IsHead() {
 	razpravljalnica.RegisterMessageBoardWritesServer(gRPCServer, node)
-	// }
-
-	// Only tail nodes handle reads
-	// if node.IsTail() {
 	razpravljalnica.RegisterMessageBoardReadsServer(gRPCServer, node)
-	// }
-
-	// All nodes participate in chain replication
 	razpravljalnica.RegisterChainReplicationServer(gRPCServer, node)
-
 	razpravljalnica.RegisterMessageBoardSubscriptionsServer(gRPCServer, node)
 }
 
