@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -116,26 +114,6 @@ func (cp *ControlPlane) UnregisterNode(ctx context.Context, nodeInfo *pb.NodeInf
 	if valid {
 		// Reconnect predecessor and successor
 		go cp.reconnectNeighbors(pred, succ)
-	}
-
-	return &emptypb.Empty{}, nil
-}
-
-func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo) (*emptypb.Empty, error) {
-	raftCommand := &pb.RaftCommand{
-		Op:        pb.RaftCommandType_OP_HEARTBEAT,
-		Node:      nodeInfo,
-		CreatedAt: timestamppb.New(time.Now()),
-	}
-
-	heartbeatSucc, raftErr := applyRaftCommand[bool](cp, raftCommand)
-
-	if raftErr != nil {
-		return &emptypb.Empty{}, raftErr
-	}
-
-	if !heartbeatSucc {
-		return &emptypb.Empty{}, status.Error(codes.NotFound, "node not registered")
 	}
 
 	return &emptypb.Empty{}, nil

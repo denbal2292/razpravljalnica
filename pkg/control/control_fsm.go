@@ -29,9 +29,8 @@ func (cp *ControlPlane) Apply(l *raft.Log) interface{} {
 		return cp.registerNode(cmd.Node, cmd.CreatedAt.AsTime())
 	case pb.RaftCommandType_OP_UNREGISTER:
 		return cp.unregisterNode(cmd.Node)
-	// TODO: Heartbeat should probably not be applied via Raft?
-	case pb.RaftCommandType_OP_HEARTBEAT:
-		return cp.heartbeat(cmd.Node)
+	case pb.RaftCommandType_OP_UPDATE_CHAIN:
+		return cp.updateChain(cmd.IdsToRemove)
 	case pb.RaftCommandType_OP_SUBSCRIBE:
 		return cp.getSubscriptionNode()
 	default:

@@ -240,14 +240,15 @@ message AddSubscriptionResponse {
 enum RaftCommandType {
   OP_REGISTER = 0;
   OP_UNREGISTER = 1;
-  OP_HEARTBEAT = 2;
+  OP_UPDATE_CHAIN = 2;
   OP_SUBSCRIBE = 3;
 }
 
 message RaftCommand {
   RaftCommandType op = 1;
-  NodeInfo node = 2;
-  google.protobuf.Timestamp created_at = 3;
+  NodeInfo node = 2; // used for OP_REGISTER, OP_UNREGISTER
+  repeated string idsToRemove = 3; // used for OP_UPDATE_CHAIN
+  google.protobuf.Timestamp created_at = 4;
 }
 
 message RaftSnapshot {

@@ -84,10 +84,10 @@ func (OpType) EnumDescriptor() ([]byte, []int) {
 type RaftCommandType int32
 
 const (
-	RaftCommandType_OP_REGISTER   RaftCommandType = 0
-	RaftCommandType_OP_UNREGISTER RaftCommandType = 1
-	RaftCommandType_OP_HEARTBEAT  RaftCommandType = 2
-	RaftCommandType_OP_SUBSCRIBE  RaftCommandType = 3
+	RaftCommandType_OP_REGISTER     RaftCommandType = 0
+	RaftCommandType_OP_UNREGISTER   RaftCommandType = 1
+	RaftCommandType_OP_UPDATE_CHAIN RaftCommandType = 2
+	RaftCommandType_OP_SUBSCRIBE    RaftCommandType = 3
 )
 
 // Enum value maps for RaftCommandType.
@@ -95,14 +95,14 @@ var (
 	RaftCommandType_name = map[int32]string{
 		0: "OP_REGISTER",
 		1: "OP_UNREGISTER",
-		2: "OP_HEARTBEAT",
+		2: "OP_UPDATE_CHAIN",
 		3: "OP_SUBSCRIBE",
 	}
 	RaftCommandType_value = map[string]int32{
-		"OP_REGISTER":   0,
-		"OP_UNREGISTER": 1,
-		"OP_HEARTBEAT":  2,
-		"OP_SUBSCRIBE":  3,
+		"OP_REGISTER":     0,
+		"OP_UNREGISTER":   1,
+		"OP_UPDATE_CHAIN": 2,
+		"OP_SUBSCRIBE":    3,
 	}
 )
 
@@ -1436,8 +1436,9 @@ func (x *AddSubscriptionResponse) GetSubscribeToken() string {
 type RaftCommand struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Op            RaftCommandType        `protobuf:"varint,1,opt,name=op,proto3,enum=razpravljalnica.RaftCommandType" json:"op,omitempty"`
-	Node          *NodeInfo              `protobuf:"bytes,2,opt,name=node,proto3" json:"node,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Node          *NodeInfo              `protobuf:"bytes,2,opt,name=node,proto3" json:"node,omitempty"`               // used for OP_REGISTER, OP_UNREGISTER
+	IdsToRemove   []string               `protobuf:"bytes,3,rep,name=idsToRemove,proto3" json:"idsToRemove,omitempty"` // used for OP_UPDATE_CHAIN
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1482,6 +1483,13 @@ func (x *RaftCommand) GetOp() RaftCommandType {
 func (x *RaftCommand) GetNode() *NodeInfo {
 	if x != nil {
 		return x.Node
+	}
+	return nil
+}
+
+func (x *RaftCommand) GetIdsToRemove() []string {
+	if x != nil {
+		return x.IdsToRemove
 	}
 	return nil
 }
@@ -1846,12 +1854,13 @@ const file_razpravljalnica_proto_rawDesc = "" +
 	"\x0fNodeInfoMessage\x12-\n" +
 	"\x04node\x18\x01 \x01(\v2\x19.razpravljalnica.NodeInfoR\x04node\"B\n" +
 	"\x17AddSubscriptionResponse\x12'\n" +
-	"\x0fsubscribe_token\x18\x01 \x01(\tR\x0esubscribeToken\"\xa9\x01\n" +
+	"\x0fsubscribe_token\x18\x01 \x01(\tR\x0esubscribeToken\"\xcb\x01\n" +
 	"\vRaftCommand\x120\n" +
 	"\x02op\x18\x01 \x01(\x0e2 .razpravljalnica.RaftCommandTypeR\x02op\x12-\n" +
-	"\x04node\x18\x02 \x01(\v2\x19.razpravljalnica.NodeInfoR\x04node\x129\n" +
+	"\x04node\x18\x02 \x01(\v2\x19.razpravljalnica.NodeInfoR\x04node\x12 \n" +
+	"\vidsToRemove\x18\x03 \x03(\tR\vidsToRemove\x129\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe7\x01\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe7\x01\n" +
 	"\fRaftSnapshot\x12>\n" +
 	"\x05nodes\x18\x01 \x03(\v2(.razpravljalnica.RaftSnapshot.NodesEntryR\x05nodes\x12\x14\n" +
 	"\x05chain\x18\x02 \x03(\tR\x05chain\x12,\n" +
@@ -1882,11 +1891,11 @@ const file_razpravljalnica_proto_rawDesc = "" +
 	"\tOP_DELETE\x10\x02\x12\r\n" +
 	"\tOP_UPDATE\x10\x03\x12\x12\n" +
 	"\x0eOP_CREATE_USER\x10\x04\x12\x13\n" +
-	"\x0fOP_CREATE_TOPIC\x10\x05*Y\n" +
+	"\x0fOP_CREATE_TOPIC\x10\x05*\\\n" +
 	"\x0fRaftCommandType\x12\x0f\n" +
 	"\vOP_REGISTER\x10\x00\x12\x11\n" +
-	"\rOP_UNREGISTER\x10\x01\x12\x10\n" +
-	"\fOP_HEARTBEAT\x10\x02\x12\x10\n" +
+	"\rOP_UNREGISTER\x10\x01\x12\x13\n" +
+	"\x0fOP_UPDATE_CHAIN\x10\x02\x12\x10\n" +
 	"\fOP_SUBSCRIBE\x10\x032\xe7\x03\n" +
 	"\x12MessageBoardWrites\x12G\n" +
 	"\n" +

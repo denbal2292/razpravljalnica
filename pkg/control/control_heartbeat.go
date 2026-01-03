@@ -6,10 +6,17 @@ import (
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/hashicorp/raft"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Heartbeat from a node to indicate it is alive
-func (cp *ControlPlane) heartbeat(nodeInfo *pb.NodeInfo) bool {
+func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo) (*emptypb.Empty, error) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+
 	// Find the node and update its last heartbeat time
 	node, exists := cp.nodes[nodeInfo.NodeId]
 
@@ -19,74 +26,159 @@ func (cp *ControlPlane) heartbeat(nodeInfo *pb.NodeInfo) bool {
 			"address", nodeInfo.Address,
 		)
 
-		return false
+		return nil, status.Error(codes.NotFound, "node not registered")
 	}
 
 	cp.logNodeDebug(node, "Heartbeat received")
 
 	node.LastHeartbeat = time.Now()
-	return true
+	return &emptypb.Empty{}, nil
 }
 
-// TODO: This should apply events via Raft!
+func (cp *ControlPlane) updateChain(idsToRemove []string) struct{} {
+	// Create a set for faster lookup
+	toRemoveSet := make(map[string]struct{})
+	for _, id := range idsToRemove {
+		toRemoveSet[id] = struct{}{}
+	}
+
+	// Build new chain without removed nodes
+	newChain := make([]string, 0, len(cp.chain))
+	for _, nodeId := range cp.chain {
+		if _, shouldRemove := toRemoveSet[nodeId]; shouldRemove {
+			// Remove from nodes map
+			delete(cp.nodes, nodeId)
+		} else {
+			// Keep in chain
+			newChain = append(newChain, nodeId)
+		}
+	}
+
+	// Update the chain
+	cp.chain = newChain
+
+	return struct{}{}
+}
+
 // Monitor heartbeats and remove nodes that have not sent a heartbeat in time
 func (cp *ControlPlane) monitorHeartbeats() {
 	ticker := time.NewTicker(cp.heartbeatInterval)
 	defer ticker.Stop()
 
-	// Periodically check for missed heartbeats by
-	// reading from the ticker channel which ticks at heartbeatInterval
 	for range ticker.C {
+		// Only the leader monitors heartbeats
 		if cp.raft.State() != raft.Leader {
-			// Only the leader monitors heartbeats and removes dead nodes
 			continue
 		}
 
 		cp.mu.Lock()
-		now := time.Now()
 
-		var lastAlive *NodeInfo = nil
-		var deadInBetween bool = false
+		// Identify dead nodes and capture state before removal
+		deadNodeIds, oldChain := cp.identifyDeadNodes()
 
-		activeChain := make([]string, 0, len(cp.chain))
-
-		// 1. Create a list of active nodes in the chain
-		for _, nodeId := range cp.chain {
-			node, exists := cp.nodes[nodeId]
-			if !exists {
-				continue
-			}
-
-			// Check if the last heartbeat was within the timeout
-			if now.Sub(node.LastHeartbeat) <= cp.heartbeatTimeout {
-				if deadInBetween {
-					// Reconnect last alive and current node
-					go cp.reconnectNeighbors(lastAlive, node)
-					deadInBetween = false
-				}
-
-				activeChain = append(activeChain, nodeId)
-				lastAlive = node // Update last alive node for reconnection
-			} else {
-				// Node considered dead
-				cp.logNodeInfo(node, "Node considered dead due to missed heartbeats")
-
-				// Remove from nodes map
-				delete(cp.nodes, nodeId)
-
-				deadInBetween = true
-			}
-		}
-
-		// There were dead nodes after the last alive node (TAIL died)
-		if deadInBetween {
-			// Reconnect last alive to nil (new TAIL)
-			go cp.reconnectNeighbors(lastAlive, nil)
-		}
-
-		// 2. Update the control plane's node list
-		cp.chain = activeChain
 		cp.mu.Unlock()
+
+		if len(deadNodeIds) == 0 {
+			continue
+		}
+
+		// Apply removals via Raft
+		if err := cp.removeNodesViaRaft(deadNodeIds); err != nil {
+			cp.logger.Error("Error applying heartbeat removals via Raft", "error", err)
+			continue
+		}
+
+		// Reconnect chain around removed nodes
+		cp.reconnectChain(oldChain, deadNodeIds)
+	}
+}
+
+// identifyDeadNodes finds nodes that haven't sent heartbeats within the timeout
+// Returns the list of dead node IDs and a snapshot of the current chain
+func (cp *ControlPlane) identifyDeadNodes() ([]string, []string) {
+	now := time.Now()
+	var deadNodes []string
+
+	for _, nodeId := range cp.chain {
+		node := cp.nodes[nodeId]
+		if now.Sub(node.LastHeartbeat) > cp.heartbeatTimeout {
+			cp.logNodeInfo(node, "Node considered dead due to missed heartbeats")
+			deadNodes = append(deadNodes, nodeId)
+		}
+	}
+
+	// Snapshot current chain state
+	oldChain := make([]string, len(cp.chain))
+	copy(oldChain, cp.chain)
+
+	return deadNodes, oldChain
+}
+
+// removeNodesViaRaft applies a Raft command to remove the specified nodes
+func (cp *ControlPlane) removeNodesViaRaft(nodeIds []string) error {
+	raftCommand := &pb.RaftCommand{
+		Op:          pb.RaftCommandType_OP_UPDATE_CHAIN,
+		IdsToRemove: nodeIds,
+		CreatedAt:   timestamppb.New(time.Now()),
+	}
+
+	_, err := applyRaftCommand[struct{}](cp, raftCommand)
+	return err
+}
+
+// reconnectChain updates neighbor connections for nodes adjacent to removed nodes
+func (cp *ControlPlane) reconnectChain(oldChain []string, removedIds []string) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+
+	// Build set for fast lookup
+	removedSet := make(map[string]struct{})
+	for _, id := range removedIds {
+		removedSet[id] = struct{}{}
+	}
+
+	var lastAlive *NodeInfo
+	var gapDetected bool
+
+	// Walk through old chain to find reconnection points
+	for _, nodeId := range oldChain {
+		node, exists := cp.nodes[nodeId]
+		_, removed := removedSet[nodeId]
+
+		if removed || !exists {
+			// This node was removed - mark gap
+			gapDetected = true
+			continue
+		}
+
+		// This node is alive
+		if gapDetected && lastAlive != nil {
+			// Reconnect across the gap
+			go cp.reconnectNeighbors(lastAlive, node)
+			gapDetected = false
+		}
+
+		lastAlive = node
+	}
+
+	// Handle trailing removed nodes (TAIL died)
+	if gapDetected && lastAlive != nil {
+		go cp.reconnectNeighbors(lastAlive, nil)
+	}
+
+	// Handle leading removed nodes (HEAD died)
+	if len(oldChain) > 0 && len(cp.chain) > 0 {
+		_, headDied := removedSet[oldChain[0]]
+
+		if headDied {
+			newHead := cp.getHead()
+			go cp.reconnectNeighbors(nil, newHead)
+		}
+	}
+
+	// Handle all nodes removed
+	if len(cp.chain) == 0 {
+		go cp.reconnectNeighbors(nil, nil)
 	}
 }
 
