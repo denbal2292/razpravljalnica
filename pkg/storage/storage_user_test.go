@@ -28,13 +28,13 @@ func TestCreateUser(t *testing.T) {
 
 func TestGetUser(t *testing.T) {
 	storage := NewStorage()
-	userName := "testuser"
-
-	// CreateUser tested in previous test
-	createdUser, _ := storage.CreateUser(userName)
 
 	// Test valid user retrieval
 	t.Run("ValidUserRetrieval", func(t *testing.T) {
+		userName := "testuser"
+
+		// CreateUser tested in previous test
+		createdUser, _ := storage.CreateUser(userName)
 		retrievedUser, err := storage.GetUser(createdUser.Id)
 
 		// Valid user retrieval should not error
