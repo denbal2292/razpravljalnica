@@ -106,5 +106,4 @@ func main() {
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("grpc serve failed: %v", err)
 	}
-
 }

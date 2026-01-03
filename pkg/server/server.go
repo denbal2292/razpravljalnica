@@ -25,7 +25,10 @@ type Node struct {
 	pb.UnimplementedNodeUpdateServer                // for control plane to notify about neighbor changes
 
 	nodeInfo          *pb.NodeInfo          // name and address of this node
+	controlPlaneAddrs []string              // list of all control plane server addresses
 	controlPlane      pb.ControlPlaneClient // gRPC client to the control plane
+	controlPlaneConn  *grpc.ClientConn      // underlying gRPC connection to control plane
+	controlPlaneMu    sync.RWMutex          // protects controlPlane and controlPlaneConn
 	heartbeatInterval time.Duration         // interval between heartbeats
 
 	storage             *storage.Storage
@@ -67,7 +70,7 @@ type NodeConnection struct {
 	conn   *grpc.ClientConn          // underlying gRPC connection we can close
 }
 
-func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) *Node {
+func NewServer(name string, address string, controlPlaneAddrs []string) *Node {
 	sendCtx, sendCancel := context.WithCancel(context.Background())
 	ackCtx, ackCancel := context.WithCancel(context.Background())
 
@@ -78,7 +81,8 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 			NodeId:  name,
 			Address: address,
 		},
-		controlPlane:        controlPlane,
+		controlPlaneAddrs:   controlPlaneAddrs,
+		controlPlaneMu:      sync.RWMutex{},
 		ackSync:             NewAckSynchronization(),
 		subscriptionManager: NewSubscriptionManager(),
 		ackQueue:            make(map[int64]*pb.Event),
@@ -164,7 +168,15 @@ func (n *Node) startAckProcessorGoroutine() {
 }
 
 func (n *Node) connectToControlPlane() {
-	neighbors, err := n.controlPlane.RegisterNode(context.Background(), n.nodeInfo)
+	n.logger.Info("Attempting to register node with control plane")
+
+	var neighbors *pb.NeighborsInfo
+	err := n.tryControlPlaneRequest(func(client pb.ControlPlaneClient) error {
+		var regErr error
+		neighbors, regErr = client.RegisterNode(context.Background(), n.nodeInfo)
+		return regErr
+	})
+
 	if err != nil {
 		panic(fmt.Errorf("Failed to register node with control plane: %w", err))
 	}

@@ -8,7 +8,6 @@ import (
 	razpravljalnica "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/denbal2292/razpravljalnica/pkg/server"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // TODO: Move this so we check the node role inside the node
@@ -35,13 +34,14 @@ func main() {
 	controlPlanePort := flag.Int("control-port", 50051, "Control plane port")
 
 	flag.Parse()
-	controlPlaneAddress := fmt.Sprintf("localhost:%d", *controlPlanePort)
 
-	conn, err := grpc.NewClient(
-		controlPlaneAddress,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	controlPlaneClient := razpravljalnica.NewControlPlaneClient(conn)
+	// Build list of all control plane server addresses
+	// In a Raft cluster, we have multiple control plane servers
+	controlPlaneAddrs := []string{
+		fmt.Sprintf("localhost:%d", *controlPlanePort),
+		fmt.Sprintf("localhost:%d", *controlPlanePort+1),
+		fmt.Sprintf("localhost:%d", *controlPlanePort+2),
+	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
@@ -50,13 +50,13 @@ func main() {
 
 	addr := lis.Addr().String()
 
-	node := server.NewServer("server-"+addr, addr, controlPlaneClient)
+	node := server.NewServer("server-"+addr, addr, controlPlaneAddrs)
 	gRPCServer := grpc.NewServer()
 	razpravljalnica.RegisterNodeUpdateServer(gRPCServer, node)
 
 	fmt.Println("Starting node:")
 	fmt.Println("  Addr: ", addr)
-	fmt.Println("  Control Plane Addr:", controlPlaneAddress)
+	fmt.Println("  Control Plane Addrs:", controlPlaneAddrs)
 
 	registerServices(node, gRPCServer)
 
