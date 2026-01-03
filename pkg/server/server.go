@@ -9,12 +9,12 @@ import (
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
+	"github.com/denbal2292/razpravljalnica/pkg/server/gui"
 	"github.com/denbal2292/razpravljalnica/pkg/storage"
+	"github.com/lmittmann/tint"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/lmittmann/tint"
 )
 
 type Node struct {
@@ -59,6 +59,7 @@ type Node struct {
 	ackWg          sync.WaitGroup // for waiting for ACK processor goroutine to finish
 
 	logger *slog.Logger // logger for the node
+	stats  *gui.Stats   // statistics for the node - used by the GUI
 }
 
 type NodeConnection struct {
@@ -67,9 +68,23 @@ type NodeConnection struct {
 	conn   *grpc.ClientConn          // underlying gRPC connection we can close
 }
 
-func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) *Node {
+func NewServer(name string, address string, controlPlane pb.ControlPlaneClient, logger *slog.Logger, stats *gui.Stats) *Node {
 	sendCtx, sendCancel := context.WithCancel(context.Background())
 	ackCtx, ackCancel := context.WithCancel(context.Background())
+
+	// If no logger is provided, create a default one that logs to stdout
+	// (terminal mode)
+	if logger == nil {
+		// Use tint for nicer output
+		logger = slog.New(tint.NewHandler(
+			os.Stdout,
+			&tint.Options{
+				Level: slog.LevelDebug,
+				// GO's default reference time
+				TimeFormat: "02-01-2006 15:04:05",
+			},
+		))
+	}
 
 	n := &Node{
 		storage:     storage.NewStorage(),
@@ -105,17 +120,8 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient) 
 		syncMu: sync.Mutex{},
 
 		heartbeatInterval: 5 * time.Second, // TODO: Configurable
-		// Keep this as os.Stdout for simplicity - can be easily extended
-		// to use file or other logging backends
-		// Use tint for nicer output
-		logger: slog.New(tint.NewHandler(
-			os.Stdout,
-			&tint.Options{
-				Level: slog.LevelDebug,
-				// GO's default reference time
-				TimeFormat: "02-01-2006 15:04:05",
-			},
-		)),
+		logger:            logger,
+		stats:             stats,
 	}
 
 	n.connectToControlPlane()

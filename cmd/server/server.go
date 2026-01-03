@@ -4,9 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
 	razpravljalnica "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/denbal2292/razpravljalnica/pkg/server"
+	"github.com/denbal2292/razpravljalnica/pkg/server/gui"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -33,6 +37,7 @@ func main() {
 	// Port 0 means to pick a random available port
 	port := flag.Int("port", 0, "Port to listen on")
 	controlPlanePort := flag.Int("control-port", 50051, "Control plane port")
+	interfaceType := flag.String("type", "terminal", "Interface type: terminal or gui")
 
 	flag.Parse()
 	controlPlaneAddress := fmt.Sprintf("localhost:%d", *controlPlanePort)
@@ -50,18 +55,43 @@ func main() {
 
 	addr := lis.Addr().String()
 
-	node := server.NewServer("server-"+addr, addr, controlPlaneClient)
+	// Initialize GUI or console mode
+	logger, stats, cleanup := gui.StartWithFallback(
+		"server-"+addr,
+		addr,
+		controlPlaneAddress,
+		*interfaceType == "gui",
+	)
+	defer cleanup()
+
+	// Create node with custom logger and stats
+	node := server.NewServer("server-"+addr, addr, controlPlaneClient, logger, stats)
+
+	// Initialize and register gRPC server
 	gRPCServer := grpc.NewServer()
 	razpravljalnica.RegisterNodeUpdateServer(gRPCServer, node)
-
-	fmt.Println("Starting node:")
-	fmt.Println("  Addr: ", addr)
-	fmt.Println("  Control Plane Addr:", controlPlaneAddress)
-
 	registerServices(node, gRPCServer)
+
+	logger.Info(
+		"Node started",
+		"address", addr,
+		"control_plane", controlPlaneAddress,
+		"interface_type", *interfaceType,
+	)
+
+	// Shutdown handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		logger.Info("Shutting down node...")
+		gRPCServer.GracefulStop()
+	}()
 
 	// Start serving
 	if err := gRPCServer.Serve(lis); err != nil {
+		logger.Info("Server failed", "error", err)
 		panic(err)
 	}
 }
