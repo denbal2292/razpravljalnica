@@ -44,35 +44,37 @@ func TestGetUser(t *testing.T) {
 
 		// Retrieved user details should match created user
 		if retrievedUser.Id != createdUser.Id || retrievedUser.Name != createdUser.Name {
-			t.Fatalf(
+			t.Errorf(
 				"Retrieved user does not match created user, expected %v, got %v", createdUser, retrievedUser,
 			)
 		}
 	})
 
-	// Test invalid user retrieval - multiple edge cases
-	tests := []struct {
-		name   string
-		userId int64
-	}{
-		{"NegativeUserID", -1},
-		{"ZeroUserID", 0},
-		{"NonExistentUserID", 999},
-	}
+	t.Run("InvalidUserRetrieval", func(t *testing.T) {
+		// Test invalid user retrieval - multiple edge cases
+		tests := []struct {
+			name   string
+			userId int64
+		}{
+			{"NegativeUserID", -1},
+			{"ZeroUserID", 0},
+			{"NonExistentUserID", 999},
+		}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			invalidUser, err := storage.GetUser(tc.userId)
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				invalidUser, err := storage.GetUser(tc.userId)
 
-			// Error for invalid user ID should be ErrUserNotFound
-			if err != ErrUserNotFound {
-				t.Fatalf("Expected ErrUserNotFound for user ID %d, got %v", tc.userId, err)
-			}
+				// Error for invalid user ID should be ErrUserNotFound
+				if err != ErrUserNotFound {
+					t.Fatalf("Expected ErrUserNotFound for user ID %d, got %v", tc.userId, err)
+				}
 
-			// Invalid user should be nil
-			if invalidUser != nil {
-				t.Fatalf("Expected nil user for user ID %d, got %v", tc.userId, invalidUser)
-			}
-		})
-	}
+				// Invalid user should be nil
+				if invalidUser != nil {
+					t.Errorf("Expected nil user for user ID %d, got %v", tc.userId, invalidUser)
+				}
+			})
+		}
+	})
 }

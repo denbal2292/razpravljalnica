@@ -17,12 +17,12 @@ func TestCreateTopic(t *testing.T) {
 
 	// Created topic should have correct details
 	if topic.Name != topicName {
-		t.Fatalf("Expected topic name %s, got %s", topicName, topic.Name)
+		t.Errorf("Expected topic name %s, got %s", topicName, topic.Name)
 	}
 
 	// Created topic should have ID 1 (first topic)
 	if topic.Id != 1 {
-		t.Fatalf("Expected topic ID 1, got %d", topic.Id)
+		t.Errorf("Expected topic ID 1, got %d", topic.Id)
 	}
 }
 
@@ -36,7 +36,7 @@ func TestListTopics(t *testing.T) {
 			t.Fatalf("Expected no error listing topics, got %v", err)
 		}
 		if len(listedTopics) != 0 {
-			t.Fatalf("Expected 0 topics, got %d", len(listedTopics))
+			t.Errorf("Expected 0 topics, got %d", len(listedTopics))
 		}
 	})
 
@@ -60,7 +60,7 @@ func TestListTopics(t *testing.T) {
 			topicId := topic.Id
 
 			if topic.Name != topics[topicId-1] {
-				t.Fatalf("Expected topic name %s, got %s", topics[topicId-1], topic.Name)
+				t.Errorf("Expected topic name %s, got %s", topics[topicId-1], topic.Name)
 			}
 		}
 	})
