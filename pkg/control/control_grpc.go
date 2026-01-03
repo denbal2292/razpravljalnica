@@ -60,6 +60,9 @@ func (cp *ControlPlane) RegisterNode(ctx context.Context, nodeInfo *pb.NodeInfo)
 		return nil, raftErr
 	}
 
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
 	predecessor := cp.getNode(result.predecessorId)
 
 	var predecessorInfo *pb.NodeInfo
@@ -88,9 +91,30 @@ func (cp *ControlPlane) UnregisterNode(ctx context.Context, nodeInfo *pb.NodeInf
 		return nil, raftErr
 	}
 
-	pred, succ, isValid := cp.getNodes(result.predecessorId, result.successorId)
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
 
-	if isValid {
+	var pred, succ *NodeInfo
+	valid := true
+
+	if result.predecessorId != "" {
+		pred = cp.getNode(result.predecessorId)
+
+		if pred == nil {
+			valid = false
+		}
+	}
+
+	if result.successorId != "" {
+		succ = cp.getNode(result.successorId)
+
+		if succ == nil {
+			valid = false
+		}
+	}
+
+	if valid {
+		// Reconnect predecessor and successor
 		go cp.reconnectNeighbors(pred, succ)
 	}
 
@@ -132,10 +156,12 @@ func (cp *ControlPlane) GetSubscriptionNode(ctx context.Context, req *pb.Subscri
 		return nil, result.err
 	}
 
-	selectedNodeId := result.nodeId
-	selectedNode := cp.nodes[selectedNodeId]
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
 
+	selectedNode := cp.getNode(result.nodeId)
 	addSub, err := selectedNode.Client.AddSubscriptionRequest(ctx, req)
+
 	if err != nil {
 		cp.logNodeError(selectedNode, err, "Failed to add subscription request to node")
 		return nil, err

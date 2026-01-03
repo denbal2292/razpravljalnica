@@ -59,40 +59,7 @@ func NewControlPlane() *ControlPlane {
 }
 
 func (cp *ControlPlane) getNode(nodeId string) *NodeInfo {
-	cp.mu.RLock()
-	defer cp.mu.RUnlock()
-
 	return cp.nodes[nodeId]
-}
-
-// Returns two nodes for the given IDs under the same read lock to ensure consistency
-// If a nodeId is an empty string, the corresponding returned NodeInfo will be nil
-// Returns a boolean indicating whether both nodes were found (or nil for empty IDs)
-func (cp *ControlPlane) getNodes(nodeId1, nodeId2 string) (*NodeInfo, *NodeInfo, bool) {
-	cp.mu.RLock()
-	defer cp.mu.RUnlock()
-
-	var firstNode, secondNode *NodeInfo
-
-	if nodeId1 != "" {
-		first, exists := cp.nodes[nodeId1]
-
-		if !exists {
-			return nil, nil, false
-		}
-		firstNode = first
-	}
-
-	if nodeId2 != "" {
-		second, exists := cp.nodes[nodeId2]
-
-		if !exists {
-			return nil, nil, false
-		}
-		secondNode = second
-	}
-
-	return firstNode, secondNode, true
 }
 
 func (cp *ControlPlane) getTail() *NodeInfo {
