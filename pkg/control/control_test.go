@@ -1,6 +1,8 @@
 package control
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -336,5 +338,6 @@ func newTestControlPlane() *ControlPlane {
 		chain:             make([]string, 0),
 		heartbeatInterval: 5 * time.Second,
 		heartbeatTimeout:  7 * time.Second,
+		logger:            slog.New(slog.NewTextHandler(io.Discard, nil)), // Discard logs in tests - to avoid seg faults
 	}
 }

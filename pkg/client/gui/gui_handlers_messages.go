@@ -73,44 +73,47 @@ func (gc *guiClient) updateMessageView(topicId int64) {
 	gc.clientMu.RLock()
 	topic, topicOk := gc.topics[topicId]
 	msgCache, msgOk := gc.messageCache[topicId]
-	gc.clientMu.RUnlock()
-
-	// The last condition should never happen
 	if !topicOk || !msgOk || msgCache == nil {
+		gc.clientMu.RUnlock()
 		gc.displayStatus("Napaka pri prikazovanju sporočil", "red")
 		return
 	}
 
 	topicName := topic.Name
-	msgs := msgCache.messages
-	order := msgCache.order
+	// Copy messages and order to avoid race condition during iteration
+	msgs := make(map[int64]*pb.Message)
+	for k, v := range msgCache.messages {
+		msgs[k] = v
+	}
+	order := make([]int64, len(msgCache.order))
+	copy(order, msgCache.order)
+	gc.clientMu.RUnlock()
 
-	gc.messageView.SetTitle(fmt.Sprintf("Sporočila v [yellow]%s[-]", topicName))
-
-	// Clear the screen before displaying messages
-	gc.messageView.Clear()
-
-	users := make(map[int64]*pb.User)
-
+	// Fetch missing users and cache them
 	for _, msg := range msgs {
 		userId := msg.UserId
-		if _, exists := users[userId]; !exists {
+		gc.clientMu.RLock()
+		_, exists := gc.users[userId]
+		gc.clientMu.RUnlock()
+
+		if !exists {
 			userName, err := gc.getUserName(userId)
+			gc.clientMu.Lock()
 			if err != nil {
 				// This really should not happen
-				users[userId] = &pb.User{Id: userId, Name: "Neznan uporabnik"}
+				gc.users[userId] = &pb.User{Id: userId, Name: "Neznan uporabnik"}
 			} else {
-				users[userId] = &pb.User{Id: userId, Name: userName}
+				gc.users[userId] = &pb.User{Id: userId, Name: userName}
 			}
+			gc.clientMu.Unlock()
 		}
 	}
 
-	// Set the fetched users
-	gc.clientMu.Lock()
-	gc.users = users
-	gc.clientMu.Unlock()
-
 	gc.app.QueueUpdateDraw(func() {
+		gc.messageView.SetTitle(fmt.Sprintf("Sporočila v [yellow]%s[-]", topicName))
+		// Clear the screen before displaying messages
+		gc.messageView.Clear()
+
 		if len(order) > 0 {
 			// Make sure to align left when there are messages
 			gc.messageView.SetTextAlign(tview.AlignLeft)
@@ -122,7 +125,9 @@ func (gc *guiClient) updateMessageView(topicId int64) {
 					continue
 				}
 
-				user, ok := users[msg.UserId]
+				gc.clientMu.RLock()
+				user, ok := gc.users[msg.UserId]
+				gc.clientMu.RUnlock()
 				if !ok || user == nil {
 					// User doesn't exist, skip message - for robustness
 					continue
@@ -192,9 +197,10 @@ func (gc *guiClient) handlePostMessage() {
 		}
 
 		if entry, ok := gc.messageCache[currentTopicId]; ok {
+			if _, exists := entry.messages[message.Id]; !exists {
+				entry.order = append(entry.order, message.Id)
+			}
 			entry.messages[message.Id] = message
-			// This arrived later since we posted it
-			entry.order = append(entry.order, message.Id)
 		}
 		gc.clientMu.Unlock()
 
@@ -246,14 +252,14 @@ func (gc *guiClient) handleDeleteMessage(messageId int64) {
 			// exist - that is checked in updateMessageView when iterting
 			// over the order slice
 		}
-		gc.selectedMessageId = 0
 		gc.clientMu.Unlock()
 
-		gc.app.QueueUpdateDraw(func() {
-			gc.messageView.Highlight()
-		})
-
 		gc.updateMessageView(topicId)
+
+		// After deleting, select another message
+		gc.app.QueueUpdateDraw(func() {
+			gc.selectNearestMessage(topicId, messageId)
+		})
 	}()
 }
 
@@ -389,7 +395,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	originalCapture := gc.app.GetInputCapture()
 	closeModal := func() {
 		gc.pages.RemovePage("modal")
-		gc.messageView.Highlight()
+		gc.app.SetFocus(gc.messageView)
 		gc.app.SetInputCapture(originalCapture)
 	}
 
@@ -521,7 +527,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 		case tcell.KeyEscape:
 			// Close modal and restore original capture
 			gc.pages.RemovePage("modal")
-			gc.messageView.Highlight()
+			gc.app.SetFocus(gc.messageView)
 			gc.app.SetInputCapture(originalCapture)
 			return nil
 		}
@@ -557,34 +563,40 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 		}
 
 		msg := msgEvent.Message
-		topicId := msg.TopicId
+		if msg == nil {
+			continue
+		}
+		msgTopicId := msg.TopicId
 
 		gc.clientMu.Lock()
-		entry, ok := gc.messageCache[topicId]
+		entry, ok := gc.messageCache[msgTopicId]
 		if !ok {
 			entry = &messageCacheEntry{
 				messages: make(map[int64]*pb.Message),
 				order:    make([]int64, 0),
 			}
-			gc.messageCache[topicId] = entry
+			gc.messageCache[msgTopicId] = entry
 		}
+
+		var deletedMsgId int64
+		var wasCurrentlySelected bool
+
 		switch msgEvent.Op {
 		case pb.OpType_OP_POST:
-			if msg != nil {
-				entry.messages[msg.Id] = msg
+			if _, exists := entry.messages[msg.Id]; !exists {
 				entry.order = append(entry.order, msg.Id)
 			}
+			entry.messages[msg.Id] = msg
 		case pb.OpType_OP_DELETE:
-			if msg != nil {
-				delete(entry.messages, msg.Id)
-				// We don't remove from the order slice - the ID just doesn't
-				// exist - that is checked in updateMessageView when iterting
-				// over the order slice
-			}
+			deletedMsgId = msg.Id
+			// Check if the deleted message was currently selected
+			wasCurrentlySelected = (gc.selectedMessageId == msg.Id)
+			delete(entry.messages, msg.Id)
+			// We don't remove from the order slice - the ID just doesn't
+			// exist - that is checked in updateMessageView when iterting
+			// over the order slice
 		case pb.OpType_OP_UPDATE, pb.OpType_OP_LIKE:
-			if msg != nil {
-				entry.messages[msg.Id] = msg
-			}
+			entry.messages[msg.Id] = msg
 		}
 		gc.clientMu.Unlock()
 		// Special care is taken on the other GUI update handlers to not redraw
@@ -593,18 +605,25 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 		currentTopicId := gc.currentTopicId
 		gc.clientMu.RUnlock()
 
-		if topicId == currentTopicId {
-			gc.updateMessageView(topicId)
+		if msgTopicId == currentTopicId {
+			gc.updateMessageView(msgTopicId)
+
+			// If a message was deleted and it was currently selected, select another
+			if msgEvent.Op == pb.OpType_OP_DELETE && wasCurrentlySelected && deletedMsgId > 0 {
+				gc.app.QueueUpdateDraw(func() {
+					gc.selectNearestMessage(msgTopicId, deletedMsgId)
+				})
+			}
 		} else {
 			// Add a small notification that there are new messages in another topic
 			gc.clientMu.RLock()
 			// Se if it's already marked as having unread messages
-			status := gc.unreadTopic[topicId]
+			status := gc.unreadTopic[msgTopicId]
 			gc.clientMu.RUnlock()
 
 			if !status {
 				gc.clientMu.Lock()
-				gc.unreadTopic[topicId] = true
+				gc.unreadTopic[msgTopicId] = true
 				gc.clientMu.Unlock()
 				gc.displayTopics()
 			}
@@ -612,79 +631,163 @@ func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc
 	}
 }
 
+// selectNearestMessage selects the nearest valid message after a deletion
+func (gc *guiClient) selectNearestMessage(topicId int64, deletedMessageId int64) {
+	gc.clientMu.RLock()
+	cache, ok := gc.messageCache[topicId]
+	gc.clientMu.RUnlock()
+
+	if !ok || cache == nil || len(cache.order) == 0 {
+		return
+	}
+
+	// Find the position of the deleted message
+	deletedPos := -1
+	for i, id := range cache.order {
+		if id == deletedMessageId {
+			deletedPos = i
+			break
+		}
+	}
+
+	if deletedPos == -1 {
+		// Message not found in order, just select first valid message
+		gc.navigateMessages(0)
+		return
+	}
+
+	// Set navigating flag to prevent modal from opening
+	gc.clientMu.Lock()
+	gc.isNavigating = true
+	gc.clientMu.Unlock()
+
+	defer func() {
+		gc.clientMu.Lock()
+		gc.isNavigating = false
+		gc.clientMu.Unlock()
+	}()
+
+	// Try to find the next valid message starting from the deleted position
+	for i := deletedPos; i < len(cache.order); i++ {
+		msgId := cache.order[i]
+		if _, exists := cache.messages[msgId]; exists {
+			regionId := fmt.Sprintf("msg-%d", msgId)
+			gc.messageView.Highlight(regionId)
+			gc.messageView.ScrollToHighlight()
+			return
+		}
+	}
+
+	// If no next message, try to find previous valid message
+	for i := deletedPos - 1; i >= 0; i-- {
+		msgId := cache.order[i]
+		if _, exists := cache.messages[msgId]; exists {
+			regionId := fmt.Sprintf("msg-%d", msgId)
+			gc.messageView.Highlight(regionId)
+			gc.messageView.ScrollToHighlight()
+			return
+		}
+	}
+
+	// No valid messages left, clear highlight
+	gc.messageView.Highlight()
+}
+
 func (gc *guiClient) navigateMessages(delta int) {
 	gc.clientMu.RLock()
 	topicId := gc.currentTopicId
 	cache, ok := gc.messageCache[topicId]
+	lastId := gc.lastSelectedMessageId
 	gc.clientMu.RUnlock()
 
-	if !ok || len(cache.order) == 0 {
+	if !ok || cache == nil || len(cache.order) == 0 {
 		return
 	}
 
-	highlights := gc.messageView.GetHighlights()
+	// Build list of valid (non-deleted) message indices
+	validIndices := []int{}
+	for i, msgId := range cache.order {
+		if _, exists := cache.messages[msgId]; exists {
+			validIndices = append(validIndices, i)
+		}
+	}
 
-	// Find the index (position) of the currently highlighted message
-	var currentIndex int = -1
+	if len(validIndices) == 0 {
+		// No valid messages to select
+		return
+	}
+
+	// Find current position in the valid indices
+	highlights := gc.messageView.GetHighlights()
+	var currentValidPos int = -1
 
 	if len(highlights) > 0 {
 		var currentMsgId int64
 		fmt.Sscanf(highlights[0], "msg-%d", &currentMsgId)
 
+		// Find this message's position in validIndices
 		for i, id := range cache.order {
 			if id == currentMsgId {
-				currentIndex = i
+				// Find this index in validIndices
+				for vp, vi := range validIndices {
+					if vi == i {
+						currentValidPos = vp
+						break
+					}
+				}
+				break
+			}
+		}
+	} else if lastId > 0 {
+		// Try to restore last selected message
+		for i, id := range cache.order {
+			if id == lastId {
+				if _, exists := cache.messages[id]; exists {
+					for vp, vi := range validIndices {
+						if vi == i {
+							currentValidPos = vp
+							break
+						}
+					}
+				}
 				break
 			}
 		}
 	}
 
-	var nextIndex int
-	if currentIndex == -1 {
-		if delta > 0 {
-			nextIndex = 0
+	// Calculate next position
+	var nextValidPos int
+	if currentValidPos == -1 {
+		// No current selection - choose first or last based on delta
+		if delta >= 0 {
+			nextValidPos = 0
 		} else {
-			nextIndex = len(cache.order) - 1
+			nextValidPos = len(validIndices) - 1
 		}
 	} else {
-		nextIndex = currentIndex + delta
-		if nextIndex < 0 {
-			nextIndex = 0
-		} else if nextIndex >= len(cache.order) {
-			nextIndex = len(cache.order) - 1
+		// Move from current position
+		nextValidPos = currentValidPos + delta
+		// Clamp to valid range
+		if nextValidPos < 0 {
+			nextValidPos = 0
+		} else if nextValidPos >= len(validIndices) {
+			nextValidPos = len(validIndices) - 1
 		}
 	}
 
-	if nextIndex != currentIndex || (currentIndex == -1 && len(cache.order) > 0) {
-		// Find the next valid (non-deleted) message
-		for {
-			if nextIndex < 0 || nextIndex >= len(cache.order) {
-				break
-			}
+	// Select the message at nextValidPos
+	nextIndex := validIndices[nextValidPos]
+	msgId := cache.order[nextIndex]
+	regionId := fmt.Sprintf("msg-%d", msgId)
 
-			msgId := cache.order[nextIndex]
-			// Check if message still exists (not deleted)
-			if _, exists := cache.messages[msgId]; exists {
-				regionId := fmt.Sprintf("msg-%d", msgId)
+	gc.clientMu.Lock()
+	gc.isNavigating = true
+	gc.clientMu.Unlock()
 
-				gc.clientMu.Lock()
-				gc.isNavigating = true
-				gc.clientMu.Unlock()
+	gc.messageView.Highlight(regionId)
+	gc.messageView.ScrollToHighlight()
 
-				gc.messageView.Highlight(regionId)
-				gc.messageView.ScrollToHighlight()
-
-				gc.clientMu.Lock()
-				gc.isNavigating = false
-				gc.clientMu.Unlock()
-				return
-			}
-			// Message was deleted, try next/previous
-			if delta > 0 {
-				nextIndex++
-			} else {
-				nextIndex--
-			}
-		}
-	}
+	gc.clientMu.Lock()
+	gc.isNavigating = false
+	gc.clientMu.Unlock()
 }
