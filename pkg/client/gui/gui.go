@@ -49,8 +49,9 @@ type guiClient struct {
 	subscribedTopics map[int64]bool
 
 	// Messages
-	selectedMessageId int64
-	messageCache      map[int64]*messageCacheEntry // topicId -> messages
+	selectedMessageId     int64
+	lastSelectedMessageId int64
+	messageCache          map[int64]*messageCacheEntry // topicId -> messages
 
 	isNavigating bool
 }
@@ -87,8 +88,8 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 
 		subscribedTopics: make(map[int64]bool),
 		unreadTopic:      make(map[int64]bool),
-
-		clients: clients,
+		users:            make(map[int64]*pb.User),
+		clients:          clients,
 
 		// Messages
 		messageCache: make(map[int64]*messageCacheEntry),
@@ -201,6 +202,14 @@ func (gc *guiClient) setupWidgets() {
 		SetBorder(true).
 		SetTitle("Sporočila")
 
+	gc.messageView.SetFocusFunc(func() {
+		gc.navigateMessages(0)
+	})
+
+	gc.messageView.SetBlurFunc(func() {
+		gc.messageView.Highlight()
+	})
+
 	// This is called when the highlighted region changes
 	// added holds the the region ids od the highlighted regions,
 	// removed holds the region ids that were unhighlighted,
@@ -215,6 +224,7 @@ func (gc *guiClient) setupWidgets() {
 			// Store the selected message ID
 			gc.clientMu.Lock()
 			gc.selectedMessageId = messageId
+			gc.lastSelectedMessageId = messageId
 			navigating := gc.isNavigating
 			gc.clientMu.Unlock()
 
