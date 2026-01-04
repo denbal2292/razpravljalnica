@@ -22,8 +22,9 @@ func (n *Node) createClientConnection(address string) (*NodeConnection, error) {
 	}
 
 	return &NodeConnection{
-		client: pb.NewChainReplicationClient(conn),
-		conn:   conn,
+		client:  pb.NewChainReplicationClient(conn),
+		conn:    conn,
+		address: address,
 	}, nil
 }
 
@@ -38,7 +39,10 @@ func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) 
 	n.ackWg.Wait()    // Wait for it to finish
 
 	n.setPredecessor(pred)
+
 	n.logger.Info("SetPredecessor called", "node_info", pred)
+
+	// Restart the ACK processor goroutine after updating predecessor
 	n.startAckProcessorGoroutine()
 
 	return &emptypb.Empty{}, nil
@@ -65,7 +69,6 @@ func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*
 			n.applyAllUnacknowledgedEvents()
 		} else {
 			n.logger.Info("Starting sync with successor after SetSuccessor")
-			// Perform sync in a goroutine to avoid blocking the RPC handler
 			n.syncWithSuccessor()
 		}
 

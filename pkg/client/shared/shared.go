@@ -102,8 +102,6 @@ func (c *ClientSet) resetClients() bool {
 	return true
 }
 
-// Removed getHeadAndTailAddresses - functionality moved to TryControlPlaneRequest
-
 func isServerUnavailableError(err error) bool {
 	code := status.Code(err)
 

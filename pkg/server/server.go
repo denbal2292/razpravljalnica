@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
 
@@ -13,8 +12,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/lmittmann/tint"
 )
 
 type Node struct {
@@ -65,12 +62,12 @@ type Node struct {
 }
 
 type NodeConnection struct {
-	// address string
-	client pb.ChainReplicationClient // gRPC client to the connected node
-	conn   *grpc.ClientConn          // underlying gRPC connection we can close
+	address string
+	client  pb.ChainReplicationClient // gRPC client to the connected node
+	conn    *grpc.ClientConn          // underlying gRPC connection we can close
 }
 
-func NewServer(name string, address string, controlPlaneAddrs []string) *Node {
+func NewServer(name string, address string, controlPlaneAddrs []string, logger *slog.Logger) *Node {
 	sendCtx, sendCancel := context.WithCancel(context.Background())
 	ackCtx, ackCancel := context.WithCancel(context.Background())
 
@@ -108,18 +105,8 @@ func NewServer(name string, address string, controlPlaneAddrs []string) *Node {
 
 		syncMu: sync.Mutex{},
 
-		heartbeatInterval: 5 * time.Second, // TODO: Configurable
-		// Keep this as os.Stdout for simplicity - can be easily extended
-		// to use file or other logging backends
-		// Use tint for nicer output
-		logger: slog.New(tint.NewHandler(
-			os.Stdout,
-			&tint.Options{
-				Level: slog.LevelDebug,
-				// GO's default reference time
-				TimeFormat: "02-01-2006 15:04:05",
-			},
-		)),
+		heartbeatInterval: 5 * time.Second,
+		logger:            logger,
 	}
 
 	n.connectToControlPlane()
@@ -183,6 +170,7 @@ func (n *Node) connectToControlPlane() {
 
 	n.logger.Info("Registered node with control plane", "node_id", n.nodeInfo.NodeId, "address", n.nodeInfo.Address)
 
+	// A check only needed for stats
 	if neighbors.Predecessor != nil {
 		n.setPredecessor(neighbors.Predecessor)
 
@@ -215,40 +203,43 @@ type EventApplicationResult struct {
 
 // Apply the given event to the local storage
 func (n *Node) applyEvent(event *pb.Event) *EventApplicationResult {
+	var result *EventApplicationResult
 	switch event.Op {
 	case pb.OpType_OP_POST:
 		msgRequest := event.PostMessage
 		msg, err := n.storage.PostMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.Text, event.EventAt)
-		return &EventApplicationResult{message: msg, err: err}
+		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_UPDATE:
 		msgRequest := event.UpdateMessage
 		msg, err := n.storage.UpdateMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId, msgRequest.Text)
-		return &EventApplicationResult{message: msg, err: err}
+		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_DELETE:
 		msgRequest := event.DeleteMessage
 		msg, err := n.storage.DeleteMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId)
-		return &EventApplicationResult{message: msg, err: err}
+		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_LIKE:
 		likeRequest := event.LikeMessage
 		msg, err := n.storage.LikeMessage(likeRequest.TopicId, likeRequest.UserId, likeRequest.MessageId)
-		return &EventApplicationResult{message: msg, err: err}
+		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_CREATE_USER:
 		userRequest := event.CreateUser
 		user, err := n.storage.CreateUser(userRequest.Name)
-		return &EventApplicationResult{user: user, err: err}
+		result = &EventApplicationResult{user: user, err: err}
 
 	case pb.OpType_OP_CREATE_TOPIC:
 		topicRequest := event.CreateTopic
 		topic, err := n.storage.CreateTopic(topicRequest.Name)
-		return &EventApplicationResult{topic: topic, err: err}
+		result = &EventApplicationResult{topic: topic, err: err}
 
 	default:
 		panic(fmt.Errorf("unknown event operation: %v", event.Op))
 	}
+
+	return result
 }
 
 // Convert storage layer errors to appropriate gRPC status codes.

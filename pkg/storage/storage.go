@@ -39,3 +39,29 @@ func NewStorage() *Storage {
 		nextMessageId: make(map[int64]int64),
 	}
 }
+
+// GetMessageCount returns the total number of messages across all topics.
+func (s *Storage) GetMessageCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	count := 0
+	for _, topicMessages := range s.messages {
+		count += len(topicMessages)
+	}
+	return count
+}
+
+// GetTopicCount returns the total number of topics.
+func (s *Storage) GetTopicCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.topics)
+}
+
+// GetUserCount returns the total number of users.
+func (s *Storage) GetUserCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.users)
+}

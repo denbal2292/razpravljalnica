@@ -95,5 +95,3 @@ func newClientSet(controlPlaneAddrs []string) (*shared.ClientSet, error) {
 
 	return clients, nil
 }
-
-// Removed connectToControlPlane and getHeadAndTailAddresses - functionality moved to shared.TryControlPlaneRequest
