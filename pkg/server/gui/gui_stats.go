@@ -86,7 +86,7 @@ func (sc *StatsCollector) Stop() {
 	close(sc.stopChan)
 }
 
-// run is the main loop that updates stats every second.
+// Updates the stats header every second.
 func (sc *StatsCollector) run() {
 	for {
 		select {

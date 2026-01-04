@@ -46,6 +46,7 @@ func main() {
 		controlPlaneAddress,
 		*interfaceType == "gui",
 	)
+	// Stop the app on exit
 	defer cleanup()
 
 	// Create node with custom logger
@@ -59,12 +60,14 @@ func main() {
 	pb.RegisterNodeUpdateServer(gRPCServer, node)
 	registerServices(node, gRPCServer)
 
-	logger.Info(
-		"Node started",
-		"address", addr,
-		"control_plane", controlPlaneAddress,
-		"interface_type", *interfaceType,
-	)
+	if logger != nil {
+		logger.Info(
+			"Node started",
+			"address", addr,
+			"control_plane", controlPlaneAddress,
+			"interface_type", *interfaceType,
+		)
+	}
 
 	// Start serving
 	if err := gRPCServer.Serve(lis); err != nil {

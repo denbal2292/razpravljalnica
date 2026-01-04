@@ -51,7 +51,6 @@ func NewServerGUI(cpAddr string) *ServerGUI {
 	return gui
 }
 
-// setupWidgets configures the individual UI widgets.
 func (gui *ServerGUI) setupWidgets() {
 	// Configure stats view (top pane)
 	gui.statsView.
@@ -70,11 +69,9 @@ func (gui *ServerGUI) setupWidgets() {
 	// Auto-scroll to bottom when new logs arrive
 	gui.logView.SetChangedFunc(func() {
 		gui.logView.ScrollToEnd()
-		gui.app.Draw()
 	})
 }
 
-// setupLayout creates the overall layout structure.
 func (gui *ServerGUI) setupLayout() {
 	// Main layout: stats at top (3 lines), logs fill remaining space
 	layout := tview.NewFlex().
@@ -86,7 +83,6 @@ func (gui *ServerGUI) setupLayout() {
 	gui.app.SetRoot(gui.pages, true)
 }
 
-// setupInputCapture sets up global keyboard shortcuts.
 func (gui *ServerGUI) setupInputCapture() {
 	gui.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Rune() {
@@ -105,23 +101,12 @@ func (gui *ServerGUI) setupInputCapture() {
 	})
 }
 
-// GetLogger returns the slog.Logger that writes to the GUI.
-func (gui *ServerGUI) GetLogger() *slog.Logger {
-	return gui.logger
-}
-
-// GetStats returns the stats object for updating server metrics.
-func (gui *ServerGUI) GetStats() *Stats {
-	return gui.stats
-}
-
 // Run starts the GUI application.
-// This blocks until the application is stopped.
 func (gui *ServerGUI) Run() error {
 	return gui.app.Run()
 }
 
-// Stop gracefully stops the GUI and cleans up resources.
+// Stop stops the GUI and cleans up resources.
 func (gui *ServerGUI) Stop() {
 	if gui.collector != nil {
 		gui.collector.Stop()
@@ -161,7 +146,7 @@ func StartWithFallback(cpAddr string, enableGUI bool) (*slog.Logger, *Stats, fun
 		}
 	}()
 
-	return gui.GetLogger(), gui.GetStats(), func() {
+	return gui.logger, gui.stats, func() {
 		gui.Stop()
 	}
 }
