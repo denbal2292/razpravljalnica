@@ -27,6 +27,8 @@ type ClientSet struct {
 	Writes        pb.MessageBoardWritesClient
 	Subscriptions pb.MessageBoardSubscriptionsClient
 
+	ControlPlaneAddrs []string
+
 	mu sync.RWMutex
 }
 

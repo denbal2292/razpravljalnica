@@ -15,10 +15,8 @@ import (
 )
 
 // Initialize a new client instance
-func RunClient(controlPlaneAddress, clientType string) {
-	fmt.Println("Connecting to control plane at", controlPlaneAddress)
-
-	clients, err := newClientSet(controlPlaneAddress)
+func RunClient(controlPlaneAddrs []string, clientType string) {
+	clients, err := newClientSet(controlPlaneAddrs)
 	if err != nil {
 		fmt.Println("Failed to create client:", err)
 		clients.Close()
@@ -40,14 +38,14 @@ func RunClient(controlPlaneAddress, clientType string) {
 }
 
 // newClientSet incrementally builds the client set
-func newClientSet(controlPlaneUrl string) (*shared.ClientSet, error) {
+func newClientSet(controlPlaneAddrs []string) (*shared.ClientSet, error) {
 	// Establish control plane connection
 	clients := &shared.ClientSet{}
 
-	connControlPlane, err := grpc.NewClient(
-		controlPlaneUrl,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	clients.ControlPlaneAddrs = controlPlaneAddrs
+
+	connControlPlane, err := connectToControlPlane(controlPlaneAddrs)
+
 	if err != nil {
 		return clients, err
 	}
@@ -85,6 +83,37 @@ func newClientSet(controlPlaneUrl string) (*shared.ClientSet, error) {
 	// clients.Subscriptions = pb.NewMessageBoardSubscriptionsClient(connHead)
 
 	return clients, nil
+}
+
+func connectToControlPlane(controlPlaneAddrs []string) (*grpc.ClientConn, error) {
+	var lastErr error
+
+	for _, addr := range controlPlaneAddrs {
+		conn, err := grpc.NewClient(
+			addr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			continue
+		}
+
+		// Test the connection by trying to get cluster state
+		client := pb.NewClientDiscoveryClient(conn)
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		_, err = client.GetClusterState(ctx, &emptypb.Empty{})
+		cancel()
+
+		if err != nil {
+			conn.Close()
+			lastErr = err
+			continue
+		}
+
+		// Successful connection
+		return conn, nil
+	}
+
+	return nil, fmt.Errorf("failed to connect to control plane: %w", lastErr)
 }
 
 // This might be useful later as a helper function upon server failure
