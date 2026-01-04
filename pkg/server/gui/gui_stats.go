@@ -38,6 +38,7 @@ func NewStats(nodeId, nodeAddr, cpAddr string) *Stats {
 		nodeId:    nodeId,
 		nodeAddr:  nodeAddr,
 		cpAddr:    cpAddr,
+		// Initial role is unknown
 		role:      "INITIALIZING",
 		connected: false,
 	}
@@ -51,7 +52,7 @@ func (s *Stats) IncrementEvents() {
 	s.eventsProcessed++
 }
 
-// IncrementMessages increments the messages counter.
+// IncrementMessages increments the messages counter - POST.
 func (s *Stats) IncrementMessages() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -59,7 +60,7 @@ func (s *Stats) IncrementMessages() {
 	s.messagesReplied++
 }
 
-// DecrementMessages decrements the messages counter.
+// DecrementMessages decrements the messages counter - DELETE.
 func (s *Stats) DecrementMessages() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -67,7 +68,7 @@ func (s *Stats) DecrementMessages() {
 	s.messagesReplied--
 }
 
-// SetRole updates the current role of the node.
+// SetRole updates the current role of the node - SINGLE, HEAD, MIDDLE, or TAIL.
 func (s *Stats) SetRole(role string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -137,7 +138,7 @@ func (sc *StatsCollector) Stop() {
 	close(sc.stopChan)
 }
 
-// run is the main loop that updates stats every second.
+// Updates the stats header every second.
 func (sc *StatsCollector) run() {
 	for {
 		select {

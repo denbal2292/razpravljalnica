@@ -17,6 +17,7 @@ type GUIHandler struct {
 	groups []string
 }
 
+// Logger boilerplate
 // NewGUIHandler creates a new handler that writes to the provided TextView.
 func NewGUIHandler(app *tview.Application, view *tview.TextView) *GUIHandler {
 	return &GUIHandler{
