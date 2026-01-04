@@ -22,8 +22,9 @@ func (n *Node) createClientConnection(address string) (*NodeConnection, error) {
 	}
 
 	return &NodeConnection{
-		client: pb.NewChainReplicationClient(conn),
-		conn:   conn,
+		client:  pb.NewChainReplicationClient(conn),
+		conn:    conn,
+		address: address,
 	}, nil
 }
 

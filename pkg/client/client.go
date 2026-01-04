@@ -104,7 +104,7 @@ func getHeadAndTailAddresses(controlPlaneConn *grpc.ClientConn) (headAddr, tailA
 	}
 
 	if serverConns.Head == nil || serverConns.Tail == nil {
-		return "", "", fmt.Errorf("No nodes available in the cluster")
+		panic("No nodes in the cluster")
 	}
 
 	// Get the HEAD and TAIL addresses
