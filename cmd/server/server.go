@@ -60,14 +60,12 @@ func main() {
 	pb.RegisterNodeUpdateServer(gRPCServer, node)
 	registerServices(node, gRPCServer)
 
-	if logger != nil {
-		logger.Info(
-			"Node started",
-			"address", addr,
-			"control_plane", controlPlaneAddress,
-			"interface_type", *interfaceType,
-		)
-	}
+	logger.Info(
+		"Node started",
+		"address", addr,
+		"control_plane", controlPlaneAddress,
+		"interface_type", *interfaceType,
+	)
 
 	// Start serving
 	if err := gRPCServer.Serve(lis); err != nil {
