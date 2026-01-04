@@ -141,9 +141,11 @@ func StartWithFallback(cpAddr string, enableGUI bool) (*slog.Logger, *Stats, fun
 
 	// Start GUI in goroutine
 	go func() {
-		if err := gui.Run(); err != nil {
+		err := gui.Run()
+		if err != nil {
 			panic(err)
 		}
+		os.Exit(0)
 	}()
 
 	return gui.logger, gui.stats, func() {
