@@ -1,6 +1,8 @@
 package control
 
 import (
+	"log/slog"
+
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 
 	"google.golang.org/grpc"
@@ -21,7 +23,7 @@ func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo) *registerNodeResult 
 	_, exists := cp.nodes[nodeInfo.NodeId]
 
 	if exists {
-		cp.logger.Warn("RegisterNode: Node already registered",
+		slog.Warn("RegisterNode: Node already registered",
 			"node_id", nodeInfo.NodeId,
 			"address", nodeInfo.Address,
 		)
@@ -71,7 +73,7 @@ func (cp *ControlPlane) unregisterNode(nodeInfo *pb.NodeInfo) *registerNodeResul
 
 	if idxToRemove == -1 {
 		// Node not found
-		cp.logger.Error("UnregisterNode: Node not found",
+		slog.Error("UnregisterNode: Node not found",
 			"node_id", nodeInfo.NodeId,
 			"address", nodeInfo.Address,
 		)

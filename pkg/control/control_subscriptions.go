@@ -1,6 +1,8 @@
 package control
 
 import (
+	"log/slog"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -12,7 +14,7 @@ type getSubscriptionNodeResult struct {
 
 func (cp *ControlPlane) getSubscriptionNode() *getSubscriptionNodeResult {
 	if len(cp.nodes) == 0 {
-		cp.logger.Info("GetSubscriptionNode: No nodes available")
+		slog.Info("GetSubscriptionNode: No nodes available")
 		return &getSubscriptionNodeResult{"", status.Error(codes.Unavailable, "No nodes available")}
 	}
 

@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"log/slog"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -19,7 +20,7 @@ func (cp *ControlPlane) GetClusterState(context context.Context, empty *emptypb.
 	tail := cp.getTail()
 
 	if head == nil || tail == nil {
-		cp.logger.Info("GetClusterState: No nodes registered")
+		slog.Info("GetClusterState: No nodes registered")
 
 		return &pb.GetClusterStateResponse{
 			Head: nil,
@@ -27,7 +28,7 @@ func (cp *ControlPlane) GetClusterState(context context.Context, empty *emptypb.
 		}, nil
 	}
 
-	cp.logger.Info("GetClusterState",
+	slog.Info("GetClusterState",
 		"head", head.Info,
 		"tail", tail.Info,
 	)

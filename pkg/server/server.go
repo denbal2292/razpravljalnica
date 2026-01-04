@@ -72,7 +72,7 @@ type ControlPlaneConnection struct {
 	conn    *grpc.ClientConn      // underlying gRPC connection we can close
 }
 
-func NewServer(name string, address string, controlPlaneAddrs []string, logger *slog.Logger) *Node {
+func NewServer(name string, address string, controlPlaneAddrs []string) *Node {
 	sendCtx, sendCancel := context.WithCancel(context.Background())
 	ackCtx, ackCancel := context.WithCancel(context.Background())
 
@@ -111,7 +111,6 @@ func NewServer(name string, address string, controlPlaneAddrs []string, logger *
 		syncMu: sync.Mutex{},
 
 		heartbeatInterval: 5 * time.Second,
-		logger:            logger,
 	}
 
 	n.connectToControlPlane()
@@ -160,7 +159,7 @@ func (n *Node) startAckProcessorGoroutine() {
 }
 
 func (n *Node) connectToControlPlane() {
-	n.logger.Info("Attempting to register node with control plane")
+	slog.Info("Attempting to register node with control plane")
 
 	var neighbors *pb.NeighborsInfo
 	err := n.tryControlPlaneRequest(func(client pb.ControlPlaneClient) error {
@@ -173,25 +172,25 @@ func (n *Node) connectToControlPlane() {
 		panic(fmt.Errorf("Failed to register node with control plane: %w", err))
 	}
 
-	n.logger.Info("Registered node with control plane", "node_id", n.nodeInfo.NodeId, "address", n.nodeInfo.Address)
+	slog.Info("Registered node with control plane", "node_id", n.nodeInfo.NodeId, "address", n.nodeInfo.Address)
 
 	// A check only needed for stats
 	if neighbors.Predecessor != nil {
 		n.setPredecessor(neighbors.Predecessor)
 
-		n.logger.Info("Set predecessor",
+		slog.Info("Set predecessor",
 			"node_id", neighbors.Predecessor.NodeId,
 			"address", neighbors.Predecessor.Address,
 		)
 	} else {
-		n.logger.Info("No predecessor (this node is HEAD)")
+		slog.Info("No predecessor (this node is HEAD)")
 	}
 
 	// This should never happen (new node is always TAIL at registration)
 	if neighbors.Successor != nil {
 		panic("New node cannot have a successor at registration")
 	} else {
-		n.logger.Info("No successor (this node is TAIL)")
+		slog.Info("No successor (this node is TAIL)")
 	}
 }
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/grpc"
@@ -17,7 +18,7 @@ func (n *Node) createClientConnection(address string) (*NodeConnection, error) {
 	)
 
 	if err != nil {
-		n.logger.Error("Failed to create gRPC client connection", "address", address, "error", err)
+		slog.Error("Failed to create gRPC client connection", "address", address, "error", err)
 		return nil, err
 	}
 
@@ -40,7 +41,7 @@ func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) 
 
 	n.setPredecessor(pred)
 
-	n.logger.Info("SetPredecessor called", "node_info", pred)
+	slog.Info("SetPredecessor called", "node_info", pred)
 
 	// Restart the ACK processor goroutine after updating predecessor
 	n.startAckProcessorGoroutine()
@@ -51,7 +52,7 @@ func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) 
 // gRPC method to set the successor node
 func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*emptypb.Empty, error) {
 	succ := succMsg.Node
-	n.logger.Info("SetSuccessor called", "node_info", succ)
+	slog.Info("SetSuccessor called", "node_info", succ)
 
 	go func() {
 		n.syncMu.Lock()
@@ -65,10 +66,10 @@ func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*
 
 		// Start syncing with the new successor if not nil
 		if succ == nil {
-			n.logger.Info("This node is TAIL, applying all unacknowledged events")
+			slog.Info("This node is TAIL, applying all unacknowledged events")
 			n.applyAllUnacknowledgedEvents()
 		} else {
-			n.logger.Info("Starting sync with successor after SetSuccessor")
+			slog.Info("Starting sync with successor after SetSuccessor")
 			n.syncWithSuccessor()
 		}
 

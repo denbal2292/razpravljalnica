@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -25,7 +26,7 @@ func (cp *ControlPlane) Heartbeat(context context.Context, nodeInfo *pb.NodeInfo
 	node, exists := cp.nodes[nodeInfo.NodeId]
 
 	if !exists {
-		cp.logger.Warn("Heartbeat: Node not registered",
+		slog.Warn("Heartbeat: Node not registered",
 			"node_id", nodeInfo.NodeId,
 			"address", nodeInfo.Address,
 		)
@@ -90,7 +91,7 @@ func (cp *ControlPlane) monitorHeartbeats() {
 
 		// Apply removals via Raft
 		if err := cp.removeNodesViaRaft(deadNodeIds); err != nil {
-			cp.logger.Error("Error applying heartbeat removals via Raft", "error", err)
+			slog.Error("Error applying heartbeat removals via Raft", "error", err)
 		}
 
 		// Reconnect chain around removed nodes
@@ -212,7 +213,7 @@ func (cp *ControlPlane) reconnectNeighbors(pred *NodeInfo, succ *NodeInfo) {
 			cp.logNodeError(pred, err, "Error updating predecessor")
 		}
 
-		cp.logger.Info("Reconnected predecessor and successor around dead node",
+		slog.Info("Reconnected predecessor and successor around dead node",
 			"predecessor", pred.Info.NodeId,
 			"successor", succ.Info.NodeId,
 		)
@@ -223,7 +224,7 @@ func (cp *ControlPlane) reconnectNeighbors(pred *NodeInfo, succ *NodeInfo) {
 			cp.logNodeError(pred, err, "Error updating predecessor to become TAIL")
 		}
 
-		cp.logger.Info("Updated predecessor to become new TAIL",
+		slog.Info("Updated predecessor to become new TAIL",
 			"predecessor", pred.Info.NodeId,
 		)
 
@@ -233,11 +234,11 @@ func (cp *ControlPlane) reconnectNeighbors(pred *NodeInfo, succ *NodeInfo) {
 			cp.logNodeError(succ, err, "Error updating successor to become HEAD")
 		}
 
-		cp.logger.Info("Updated successor to become new HEAD",
+		slog.Info("Updated successor to become new HEAD",
 			"successor", succ.Info.NodeId,
 		)
 	} else {
 		// This was the only node, nothing to do
-		cp.logger.Info("All nodes are down, cluster is now empty")
+		slog.Info("All nodes are down, cluster is now empty")
 	}
 }

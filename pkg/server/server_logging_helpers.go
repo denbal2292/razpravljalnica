@@ -1,9 +1,13 @@
 package server
 
-import pb "github.com/denbal2292/razpravljalnica/pkg/pb"
+import (
+	"log/slog"
+
+	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
+)
 
 func (n *Node) logInfoEvent(event *pb.Event, message string) {
-	n.logger.Info(
+	slog.Info(
 		message,
 		"operation", event.Op.String(),
 		"sequence_number", event.SequenceNumber,
@@ -11,7 +15,7 @@ func (n *Node) logInfoEvent(event *pb.Event, message string) {
 }
 
 func (n *Node) logErrorEvent(event *pb.Event, err error, message string) {
-	n.logger.Error(
+	slog.Error(
 		message,
 		"error", err,
 		"operation", event.Op.String(),

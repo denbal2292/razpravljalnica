@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -16,10 +17,10 @@ func (n *Node) bufferAck(seqNum int64) {
 	n.ackMu.Lock()
 	defer n.ackMu.Unlock()
 
-	n.logger.Info("Received ACK for event", "sequence_number", seqNum)
+	slog.Info("Received ACK for event", "sequence_number", seqNum)
 
 	if seqNum < n.nextAckSeq {
-		n.logger.Warn("Received ACK for already acknowledged event - not forwarding", "sequence_number", seqNum, "last_applied", n.eventBuffer.GetLastApplied())
+		slog.Warn("Received ACK for already acknowledged event - not forwarding", "sequence_number", seqNum, "last_applied", n.eventBuffer.GetLastApplied())
 		return
 	}
 
@@ -39,9 +40,9 @@ func (n *Node) bufferAck(seqNum int64) {
 }
 
 func (n *Node) ackProcessor() {
-	defer n.logger.Warn("Stopping ACK processor goroutine")
+	defer slog.Warn("Stopping ACK processor goroutine")
 
-	n.logger.Info("Starting ACK processor goroutine")
+	slog.Info("Starting ACK processor goroutine")
 
 	// Check if there are ACKs to process right away
 	n.processNextAcks()
@@ -52,7 +53,7 @@ func (n *Node) ackProcessor() {
 			n.processNextAcks()
 
 		case <-n.ackCancelCtx.Done():
-			n.logger.Info("ACK processor goroutine exiting due to cancellation")
+			slog.Info("ACK processor goroutine exiting due to cancellation")
 			return
 		}
 	}
@@ -74,7 +75,7 @@ func (n *Node) processNextAcks() {
 		n.ackMu.Unlock()
 
 		// Since we have only one ACK processor goroutine, it's safe to process the ACK without further locking
-		n.logger.Info("Processing ACK to predecessor", "sequence_number", event.SequenceNumber)
+		slog.Info("Processing ACK to predecessor", "sequence_number", event.SequenceNumber)
 
 		// Acknowledge the event in the buffer
 		n.eventBuffer.AcknowledgeEvent(event.SequenceNumber)
@@ -91,7 +92,7 @@ func (n *Node) acknowledgeEvent(event *pb.Event) {
 
 	if n.IsHead() {
 		n.ackSync.SignalAckIfWaiting(event.SequenceNumber, result)
-		n.logger.Info("ACK reached HEAD successfully - sending to client", "sequence_number", event.SequenceNumber)
+		slog.Info("ACK reached HEAD successfully - sending to client", "sequence_number", event.SequenceNumber)
 	} else {
 		predClient := n.getPredecessorClient()
 
@@ -107,9 +108,9 @@ func (n *Node) acknowledgeEvent(event *pb.Event) {
 		})
 
 		if err != nil {
-			n.logger.Error("Failed to propagate ACK to predecessor", "sequence_number", event.SequenceNumber, "error", err)
+			slog.Error("Failed to propagate ACK to predecessor", "sequence_number", event.SequenceNumber, "error", err)
 		} else {
-			n.logger.Info("ACK propagated to predecessor", "sequence_number", event.SequenceNumber)
+			slog.Info("ACK propagated to predecessor", "sequence_number", event.SequenceNumber)
 		}
 	}
 }

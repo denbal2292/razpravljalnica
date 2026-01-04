@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"log/slog"
 	"net"
 	"os"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/denbal2292/razpravljalnica/pkg/control"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/hashicorp/raft"
+	"github.com/lmittmann/tint"
 	"google.golang.org/grpc"
 )
 
@@ -80,6 +82,19 @@ func main() {
 		log.Fatal("node index must be 0, 1, or 2")
 	}
 
+	logger := slog.New(tint.NewHandler(
+		os.Stdout,
+		&tint.Options{
+			Level: slog.LevelInfo,
+			// GO's default reference time
+			TimeFormat: "02-01-2006 15:04:05",
+		},
+	))
+
+	// Set default logger
+	slog.SetDefault(logger)
+
+	// Create control plane instance
 	cp := control.NewControlPlane()
 	r, err := createRaft(*nodeIdx, cp)
 	if err != nil {

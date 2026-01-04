@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/grpc"
@@ -183,7 +184,7 @@ func (n *Node) SubscribeTopic(req *pb.SubscribeTopicRequest, stream grpc.ServerS
 	for _, msg := range pastMessages {
 		subEvent := n.subscriptionManager.CreateMessageEvent(msg, 0, msg.CreatedAt, pb.OpType_OP_POST)
 		if err := stream.Send(subEvent); err != nil {
-			n.logger.Error("Failed to send past message event to subscriber", "error", err)
+			slog.Error("Failed to send past message event to subscriber", "error", err)
 			return err
 		}
 	}
@@ -191,7 +192,7 @@ func (n *Node) SubscribeTopic(req *pb.SubscribeTopicRequest, stream grpc.ServerS
 	// 4. Stream events to the client as they arrive
 	for event := range eventChan {
 		if err := stream.Send(event); err != nil {
-			n.logger.Error("Failed to send message event to subscriber", "error", err)
+			slog.Error("Failed to send message event to subscriber", "error", err)
 			return err
 		}
 	}

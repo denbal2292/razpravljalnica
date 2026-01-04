@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -27,9 +28,9 @@ func (n *Node) startHeartbeat() {
 		cancel()
 
 		if err != nil {
-			n.logger.Warn("Failed to send heartbeat to control plane", "error", err)
+			slog.Warn("Failed to send heartbeat to control plane", "error", err)
 		} else {
-			n.logger.Debug("Heartbeat sent to control plane")
+			slog.Debug("Heartbeat sent to control plane")
 		}
 	}
 }

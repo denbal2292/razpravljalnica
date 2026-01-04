@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/grpc"
@@ -12,19 +13,19 @@ import (
 
 // connectToControlPlaneServer establishes a gRPC connection to a specific control plane server
 func (n *Node) connectToControlPlaneServer(addr string) (pb.ControlPlaneClient, *grpc.ClientConn, error) {
-	n.logger.Debug("Attempting to connect to control plane server", "address", addr)
+	slog.Debug("Attempting to connect to control plane server", "address", addr)
 
 	conn, err := grpc.NewClient(
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		n.logger.Debug("Failed to create gRPC client", "address", addr, "error", err)
+		slog.Debug("Failed to create gRPC client", "address", addr, "error", err)
 		return nil, nil, err
 	}
 
 	client := pb.NewControlPlaneClient(conn)
-	n.logger.Debug("Successfully connected to control plane server", "address", addr)
+	slog.Debug("Successfully connected to control plane server", "address", addr)
 
 	return client, conn, nil
 }
@@ -39,31 +40,31 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 
 	// Try current client first if we have one
 	if currentConnection != nil {
-		n.logger.Debug("Trying request with current control plane client")
+		slog.Debug("Trying request with current control plane client")
 		err := requestFunc(currentConnection.client)
 
 		if err == nil {
-			n.logger.Debug("Request succeeded with current control plane client")
+			slog.Debug("Request succeeded with current control plane client")
 			return nil
 		}
 
 		// Check if error is retryable (connection issue or not leader)
 		if !isRetryableControlPlaneError(err) {
-			n.logger.Debug("Request failed with non-retryable error", "error", err)
+			slog.Debug("Request failed with non-retryable error", "error", err)
 			return err
 		}
 
-		n.logger.Debug("Request failed with retryable error, will try other servers", "error", err)
+		slog.Debug("Request failed with retryable error, will try other servers", "error", err)
 	}
 
 	// Try all control plane servers
 	var lastErr error
 	for _, addr := range n.controlPlaneAddrs {
-		n.logger.Debug("Trying control plane server", "address", addr)
+		slog.Debug("Trying control plane server", "address", addr)
 
 		client, conn, err := n.connectToControlPlaneServer(addr)
 		if err != nil {
-			n.logger.Debug("Failed to connect to control plane server", "address", addr, "error", err)
+			slog.Debug("Failed to connect to control plane server", "address", addr, "error", err)
 			lastErr = err
 			continue
 		}
@@ -72,7 +73,7 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 		err = requestFunc(client)
 		if err == nil {
 			// Success! Update our current connection
-			n.logger.Info("Successfully connected to control plane", "address", addr)
+			slog.Info("Successfully connected to control plane", "address", addr)
 
 			n.controlPlaneMu.Lock()
 			// Close old connection if exists
@@ -94,17 +95,17 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 
 		// Check if error is retryable
 		if !isRetryableControlPlaneError(err) {
-			n.logger.Debug("Request failed with non-retryable error", "address", addr, "error", err)
+			slog.Debug("Request failed with non-retryable error", "address", addr, "error", err)
 			return err
 		}
 
-		n.logger.Debug("Request failed, will try next server", "address", addr, "error", err)
+		slog.Debug("Request failed, will try next server", "address", addr, "error", err)
 		lastErr = err
 	}
 
 	// All servers failed
 	if lastErr != nil {
-		n.logger.Error("All control plane servers failed", "error", lastErr)
+		slog.Error("All control plane servers failed", "error", lastErr)
 		return fmt.Errorf("all control plane servers failed: %w", lastErr)
 	}
 

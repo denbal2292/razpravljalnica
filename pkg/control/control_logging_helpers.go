@@ -1,7 +1,9 @@
 package control
 
+import "log/slog"
+
 func (cp *ControlPlane) logNodeWarn(node *NodeInfo, msg string) {
-	cp.logger.Warn(
+	slog.Warn(
 		msg,
 		"node_id", node.Info.NodeId,
 		"address", node.Info.Address,
@@ -9,7 +11,7 @@ func (cp *ControlPlane) logNodeWarn(node *NodeInfo, msg string) {
 }
 
 func (cp *ControlPlane) logNodeDebug(node *NodeInfo, msg string) {
-	cp.logger.Debug(
+	slog.Debug(
 		msg,
 		"node_id", node.Info.NodeId,
 		"address", node.Info.Address,
@@ -17,7 +19,7 @@ func (cp *ControlPlane) logNodeDebug(node *NodeInfo, msg string) {
 }
 
 func (cp *ControlPlane) logNodeInfo(node *NodeInfo, msg string) {
-	cp.logger.Info(
+	slog.Info(
 		msg,
 		"node_id", node.Info.NodeId,
 		"address", node.Info.Address,
@@ -25,7 +27,7 @@ func (cp *ControlPlane) logNodeInfo(node *NodeInfo, msg string) {
 }
 
 func (cp *ControlPlane) logNodeError(node *NodeInfo, err error, msg string) {
-	cp.logger.Error(
+	slog.Error(
 		msg,
 		"error", err,
 		"node_id", node.Info.NodeId,

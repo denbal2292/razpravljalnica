@@ -2,7 +2,7 @@ package server
 
 import (
 	"crypto/rand"
-	"fmt"
+	"log/slog"
 	"sync"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -69,7 +69,7 @@ func (sm *SubscriptionManager) AddMessageEvent(event *pb.MessageEvent, topicId i
 		select {
 		case sub.channel <- event:
 		default:
-			fmt.Printf("Dropping message for user %d on topic %d due to full channel\n", sub.userId, topicId)
+			slog.Warn("Dropping message for user due to full channel", "userId", sub.userId, "topicId", topicId)
 		}
 	}
 }

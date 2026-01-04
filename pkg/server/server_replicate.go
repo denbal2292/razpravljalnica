@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -13,7 +14,7 @@ func (n *Node) handleEventReplication(event *pb.Event) {
 }
 
 func (n *Node) handleSyncEventReplication(event *pb.Event) {
-	n.logger.Info("Replicating missing event to successor", "sequence_number", event.SequenceNumber)
+	slog.Info("Replicating missing event to successor", "sequence_number", event.SequenceNumber)
 	n.replicateEvent(event)
 }
 
@@ -25,7 +26,7 @@ func (n *Node) bufferEvent(event *pb.Event) {
 
 	if event.SequenceNumber < n.nextEventSeq {
 		// This probably shouldn't happen (but better to be safe)
-		n.logger.Warn("Received event for already applied sequence number - not forwarding", "sequence_number", event.SequenceNumber, "next_expected", n.nextEventSeq)
+		slog.Warn("Received event for already applied sequence number - not forwarding", "sequence_number", event.SequenceNumber, "next_expected", n.nextEventSeq)
 		return
 	}
 
@@ -43,9 +44,9 @@ func (n *Node) bufferEvent(event *pb.Event) {
 
 // The goroutine which actually sends events to the successor
 func (n *Node) eventReplicator() {
-	defer n.logger.Warn("Stopping event replicator goroutine")
+	defer slog.Warn("Stopping event replicator goroutine")
 
-	n.logger.Info("Starting event replicator goroutine")
+	slog.Info("Starting event replicator goroutine")
 
 	// Check if there are events to replicate right away
 	n.replicateNextEvents()
@@ -56,7 +57,7 @@ func (n *Node) eventReplicator() {
 			n.replicateNextEvents()
 
 		case <-n.sendCancelCtx.Done():
-			n.logger.Info("Event replicator goroutine exiting due to cancellation")
+			slog.Info("Event replicator goroutine exiting due to cancellation")
 			return
 		}
 	}
@@ -72,7 +73,7 @@ func (n *Node) replicateNextEvents() {
 			return
 		}
 
-		n.logger.Info("Replicating event to successor", "sequence_number", event.SequenceNumber)
+		slog.Info("Replicating event to successor", "sequence_number", event.SequenceNumber)
 
 		// Remove from buffer and increment expected sequence number
 		delete(n.eventQueue, n.nextEventSeq)
@@ -109,9 +110,9 @@ func (n *Node) replicateEvent(event *pb.Event) {
 		_, err := successorClient.ReplicateEvent(ctx, event)
 
 		if err != nil {
-			n.logger.Error("Failed to replicate event to successor", "sequence_number", event.SequenceNumber, "error", err)
+			slog.Error("Failed to replicate event to successor", "sequence_number", event.SequenceNumber, "error", err)
 		} else {
-			n.logger.Info("Event replicated to successor successfully", "sequence_number", event.SequenceNumber)
+			slog.Info("Event replicated to successor successfully", "sequence_number", event.SequenceNumber)
 		}
 	}
 }

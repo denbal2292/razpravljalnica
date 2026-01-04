@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"net"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
@@ -49,8 +50,11 @@ func main() {
 	// Stop the app on exit
 	defer cleanup()
 
+	// Set default logger
+	slog.SetDefault(logger)
+
 	// Create node with custom logger
-	node := server.NewServer("server-"+addr, addr, controlPlaneAddrs, logger)
+	node := server.NewServer("server-"+addr, addr, controlPlaneAddrs)
 
 	// Set the node as the stats provider
 	stats.SetProvider(node)
