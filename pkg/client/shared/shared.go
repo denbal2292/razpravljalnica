@@ -29,7 +29,8 @@ type ClientSet struct {
 
 	ControlPlaneAddrs []string
 
-	mu sync.RWMutex
+	mu             sync.RWMutex
+	controlPlaneMu sync.RWMutex
 }
 
 func (c *ClientSet) Close() {
@@ -45,12 +46,29 @@ func (c *ClientSet) Close() {
 }
 
 func (c *ClientSet) resetClients() bool {
-	c.mu.RLock()
-	controlConn := c.ControlConn
-	c.mu.RUnlock()
+	// Get HEAD and TAIL addresses using the retry mechanism
+	var headAddr, tailAddr string
+	err := c.TryControlPlaneRequest(func(client pb.ClientDiscoveryClient) error {
+		ctx, cancel := context.WithTimeout(context.Background(), Timeout)
+		defer cancel()
 
-	// Get HEAD and TAIL addresses
-	headAddr, tailAddr, err := getHeadAndTailAddresses(controlConn)
+		serverConns, err := client.GetClusterState(ctx, &emptypb.Empty{})
+		if err != nil {
+			return err
+		}
+
+		if serverConns.Head == nil || serverConns.Tail == nil {
+			return fmt.Errorf("no nodes available in the cluster")
+		}
+
+		headAddr = serverConns.Head.Address
+		tailAddr = serverConns.Tail.Address
+		return nil
+	})
+
+	if err != nil {
+		return false
+	}
 
 	// Establish HEAD connection
 	connHead, err := grpc.NewClient(
@@ -84,28 +102,7 @@ func (c *ClientSet) resetClients() bool {
 	return true
 }
 
-// This might be useful later as a helper function upon server failure
-func getHeadAndTailAddresses(controlPlaneConn *grpc.ClientConn) (headAddr, tailAddr string, err error) {
-	controlPlaneClient := pb.NewClientDiscoveryClient(controlPlaneConn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
-	defer cancel()
-
-	// Get addresses of HEAD and TAIL servers from the control plane
-	serverConns, err := controlPlaneClient.GetClusterState(
-		ctx, &emptypb.Empty{},
-	)
-
-	if err != nil {
-		return "", "", err
-	}
-
-	// Get the HEAD and TAIL addresses
-	headAddr = serverConns.Head.Address
-	tailAddr = serverConns.Tail.Address
-
-	return headAddr, tailAddr, nil
-}
+// Removed getHeadAndTailAddresses - functionality moved to TryControlPlaneRequest
 
 func isServerUnavailableError(err error) bool {
 	code := status.Code(err)
@@ -116,6 +113,27 @@ func isServerUnavailableError(err error) bool {
 	default:
 		return false
 	}
+}
+
+// isRetryableControlPlaneError checks if an error indicates we should try another server
+func isRetryableControlPlaneError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	st, ok := status.FromError(err)
+	if !ok {
+		// Non-gRPC error, assume connection issue
+		return true
+	}
+
+	code := st.Code()
+
+	// Retry on connection errors or when server is not the leader
+	return code == codes.Unavailable ||
+		code == codes.FailedPrecondition ||
+		code == codes.Unknown ||
+		code == codes.DeadlineExceeded
 }
 
 func RetryFetch[T any](ctx context.Context, c *ClientSet, fetchFunc func(context.Context) (T, error)) (T, error) {
@@ -149,4 +167,80 @@ func RetryFetch[T any](ctx context.Context, c *ClientSet, fetchFunc func(context
 	}
 
 	return result, nil
+}
+
+// connectToControlPlaneServer establishes a gRPC connection to a specific control plane server
+func connectToControlPlaneServer(addr string) (pb.ClientDiscoveryClient, *grpc.ClientConn, error) {
+	conn, err := grpc.NewClient(
+		addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	client := pb.NewClientDiscoveryClient(conn)
+	return client, conn, nil
+}
+
+// TryControlPlaneRequest executes a request function against control plane servers
+// It tries the current server first, then all others if it fails due to connection
+// issues or the server not being the leader. Panics if all servers are unreachable.
+func (c *ClientSet) TryControlPlaneRequest(requestFunc func(pb.ClientDiscoveryClient) error) error {
+	c.controlPlaneMu.RLock()
+	currentConn := c.ControlConn
+	c.controlPlaneMu.RUnlock()
+
+	// Try current client first if we have one
+	if currentConn != nil {
+		currentClient := pb.NewClientDiscoveryClient(currentConn)
+		err := requestFunc(currentClient)
+
+		if err == nil {
+			return nil
+		}
+
+		// Check if error is retryable (connection issue or not leader)
+		if !isRetryableControlPlaneError(err) {
+			return err
+		}
+	}
+
+	// Try all control plane servers
+	var lastErr error
+	for _, addr := range c.ControlPlaneAddrs {
+		client, conn, err := connectToControlPlaneServer(addr)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		// Try the request
+		err = requestFunc(client)
+		if err == nil {
+			// Success! Update our current client
+			c.controlPlaneMu.Lock()
+			// Close old connection if exists
+			if currentConn != nil {
+				currentConn.Close()
+			}
+			c.ControlConn = conn
+			c.controlPlaneMu.Unlock()
+
+			return nil
+		}
+
+		// Close this connection since it didn't work
+		conn.Close()
+
+		// Check if error is retryable
+		if !isRetryableControlPlaneError(err) {
+			return err
+		}
+
+		lastErr = err
+	}
+
+	// All servers failed - panic as requested
+	panic(fmt.Sprintf("Control plane is unreachable: %v", lastErr))
 }

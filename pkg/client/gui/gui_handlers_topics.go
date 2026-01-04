@@ -194,18 +194,21 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 			return
 		}
 
-		controlPlaneClient := pb.NewClientDiscoveryClient(gc.clients.ControlConn)
-
 		gc.clientMu.RLock()
 		userId := gc.userId
 		gc.clientMu.RUnlock()
 
-		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
-		defer cancel()
+		// Get subscription node using the retry mechanism
+		var subResponse *pb.SubscriptionNodeResponse
+		err := gc.clients.TryControlPlaneRequest(func(client pb.ClientDiscoveryClient) error {
+			ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+			defer cancel()
 
-		// Begin the subscription process
-		subResponse, err := controlPlaneClient.GetSubscriptionNode(ctx, &pb.SubscriptionNodeRequest{
-			UserId: userId,
+			var err error
+			subResponse, err = client.GetSubscriptionNode(ctx, &pb.SubscriptionNodeRequest{
+				UserId: userId,
+			})
+			return err
 		})
 
 		if err != nil {

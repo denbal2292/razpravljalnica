@@ -40,19 +40,30 @@ func RunClient(controlPlaneAddrs []string, clientType string) {
 // newClientSet incrementally builds the client set
 func newClientSet(controlPlaneAddrs []string) (*shared.ClientSet, error) {
 	// Establish control plane connection
-	clients := &shared.ClientSet{}
-
-	clients.ControlPlaneAddrs = controlPlaneAddrs
-
-	connControlPlane, err := connectToControlPlane(controlPlaneAddrs)
-
-	if err != nil {
-		return clients, err
+	clients := &shared.ClientSet{
+		ControlPlaneAddrs: controlPlaneAddrs,
 	}
-	clients.ControlConn = connControlPlane
 
-	// Get HEAD and TAIL addresses
-	headAddr, tailAddr, err := getHeadAndTailAddresses(connControlPlane)
+	// Get HEAD and TAIL addresses using the retry mechanism
+	var headAddr, tailAddr string
+	err := clients.TryControlPlaneRequest(func(client pb.ClientDiscoveryClient) error {
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		defer cancel()
+
+		serverConns, err := client.GetClusterState(ctx, &emptypb.Empty{})
+		if err != nil {
+			return err
+		}
+
+		if serverConns.Head == nil || serverConns.Tail == nil {
+			return fmt.Errorf("no nodes available in the cluster")
+		}
+
+		headAddr = serverConns.Head.Address
+		tailAddr = serverConns.Tail.Address
+		return nil
+	})
+
 	if err != nil {
 		return clients, err
 	}
@@ -85,60 +96,4 @@ func newClientSet(controlPlaneAddrs []string) (*shared.ClientSet, error) {
 	return clients, nil
 }
 
-func connectToControlPlane(controlPlaneAddrs []string) (*grpc.ClientConn, error) {
-	var lastErr error
-
-	for _, addr := range controlPlaneAddrs {
-		conn, err := grpc.NewClient(
-			addr,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		if err != nil {
-			continue
-		}
-
-		// Test the connection by trying to get cluster state
-		client := pb.NewClientDiscoveryClient(conn)
-		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
-		_, err = client.GetClusterState(ctx, &emptypb.Empty{})
-		cancel()
-
-		if err != nil {
-			conn.Close()
-			lastErr = err
-			continue
-		}
-
-		// Successful connection
-		return conn, nil
-	}
-
-	return nil, fmt.Errorf("failed to connect to control plane: %w", lastErr)
-}
-
-// This might be useful later as a helper function upon server failure
-func getHeadAndTailAddresses(controlPlaneConn *grpc.ClientConn) (headAddr, tailAddr string, err error) {
-	controlPlaneClient := pb.NewClientDiscoveryClient(controlPlaneConn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
-	defer cancel()
-
-	// Get addresses of HEAD and TAIL servers from the control plane
-	serverConns, err := controlPlaneClient.GetClusterState(
-		ctx, &emptypb.Empty{},
-	)
-
-	if err != nil {
-		return "", "", err
-	}
-
-	if serverConns.Head == nil || serverConns.Tail == nil {
-		return "", "", fmt.Errorf("No nodes available in the cluster")
-	}
-
-	// Get the HEAD and TAIL addresses
-	headAddr = serverConns.Head.Address
-	tailAddr = serverConns.Tail.Address
-
-	return headAddr, tailAddr, nil
-}
+// Removed connectToControlPlane and getHeadAndTailAddresses - functionality moved to shared.TryControlPlaneRequest
