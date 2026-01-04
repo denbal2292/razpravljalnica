@@ -11,9 +11,6 @@ type getSubscriptionNodeResult struct {
 }
 
 func (cp *ControlPlane) getSubscriptionNode() *getSubscriptionNodeResult {
-	cp.mu.Lock()
-	defer cp.mu.Unlock()
-
 	if len(cp.nodes) == 0 {
 		cp.logger.Info("GetSubscriptionNode: No nodes available")
 		return &getSubscriptionNodeResult{"", status.Error(codes.Unavailable, "No nodes available")}

@@ -159,6 +159,11 @@ func (cp *ControlPlane) GetSubscriptionNode(ctx context.Context, req *pb.Subscri
 	defer cp.mu.RUnlock()
 
 	selectedNode := cp.getNode(result.nodeId)
+
+	if selectedNode == nil {
+		return nil, status.Error(codes.NotFound, "Selected subscription node not found")
+	}
+
 	addSub, err := selectedNode.Client.AddSubscriptionRequest(ctx, req)
 
 	if err != nil {
