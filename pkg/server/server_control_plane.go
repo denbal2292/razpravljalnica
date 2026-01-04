@@ -34,14 +34,13 @@ func (n *Node) connectToControlPlaneServer(addr string) (pb.ControlPlaneClient, 
 // issues or the server not being the leader
 func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) error) error {
 	n.controlPlaneMu.RLock()
-	currentClient := n.controlPlane
-	currentConn := n.controlPlaneConn
+	currentConnection := n.controlPlaneConnection
 	n.controlPlaneMu.RUnlock()
 
 	// Try current client first if we have one
-	if currentClient != nil {
+	if currentConnection != nil {
 		n.logger.Debug("Trying request with current control plane client")
-		err := requestFunc(currentClient)
+		err := requestFunc(currentConnection.client)
 
 		if err == nil {
 			n.logger.Debug("Request succeeded with current control plane client")
@@ -72,16 +71,19 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 		// Try the request
 		err = requestFunc(client)
 		if err == nil {
-			// Success! Update our current client
+			// Success! Update our current connection
 			n.logger.Info("Successfully connected to control plane", "address", addr)
 
 			n.controlPlaneMu.Lock()
 			// Close old connection if exists
-			if currentConn != nil {
-				currentConn.Close()
+			if currentConnection != nil {
+				currentConnection.conn.Close()
 			}
-			n.controlPlane = client
-			n.controlPlaneConn = conn
+			n.controlPlaneConnection = &ControlPlaneConnection{
+				address: addr,
+				client:  client,
+				conn:    conn,
+			}
 			n.controlPlaneMu.Unlock()
 
 			return nil

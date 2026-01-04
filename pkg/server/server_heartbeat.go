@@ -16,7 +16,6 @@ func (n *Node) sendHeartbeat(ctx context.Context) error {
 }
 
 // Heartbeat goroutine function
-// TODO: Make it stoppable when the server shuts down
 func (n *Node) startHeartbeat() {
 	ticker := time.NewTicker(n.heartbeatInterval)
 	defer ticker.Stop()

@@ -21,12 +21,11 @@ type Node struct {
 	pb.UnimplementedChainReplicationServer          // for communication between nodes in the chain
 	pb.UnimplementedNodeUpdateServer                // for control plane to notify about neighbor changes
 
-	nodeInfo          *pb.NodeInfo          // name and address of this node
-	controlPlaneAddrs []string              // list of all control plane server addresses
-	controlPlane      pb.ControlPlaneClient // gRPC client to the control plane
-	controlPlaneConn  *grpc.ClientConn      // underlying gRPC connection to control plane
-	controlPlaneMu    sync.RWMutex          // protects controlPlane and controlPlaneConn
-	heartbeatInterval time.Duration         // interval between heartbeats
+	nodeInfo               *pb.NodeInfo            // name and address of this node
+	controlPlaneAddrs      []string                // list of all control plane server addresses
+	controlPlaneConnection *ControlPlaneConnection // gRPC connection to the control plane
+	controlPlaneMu         sync.RWMutex            // protects controlPlaneConnection
+	heartbeatInterval      time.Duration           // interval between heartbeats
 
 	storage             *storage.Storage
 	eventBuffer         *EventBuffer
@@ -65,6 +64,12 @@ type NodeConnection struct {
 	address string
 	client  pb.ChainReplicationClient // gRPC client to the connected node
 	conn    *grpc.ClientConn          // underlying gRPC connection we can close
+}
+
+type ControlPlaneConnection struct {
+	address string
+	client  pb.ControlPlaneClient // gRPC client to the control plane
+	conn    *grpc.ClientConn      // underlying gRPC connection we can close
 }
 
 func NewServer(name string, address string, controlPlaneAddrs []string, logger *slog.Logger) *Node {
