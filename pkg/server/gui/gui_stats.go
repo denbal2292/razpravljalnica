@@ -88,6 +88,8 @@ func (sc *StatsCollector) Stop() {
 
 // Updates the stats header every second.
 func (sc *StatsCollector) run() {
+	sc.updateDisplay() // Initial display
+
 	for {
 		select {
 		case <-sc.ticker.C:
