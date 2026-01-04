@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/hashicorp/raft"
 	"github.com/rivo/tview"
 )
@@ -59,20 +60,24 @@ func (s *Stats) GetUptime() time.Duration {
 
 // StatsCollector periodically updates the stats display in the GUI.
 type StatsCollector struct {
-	app       *tview.Application
-	statsView *tview.TextView
-	stats     *Stats
-	ticker    *time.Ticker
-	stopChan  chan struct{}
+	app                *tview.Application
+	statsView          *tview.TextView
+	chainView          *tview.Flex
+	chainViewContainer *tview.Frame
+	stats              *Stats
+	ticker             *time.Ticker
+	stopChan           chan struct{}
 }
 
 // NewStatsCollector creates a new stats collector that updates the display.
-func NewStatsCollector(app *tview.Application, view *tview.TextView, stats *Stats) *StatsCollector {
+func NewStatsCollector(app *tview.Application, view *tview.TextView, chainView *tview.Flex, chainViewContainer *tview.Frame, stats *Stats) *StatsCollector {
 	return &StatsCollector{
-		app:       app,
-		statsView: view,
-		stats:     stats,
-		stopChan:  make(chan struct{}),
+		app:                app,
+		statsView:          view,
+		stats:              stats,
+		chainView:          chainView,
+		chainViewContainer: chainViewContainer,
+		stopChan:           make(chan struct{}),
 	}
 }
 
@@ -133,25 +138,26 @@ func (sc *StatsCollector) updateDisplay() {
 	// Build the stats display with fixed-width formatting to prevent jitter
 	var display strings.Builder
 
-	// Node ID, addresses, and Raft state (line 1)
-	display.WriteString(fmt.Sprintf("[white]Control Plane:[-] [cyan]%-10s[-] [darkgray](gRPC: %-21s Raft: %-21s)[-]",
-		snapshot.NodeID, snapshot.GRPCAddr, snapshot.RaftAddr))
+	// Node ID, addresses, and Raft state
+	fmt.Fprintf(&display, "[white]Control Plane:[-] [cyan]%-10s[-] [darkgray](gRPC: %-21s Raft: %-21s)[-]",
+		snapshot.NodeID, snapshot.GRPCAddr, snapshot.RaftAddr)
 
-	// Raft state and metrics (line 2)
+	// Raft state and metrics
 	leaderDisplay := formatLeader(snapshot.RaftLeader)
-	display.WriteString(fmt.Sprintf("\n[white]Raft:[-] [%s]%-10s[-] | [white]Leader:[-] %-10s | [white]Uptime:[-] [green]%-10s[-] | [white]Goroutines:[-] [cyan]%-4d[-]",
-		stateColor, snapshot.RaftState, leaderDisplay, uptime, goroutines))
+	fmt.Fprintf(&display, "\n[white]Raft:[-] [%s]%-10s[-] | [white]Leader:[-] %-10s | [white]Uptime:[-] [green]%-10s[-] | [white]Goroutines:[-] [cyan]%-4d[-]",
+		stateColor, snapshot.RaftState, leaderDisplay, uptime, goroutines)
 
-	// Chain header (line 3)
-	display.WriteString(fmt.Sprintf("\n[white]=== Server Chain (%d nodes) ===[-]", snapshot.TotalNodes))
+	// fmt.Fprintf(&display, "\n[white]=== Server Chain (%d nodes) ===[-]", snapshot.TotalNodes)
 
-	// Chain visualization with bigger, boxed nodes (line 4)
-	display.WriteString("\n")
-	display.WriteString(formatChain(snapshot.ChainNodes))
+	// Chain visualization with bigger, boxed nodes
+	fmt.Fprintf(&display, "\n")
 
+	// display.WriteString(formatChain(snapshot.ChainNodes))
 	sc.app.QueueUpdateDraw(func() {
 		sc.statsView.SetText(display.String())
 	})
+
+	sc.updateChainNodesView(snapshot.ChainNodes)
 }
 
 // formatLeader formats the leader display.
@@ -162,54 +168,52 @@ func formatLeader(leader string) string {
 	return leader
 }
 
-// formatChain creates a visual representation of the chain with bigger, boxed nodes.
-func formatChain(nodes []ChainNodeInfo) string {
-	if len(nodes) == 0 {
-		return "[gray]empty[-]"
-	}
+func (sc *StatsCollector) updateChainNodesView(nodes []ChainNodeInfo) {
+	sc.chainViewContainer.SetTitle(fmt.Sprintf("Server chain ([yellow]%d[-] nodes)", len(nodes)))
+	// Clear existing items
+	sc.chainView.Clear()
 
-	var chain strings.Builder
-
+	sc.chainView.AddItem(nil, 0, 1, false)
 	for i, node := range nodes {
-		// Determine color and label based on role
-		var color string
-		// var roleLabel string
+		var color tcell.Color
+		var roleLabel string
 		switch node.Role {
 		case "HEAD":
-			color = "green"
-			// roleLabel = "HEAD"
+			color = tcell.ColorGreen
+			roleLabel = "HEAD"
 		case "TAIL":
-			color = "blue"
-			// roleLabel = "TAIL"
+			color = tcell.ColorBlue
+			roleLabel = "TAIL"
 		case "MIDDLE":
-			color = "yellow"
-			// roleLabel = "MIDDLE"
+			color = tcell.ColorYellow
+			roleLabel = "MIDDLE"
 		case "SINGLE":
-			color = "orange"
-			// roleLabel = "SINGLE"
+			color = tcell.ColorOrange
+			roleLabel = "SINGLE"
 		default:
-			color = "gray"
-			// roleLabel = "UNKNOWN"
+			color = tcell.ColorDarkGray
+			roleLabel = "UNKNOWN"
 		}
 
-		// Format node with box drawing and fixed width
-		// Truncate node ID if too long
-		nodeDisplay := node.NodeID
-		if len(nodeDisplay) > 15 {
-			nodeDisplay = nodeDisplay[:12] + "..."
-		}
-		// chain.WriteString(fmt.Sprintf("[%s]╔═══════════════╗[-]", color))
-		// chain.WriteString(fmt.Sprintf(" [%s]║ %-6s      ║[-]", color, roleLabel))
-		// chain.WriteString(fmt.Sprintf(" [%s]║ %-13s ║[-]", color, nodeDisplay))
-		fmt.Fprintf(&chain, "[%s]%s[-]", color, node.Address)
+		view := tview.NewTextView().
+			SetTextAlign(tview.AlignCenter).
+			SetDynamicColors(true)
 
-		// Add arrow between nodes
+		view.SetBorder(true).SetBorderColor(color)
+		view.SetText(fmt.Sprintf("%s\n\n[gray]%s[-]", roleLabel, node.Address))
+
+		sc.chainView.AddItem(view, 12, 1, false)
 		if i < len(nodes)-1 {
-			chain.WriteString(" [white]=>[-] ")
+			sc.chainView.AddItem(createArrow(), 5, 1, false)
 		}
 	}
+	sc.chainView.AddItem(nil, 0, 1, false)
+}
 
-	return chain.String()
+func createArrow() *tview.TextView {
+	return tview.NewTextView().
+		SetTextAlign(tview.AlignCenter).
+		SetText("\n\n ==>")
 }
 
 // displayInitializing shows the initializing state.

@@ -11,11 +11,13 @@ import (
 
 // ControlGUI manages the terminal user interface for the control plane.
 type ControlGUI struct {
-	app         *tview.Application
-	pages       *tview.Pages
-	statsView   *tview.TextView
-	controlLogs *tview.TextView
-	raftLogs    *tview.TextView
+	app                *tview.Application
+	pages              *tview.Pages
+	statsView          *tview.TextView
+	chainView          *tview.Flex
+	chainViewContainer *tview.Frame
+	controlLogs        *tview.TextView
+	raftLogs           *tview.TextView
 
 	stats     *Stats
 	collector *StatsCollector
@@ -35,6 +37,7 @@ func NewControlGUI() *ControlGUI {
 		pages:       tview.NewPages(),
 		statsView:   tview.NewTextView(),
 		controlLogs: tview.NewTextView(),
+		chainView:   tview.NewFlex(),
 		raftLogs:    tview.NewTextView(),
 		stats:       NewStats(),
 	}
@@ -51,7 +54,7 @@ func NewControlGUI() *ControlGUI {
 	gui.raftLogger = slog.New(raftHandler)
 
 	// Create and start stats collector
-	gui.collector = NewStatsCollector(app, gui.statsView, gui.stats)
+	gui.collector = NewStatsCollector(app, gui.statsView, gui.chainView, gui.chainViewContainer, gui.stats)
 	gui.collector.Start()
 
 	return gui
@@ -71,6 +74,12 @@ func (gui *ControlGUI) setupWidgets() {
 		SetWordWrap(false).
 		SetBorder(true).
 		SetTitle(" Control Plane Logs ")
+
+	// Configure chain view (middle pane)
+	gui.chainView.SetDirection(tview.FlexColumn)
+	gui.chainViewContainer = tview.NewFrame(gui.chainView)
+
+	gui.chainViewContainer.SetBorder(true).SetTitle("Server chain ([yellow]0[-] nodes)")
 
 	// Configure Raft log view (right pane)
 	gui.raftLogs.
@@ -99,8 +108,9 @@ func (gui *ControlGUI) setupLayout() {
 	// Main layout: stats at top (4 lines), logs fill remaining space
 	layout := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(gui.statsView, 8, 0, false). // Fixed height for stats
-		AddItem(logLayout, 0, 1, true)       // Logs take remaining space
+		AddItem(gui.statsView, 2, 0, false). // Fixed height for stats
+		AddItem(gui.chainViewContainer, 9, 1, false).
+		AddItem(logLayout, 0, 1, true) // Logs take remaining space
 
 	gui.pages.AddPage("main", layout, true, true)
 	gui.app.SetRoot(gui.pages, true)
