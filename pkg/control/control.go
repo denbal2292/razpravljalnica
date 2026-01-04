@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/denbal2292/razpravljalnica/pkg/control/gui"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/hashicorp/raft"
 )
@@ -31,6 +32,11 @@ type ControlPlane struct {
 	lastControlIndex uint64
 
 	logger *slog.Logger
+
+	// For GUI stats
+	nodeID   string
+	grpcAddr string
+	raftAddr string
 }
 
 func NewControlPlane() *ControlPlane {
@@ -46,6 +52,65 @@ func NewControlPlane() *ControlPlane {
 	go cb.monitorHeartbeats()
 
 	return cb
+}
+
+func (cp *ControlPlane) SetNodeInfo(nodeID, grpcAddr, raftAddr string) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+	cp.nodeID = nodeID
+	cp.grpcAddr = grpcAddr
+	cp.raftAddr = raftAddr
+}
+
+// GetStats returns a snapshot of control plane statistics for the GUI.
+func (cp *ControlPlane) GetStats() gui.ControlStatsSnapshot {
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+
+	var raftState, raftLeader string
+	if cp.raft != nil {
+		raftState = cp.raft.State().String()
+		raftLeader = string(cp.raft.Leader())
+	} else {
+		raftState = "Initializing"
+		raftLeader = ""
+	}
+
+	// Build chain node info
+	chainNodes := make([]gui.ChainNodeInfo, 0, len(cp.chain))
+	for i, nodeID := range cp.chain {
+		node := cp.nodes[nodeID]
+		if node == nil {
+			continue
+		}
+
+		// Determine role
+		role := "MIDDLE"
+		if len(cp.chain) == 1 {
+			role = "SINGLE"
+		} else if i == 0 {
+			role = "HEAD"
+		} else if i == len(cp.chain)-1 {
+			role = "TAIL"
+		}
+
+		chainNodes = append(chainNodes, gui.ChainNodeInfo{
+			NodeID:  nodeID,
+			Address: node.Info.Address,
+			Role:    role,
+		})
+	}
+
+	return gui.ControlStatsSnapshot{
+		NodeID:        cp.nodeID,
+		GRPCAddr:      cp.grpcAddr,
+		RaftAddr:      cp.raftAddr,
+		RaftState:     raftState,
+		RaftLeader:    raftLeader,
+		ChainNodes:    chainNodes,
+		RegisteredCPs: 3, // Static cluster size
+		TotalNodes:    len(cp.chain),
+	}
 }
 
 func (cp *ControlPlane) getNode(nodeId string) *NodeInfo {
