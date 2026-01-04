@@ -5,24 +5,39 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/rivo/tview"
 )
 
 // Custom slog Handler
 type GUIHandler struct {
-	app    *tview.Application
-	view   *tview.TextView
-	attrs  []slog.Attr
-	groups []string
+	app          *tview.Application
+	view         *tview.TextView
+	attrs        []slog.Attr
+	groups       []string
+	buffer       strings.Builder
+	bufferMutex  sync.Mutex
+	ticker       *time.Ticker
+	stopFlush    chan struct{}
+	maxBufferLen int
 }
 
 // NewGUIHandler creates a new handler that writes to the provided TextView.
 func NewGUIHandler(app *tview.Application, view *tview.TextView) *GUIHandler {
-	return &GUIHandler{
-		app:  app,
-		view: view,
+	h := &GUIHandler{
+		app:          app,
+		view:         view,
+		ticker:       time.NewTicker(100 * time.Millisecond),
+		stopFlush:    make(chan struct{}),
+		maxBufferLen: 8192, // Flush when buffer exceeds 8KB
 	}
+
+	// Start background flusher
+	go h.periodicFlush()
+
+	return h
 }
 
 // Enabled returns whether the handler is enabled for the given level.
@@ -72,11 +87,53 @@ func (h *GUIHandler) Handle(_ context.Context, r slog.Record) error {
 
 	line.WriteString("\n")
 
-	h.app.QueueUpdateDraw(func() {
-		fmt.Fprint(h.view, line.String())
-	})
+	// Write to buffer instead of directly to view
+	h.bufferMutex.Lock()
+	h.buffer.WriteString(line.String())
+	shouldFlush := h.buffer.Len() >= h.maxBufferLen
+	h.bufferMutex.Unlock()
+
+	// Flush immediately if buffer is too large
+	if shouldFlush {
+		h.flush()
+	}
 
 	return nil
+}
+
+// flush writes the buffered content to the TextView.
+func (h *GUIHandler) flush() {
+	h.bufferMutex.Lock()
+	if h.buffer.Len() == 0 {
+		h.bufferMutex.Unlock()
+		return
+	}
+	content := h.buffer.String()
+	h.buffer.Reset()
+	h.bufferMutex.Unlock()
+
+	h.app.QueueUpdateDraw(func() {
+		fmt.Fprint(h.view, content)
+	})
+}
+
+// periodicFlush flushes the buffer periodically.
+func (h *GUIHandler) periodicFlush() {
+	for {
+		select {
+		case <-h.ticker.C:
+			h.flush()
+		case <-h.stopFlush:
+			h.ticker.Stop()
+			h.flush() // Final flush
+			return
+		}
+	}
+}
+
+// Stop stops the periodic flusher and flushes remaining content.
+func (h *GUIHandler) Stop() {
+	close(h.stopFlush)
 }
 
 // WithAttrs returns a new handler with additional attributes.
@@ -86,10 +143,13 @@ func (h *GUIHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	copy(newAttrs[len(h.attrs):], attrs)
 
 	return &GUIHandler{
-		app:    h.app,
-		view:   h.view,
-		attrs:  newAttrs,
-		groups: h.groups,
+		app:          h.app,
+		view:         h.view,
+		attrs:        newAttrs,
+		groups:       h.groups,
+		ticker:       h.ticker,
+		stopFlush:    h.stopFlush,
+		maxBufferLen: h.maxBufferLen,
 	}
 }
 
@@ -104,10 +164,13 @@ func (h *GUIHandler) WithGroup(name string) slog.Handler {
 	newGroups[len(h.groups)] = name
 
 	return &GUIHandler{
-		app:    h.app,
-		view:   h.view,
-		attrs:  h.attrs,
-		groups: newGroups,
+		app:          h.app,
+		view:         h.view,
+		attrs:        h.attrs,
+		groups:       newGroups,
+		ticker:       h.ticker,
+		stopFlush:    h.stopFlush,
+		maxBufferLen: h.maxBufferLen,
 	}
 }
 

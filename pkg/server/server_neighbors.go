@@ -41,15 +41,7 @@ func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) 
 
 	n.logger.Info("SetPredecessor called", "node_info", pred)
 
-	if n.stats != nil {
-		if pred == nil {
-			n.stats.SetPredecessor("(none)")
-		} else {
-			n.stats.SetPredecessor(pred.Address)
-		}
-		n.updateRole() // Use helper to determine role based on both pred and succ
-	}
-
+	// Restart the ACK processor goroutine after updating predecessor
 	n.startAckProcessorGoroutine()
 
 	return &emptypb.Empty{}, nil
@@ -70,22 +62,12 @@ func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*
 		// Update the successor connection
 		n.setSuccessor(succ)
 
-		if n.stats != nil {
-			if succ == nil {
-				n.stats.SetSuccessor("(none)")
-			} else {
-				n.stats.SetSuccessor(succ.Address)
-			}
-			n.updateRole() // Use helper to determine role
-		}
-
 		// Start syncing with the new successor if not nil
 		if succ == nil {
 			n.logger.Info("This node is TAIL, applying all unacknowledged events")
 			n.applyAllUnacknowledgedEvents()
 		} else {
 			n.logger.Info("Starting sync with successor after SetSuccessor")
-			// Perform sync in a goroutine to avoid blocking the RPC handler
 			n.syncWithSuccessor()
 		}
 
@@ -94,27 +76,4 @@ func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*
 	}()
 
 	return &emptypb.Empty{}, nil
-}
-
-// Helper function to correctly determine role based on both neighbors
-func (n *Node) updateRole() {
-	if n.stats == nil {
-		return
-	}
-
-	n.mu.RLock()
-	hasPred := n.predecessor != nil
-	hasSucc := n.successor != nil
-	n.mu.RUnlock()
-
-	switch {
-	case !hasPred && !hasSucc:
-		n.stats.SetRole("SINGLE")
-	case !hasPred && hasSucc:
-		n.stats.SetRole("HEAD")
-	case hasPred && !hasSucc:
-		n.stats.SetRole("TAIL")
-	case hasPred && hasSucc:
-		n.stats.SetRole("MIDDLE")
-	}
 }

@@ -3,100 +3,49 @@ package gui
 import (
 	"fmt"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/rivo/tview"
 )
 
-// Stats holds the current statistics for the server node.
-type Stats struct {
-	mu sync.RWMutex
-
-	startTime       time.Time
-	eventsProcessed int
-	messagesReplied int
-
-	// General node info
-	nodeId   string
-	nodeAddr string
-	role     string // HEAD, MIDDLE, TAIL, or SINGLE
-
-	// Chain information
-	predAddr string
-	succAddr string
-	cpAddr   string // Control Plane address
-
-	// Connection status
-	connected bool
+// ServerStatsProvider defines the interface for getting server statistics.
+type ServerStatsProvider interface {
+	GetStats() ServerStatsSnapshot
 }
 
-// NewStats creates a new Stats instance with the given initial values.
-func NewStats(nodeId, nodeAddr, cpAddr string) *Stats {
+// ServerStatsSnapshot represents a point-in-time snapshot of server stats.
+type ServerStatsSnapshot struct {
+	NodeID          string
+	NodeAddr        string
+	Role            string
+	PredecessorAddr string
+	SuccessorAddr   string
+	Connected       bool
+	EventsProcessed int64
+	EventsApplied   int64
+	MessagesStored  int
+	TopicsCount     int
+	UsersCount      int
+}
+
+// Stats holds the statistics configuration and provider.
+type Stats struct {
+	startTime time.Time
+	cpAddr    string // Control Plane address
+	provider  ServerStatsProvider
+}
+
+// NewStats creates a new Stats instance.
+func NewStats(cpAddr string) *Stats {
 	return &Stats{
 		startTime: time.Now(),
-		nodeId:    nodeId,
-		nodeAddr:  nodeAddr,
 		cpAddr:    cpAddr,
-		role:      "INITIALIZING",
-		connected: false,
 	}
 }
 
-// IncrementEvents increments the events processed counter.
-func (s *Stats) IncrementEvents() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.eventsProcessed++
-}
-
-// IncrementMessages increments the messages counter.
-func (s *Stats) IncrementMessages() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.messagesReplied++
-}
-
-// DecrementMessages decrements the messages counter.
-func (s *Stats) DecrementMessages() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.messagesReplied--
-}
-
-// SetRole updates the current role of the node.
-func (s *Stats) SetRole(role string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.role = role
-}
-
-// SetPredecessor updates the predecessor address.
-func (s *Stats) SetPredecessor(addr string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.predAddr = addr
-}
-
-// SetSuccessor updates the successor address.
-func (s *Stats) SetSuccessor(addr string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.succAddr = addr
-}
-
-// SetConnected updates the connection status.
-func (s *Stats) SetConnected(connected bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.connected = connected
+// SetProvider sets the stats provider (called after node is created).
+func (s *Stats) SetProvider(provider ServerStatsProvider) {
+	s.provider = provider
 }
 
 // GetUptime returns the elapsed time since the server started.
@@ -151,27 +100,21 @@ func (sc *StatsCollector) run() {
 
 // updateDisplay formats and displays the current stats.
 func (sc *StatsCollector) updateDisplay() {
-	sc.stats.mu.RLock()
-	role := sc.stats.role
-	nodeId := sc.stats.nodeId
-	nodeAddr := sc.stats.nodeAddr
-	predAddr := sc.stats.predAddr
-	succAddr := sc.stats.succAddr
-	cpAddr := sc.stats.cpAddr
-	connected := sc.stats.connected
-	numEvents := sc.stats.eventsProcessed
-	numMessages := sc.stats.messagesReplied
-	sc.stats.mu.RUnlock()
+	// If no provider is set yet, show initializing state
+	if sc.stats.provider == nil {
+		sc.displayInitializing()
+		return
+	}
 
+	// Poll the provider for fresh stats
+	snapshot := sc.stats.provider.GetStats()
 	uptime := sc.stats.GetUptime()
-	events := numEvents
-	messages := numMessages
-	// Get number of goroutines - interesting to look at
+	cpAddr := sc.stats.cpAddr
 	goroutines := runtime.NumGoroutine()
 
 	// Format the role with color
 	var roleColor string
-	switch role {
+	switch snapshot.Role {
 	case "HEAD":
 		roleColor = "green"
 	case "TAIL":
@@ -189,21 +132,21 @@ func (sc *StatsCollector) updateDisplay() {
 
 	// Node ID, address, and role
 	display += fmt.Sprintf("[white]Node:[-] [cyan]%s[-] [darkgray](%s)[-] | [white]Role:[-] [%s]%s[-]",
-		nodeId, nodeAddr, roleColor, role)
+		snapshot.NodeID, snapshot.NodeAddr, roleColor, snapshot.Role)
 
 	// Uptime and metrics
-	display += fmt.Sprintf("\n[white]Uptime:[-] [green]%s[-] | [white]Events:[-] [yellow]%d[-] | [white]Messages:[-] [yellow]%d[-] | [white]Goroutines:[-] [cyan]%d[-]",
-		uptime, events, messages, goroutines)
+	display += fmt.Sprintf("\n[white]Uptime:[-] [green]%s[-] | [white]Events:[-] [yellow]%d/%d[-] | [white]Messages:[-] [yellow]%d[-] | [white]Goroutines:[-] [cyan]%d[-]",
+		uptime, snapshot.EventsProcessed, snapshot.EventsApplied, snapshot.MessagesStored, goroutines)
 
-	// Other chain info
-	predDisplay := predAddr
+	// Chain info
+	predDisplay := snapshot.PredecessorAddr
 	if predDisplay == "" {
 		predDisplay = "[gray]none[-]"
 	} else {
 		predDisplay = "[green]" + predDisplay + "[-]"
 	}
 
-	succDisplay := succAddr
+	succDisplay := snapshot.SuccessorAddr
 	if succDisplay == "" {
 		succDisplay = "[gray]none[-]"
 	} else {
@@ -211,12 +154,23 @@ func (sc *StatsCollector) updateDisplay() {
 	}
 
 	connStatus := "[red]disconnected[-]"
-	if connected {
+	if snapshot.Connected {
 		connStatus = "[green]connected[-]"
 	}
 
 	display += fmt.Sprintf("\n[white]Pred:[-] %s | [white]Succ:[-] %s | [white]CP:[-] [blue]%s[-] %s",
 		predDisplay, succDisplay, cpAddr, connStatus)
+
+	sc.app.QueueUpdateDraw(func() {
+		sc.statsView.SetText(display)
+	})
+}
+
+// displayInitializing shows the initializing state.
+func (sc *StatsCollector) displayInitializing() {
+	display := "[white]Node:[-] [gray]INITIALIZING[-]\n"
+	display += fmt.Sprintf("[white]Uptime:[-] [green]%s[-]\n", sc.stats.GetUptime())
+	display += fmt.Sprintf("[white]CP:[-] [blue]%s[-]", sc.stats.cpAddr)
 
 	sc.app.QueueUpdateDraw(func() {
 		sc.statsView.SetText(display)

@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
-	"github.com/denbal2292/razpravljalnica/pkg/server/gui"
 	"github.com/denbal2292/razpravljalnica/pkg/storage"
-	"github.com/lmittmann/tint"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -59,32 +56,17 @@ type Node struct {
 	ackWg          sync.WaitGroup // for waiting for ACK processor goroutine to finish
 
 	logger *slog.Logger // logger for the node
-	stats  *gui.Stats   // statistics for the node - used by the GUI
 }
 
 type NodeConnection struct {
-	// address string
-	client pb.ChainReplicationClient // gRPC client to the connected node
-	conn   *grpc.ClientConn          // underlying gRPC connection we can close
+	address string
+	client  pb.ChainReplicationClient // gRPC client to the connected node
+	conn    *grpc.ClientConn          // underlying gRPC connection we can close
 }
 
-func NewServer(name string, address string, controlPlane pb.ControlPlaneClient, logger *slog.Logger, stats *gui.Stats) *Node {
+func NewServer(name string, address string, controlPlane pb.ControlPlaneClient, logger *slog.Logger) *Node {
 	sendCtx, sendCancel := context.WithCancel(context.Background())
 	ackCtx, ackCancel := context.WithCancel(context.Background())
-
-	// If no logger is provided, create a default one that logs to stdout
-	// (terminal mode)
-	if logger == nil {
-		// Use tint for nicer output
-		logger = slog.New(tint.NewHandler(
-			os.Stdout,
-			&tint.Options{
-				Level: slog.LevelDebug,
-				// GO's default reference time
-				TimeFormat: "02-01-2006 15:04:05",
-			},
-		))
-	}
 
 	n := &Node{
 		storage:     storage.NewStorage(),
@@ -119,9 +101,8 @@ func NewServer(name string, address string, controlPlane pb.ControlPlaneClient, 
 
 		syncMu: sync.Mutex{},
 
-		heartbeatInterval: 5 * time.Second, // TODO: Configurable
+		heartbeatInterval: 5 * time.Second,
 		logger:            logger,
-		stats:             stats,
 	}
 
 	n.connectToControlPlane()
@@ -177,11 +158,6 @@ func (n *Node) connectToControlPlane() {
 
 	n.logger.Info("Registered node with control plane", "node_id", n.nodeInfo.NodeId, "address", n.nodeInfo.Address)
 
-	// Update stats - connection to control plane established
-	if n.stats != nil {
-		n.stats.SetConnected(true)
-	}
-
 	// A check only needed for stats
 	if neighbors.Predecessor != nil {
 		n.setPredecessor(neighbors.Predecessor)
@@ -190,14 +166,8 @@ func (n *Node) connectToControlPlane() {
 			"node_id", neighbors.Predecessor.NodeId,
 			"address", neighbors.Predecessor.Address,
 		)
-		if n.stats != nil {
-			n.stats.SetPredecessor(neighbors.Predecessor.Address)
-		}
 	} else {
 		n.logger.Info("No predecessor (this node is HEAD)")
-		if n.stats != nil {
-			n.stats.SetPredecessor("nil (HEAD)")
-		}
 	}
 
 	// This should never happen (new node is always TAIL at registration)
@@ -205,13 +175,6 @@ func (n *Node) connectToControlPlane() {
 		panic("New node cannot have a successor at registration")
 	} else {
 		n.logger.Info("No successor (this node is TAIL)")
-		if n.stats != nil {
-			n.stats.SetSuccessor("nil (TAIL)")
-		}
-	}
-
-	if n.stats != nil {
-		n.updateRole()
 	}
 }
 
@@ -233,9 +196,6 @@ func (n *Node) applyEvent(event *pb.Event) *EventApplicationResult {
 	case pb.OpType_OP_POST:
 		msgRequest := event.PostMessage
 		msg, err := n.storage.PostMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.Text, event.EventAt)
-		if n.stats != nil && err == nil {
-			n.stats.IncrementMessages()
-		}
 		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_UPDATE:
@@ -246,9 +206,6 @@ func (n *Node) applyEvent(event *pb.Event) *EventApplicationResult {
 	case pb.OpType_OP_DELETE:
 		msgRequest := event.DeleteMessage
 		msg, err := n.storage.DeleteMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId)
-		if n.stats != nil && err == nil {
-			n.stats.DecrementMessages()
-		}
 		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_LIKE:
@@ -268,10 +225,6 @@ func (n *Node) applyEvent(event *pb.Event) *EventApplicationResult {
 
 	default:
 		panic(fmt.Errorf("unknown event operation: %v", event.Op))
-	}
-
-	if n.stats != nil && result.err == nil {
-		n.stats.IncrementEvents()
 	}
 
 	return result

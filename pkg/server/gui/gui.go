@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/lmittmann/tint"
 	"github.com/rivo/tview"
 )
 
@@ -23,7 +24,7 @@ type ServerGUI struct {
 
 // NewServerGUI creates and initializes a new server GUI.
 // It sets up the layout with stats at the top and logs at the bottom.
-func NewServerGUI(nodeId, nodeAddr, cpAddr string) *ServerGUI {
+func NewServerGUI(cpAddr string) *ServerGUI {
 	app := tview.NewApplication()
 	app.EnableMouse(true)
 
@@ -32,7 +33,7 @@ func NewServerGUI(nodeId, nodeAddr, cpAddr string) *ServerGUI {
 		pages:     tview.NewPages(),
 		statsView: tview.NewTextView(),
 		logView:   tview.NewTextView(),
-		stats:     NewStats(nodeId, nodeAddr, cpAddr),
+		stats:     NewStats(cpAddr),
 	}
 
 	gui.setupWidgets()
@@ -96,7 +97,7 @@ func (gui *ServerGUI) setupInputCapture() {
 		case 'c', 'C':
 			// Clear logs
 			gui.logView.Clear()
-			gui.logger.Info("Logs cleared")
+			go gui.logger.Info("Logs cleared by the user")
 			return nil
 		}
 
@@ -125,23 +126,33 @@ func (gui *ServerGUI) Stop() {
 	if gui.collector != nil {
 		gui.collector.Stop()
 	}
+	// Stop the logger handler to flush remaining logs
+	if handler, ok := gui.logger.Handler().(*GUIHandler); ok {
+		handler.Stop()
+	}
 	gui.app.Stop()
 }
 
 // StartWithFallback starts the GUI and falls back to console logging on error.
 // Returns the logger and stats to use, plus a cleanup function.
-func StartWithFallback(nodeId, nodeAddr, cpAddr string, enableGUI bool) (*slog.Logger, *Stats, func()) {
+func StartWithFallback(cpAddr string, enableGUI bool) (*slog.Logger, *Stats, func()) {
 	if !enableGUI {
 		// Console mode
-		logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		}))
-		stats := NewStats(nodeId, nodeAddr, cpAddr)
+		// Use tint for nicer output
+		logger := slog.New(tint.NewHandler(
+			os.Stdout,
+			&tint.Options{
+				Level: slog.LevelDebug,
+				// GO's default reference time
+				TimeFormat: "02-01-2006 15:04:05",
+			},
+		))
+		stats := NewStats(cpAddr)
 		return logger, stats, func() {}
 	}
 
 	// Try to start GUI
-	gui := NewServerGUI(nodeId, nodeAddr, cpAddr)
+	gui := NewServerGUI(cpAddr)
 
 	// Start GUI in goroutine
 	go func() {
