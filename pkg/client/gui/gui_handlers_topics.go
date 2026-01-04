@@ -231,7 +231,7 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 		subClient := pb.NewMessageBoardSubscriptionsClient(conn)
 
 		// Get the last message ID we already have for the topic
-		var fromMessageId int64 = 0
+		var fromMessageId int64 = 1
 		gc.clientMu.RLock()
 		if entry, ok := gc.messageCache[topicId]; ok && len(entry.order) > 0 {
 			fromMessageId = entry.order[len(entry.order)-1] + 1

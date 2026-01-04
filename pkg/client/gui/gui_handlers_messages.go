@@ -3,6 +3,7 @@ package gui
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/denbal2292/razpravljalnica/pkg/client/shared"
@@ -82,9 +83,7 @@ func (gc *guiClient) updateMessageView(topicId int64) {
 	topicName := topic.Name
 	// Copy messages and order to avoid race condition during iteration
 	msgs := make(map[int64]*pb.Message)
-	for k, v := range msgCache.messages {
-		msgs[k] = v
-	}
+	maps.Copy(msgs, msgCache.messages)
 	order := make([]int64, len(msgCache.order))
 	copy(order, msgCache.order)
 	gc.clientMu.RUnlock()
@@ -117,6 +116,7 @@ func (gc *guiClient) updateMessageView(topicId int64) {
 		if len(order) > 0 {
 			// Make sure to align left when there are messages
 			gc.messageView.SetTextAlign(tview.AlignLeft)
+			var messageText strings.Builder
 			for _, msgId := range order {
 				msg, ok := msgs[msgId]
 				if !ok || msg == nil {
@@ -137,8 +137,10 @@ func (gc *guiClient) updateMessageView(topicId int64) {
 				regionId := fmt.Sprintf("msg-%d", msg.Id)
 
 				messageLine := fmt.Sprintf(`["%s"][yellow]%s[-]: %s ([green]Všečki: %d[-]) [%s][""]`+"\n", regionId, user.Name, msg.Text, msg.Likes, timestamp)
-				gc.messageView.Write([]byte(messageLine))
+				messageText.WriteString(messageLine)
 			}
+			// Set all text at once
+			gc.messageView.SetText(messageText.String())
 			gc.messageView.ScrollToEnd()
 		} else {
 			// No messages in this topic yet - write a centered message
@@ -547,6 +549,7 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
 	// Wrapping this in a goroutine is not wanted since that makes connection closing harder.
 	for {
+		// TODO: this seems to block forever on new requests
 		msgEvent, err := msgEventStream.Recv()
 
 		if err != nil {
