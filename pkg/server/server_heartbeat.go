@@ -3,12 +3,16 @@ package server
 import (
 	"context"
 	"time"
+
+	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 )
 
 // Send heartbeat to the control plane
 func (n *Node) sendHeartbeat(ctx context.Context) error {
-	_, err := n.controlPlane.Heartbeat(ctx, n.nodeInfo)
-	return err
+	return n.tryControlPlaneRequest(func(client pb.ControlPlaneClient) error {
+		_, err := client.Heartbeat(ctx, n.nodeInfo)
+		return err
+	})
 }
 
 // Heartbeat goroutine function

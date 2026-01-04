@@ -35,16 +35,16 @@ func subscribeTopics(clients *shared.ClientSet, args []string) error {
 	}
 
 	// Start with the subscription process
-	controlPlaneClient := pb.NewClientDiscoveryClient(clients.ControlConn)
+	var subResponse *pb.SubscriptionNodeResponse
+	err = clients.TryControlPlaneRequest(func(client pb.ClientDiscoveryClient) error {
+		ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
+		defer cancel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), shared.Timeout)
-	defer cancel()
-
-	// Request subscription node info
-	subResponse, err := shared.RetryFetch[*pb.SubscriptionNodeResponse](ctx, clients, func(ctx context.Context) (*pb.SubscriptionNodeResponse, error) {
-		return controlPlaneClient.GetSubscriptionNode(ctx, &pb.SubscriptionNodeRequest{
+		var err error
+		subResponse, err = client.GetSubscriptionNode(ctx, &pb.SubscriptionNodeRequest{
 			UserId: userId,
 		})
+		return err
 	})
 
 	if err != nil {

@@ -2,47 +2,108 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/denbal2292/razpravljalnica/pkg/control"
-	razpravljalnica "github.com/denbal2292/razpravljalnica/pkg/pb"
+	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
+	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 )
 
+// Static cluster configuration
+var clusterConfig = []struct {
+	id       string
+	raftAddr string
+	grpcAddr string
+}{
+	{"node0", "127.0.0.1:7000", "127.0.0.1:50051"},
+	{"node1", "127.0.0.1:7001", "127.0.0.1:50052"},
+	{"node2", "127.0.0.1:7002", "127.0.0.1:50053"},
+}
+
+func createRaft(nodeIdx int, cp *control.ControlPlane) (*raft.Raft, error) {
+	config := raft.DefaultConfig()
+	config.LocalID = raft.ServerID(clusterConfig[nodeIdx].id)
+
+	logStore := raft.NewInmemStore()
+	stableStore := raft.NewInmemStore()
+	snapStore := raft.NewInmemSnapshotStore()
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", clusterConfig[nodeIdx].raftAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	transport, err := raft.NewTCPTransport(
+		clusterConfig[nodeIdx].raftAddr,
+		tcpAddr,
+		3,
+		10*time.Second,
+		os.Stderr,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := raft.NewRaft(config, cp, logStore, stableStore, snapStore, transport)
+	if err != nil {
+		return nil, err
+	}
+
+	// Bootstrap cluster with all three nodes (only on node0)
+	if nodeIdx == 0 {
+		servers := make([]raft.Server, len(clusterConfig))
+		for i, cfg := range clusterConfig {
+			servers[i] = raft.Server{
+				ID:      raft.ServerID(cfg.id),
+				Address: raft.ServerAddress(cfg.raftAddr),
+			}
+		}
+
+		f := r.BootstrapCluster(raft.Configuration{Servers: servers})
+		if err := f.Error(); err != nil {
+			return nil, err
+		}
+	}
+
+	return r, nil
+}
+
 func main() {
-	// Parse command-line flags
-	port := flag.Int("port", 50051, "The server port")
+	nodeIdx := flag.Int("node", -1, "node index (0, 1, or 2)")
 	flag.Parse()
 
-	// Construct server URL
-	url := fmt.Sprintf("%s:%d", "localhost", *port)
-
-	// Create gRPC server
-	gRPCServer := grpc.NewServer()
-
-	// Create and register MessageBoard server
-	control := control.NewControlPlane()
-
-	razpravljalnica.RegisterClientDiscoveryServer(gRPCServer, control)
-	razpravljalnica.RegisterControlPlaneServer(gRPCServer, control)
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		panic(err)
+	if *nodeIdx < 0 || *nodeIdx >= len(clusterConfig) {
+		log.Fatal("node index must be 0, 1, or 2")
 	}
 
-	// Create TCP listener
-	listener, err := net.Listen("tcp", url)
+	cp := control.NewControlPlane()
+	r, err := createRaft(*nodeIdx, cp)
 	if err != nil {
-		panic(err)
+		log.Fatalf("raft init failed: %v", err)
 	}
 
-	fmt.Printf("Control plane running on %s (%s)\n", url, hostname)
+	cp.SetRaft(r)
 
 	// Start gRPC server
-	if err := gRPCServer.Serve(listener); err != nil {
-		panic(err)
+	lis, err := net.Listen("tcp", clusterConfig[*nodeIdx].grpcAddr)
+	if err != nil {
+		log.Fatalf("grpc listen failed: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	pb.RegisterClientDiscoveryServer(grpcServer, cp)
+	pb.RegisterControlPlaneServer(grpcServer, cp)
+
+	log.Printf("Node %s: gRPC listening on %s, Raft on %s",
+		clusterConfig[*nodeIdx].id,
+		clusterConfig[*nodeIdx].grpcAddr,
+		clusterConfig[*nodeIdx].raftAddr)
+
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("grpc serve failed: %v", err)
 	}
 }

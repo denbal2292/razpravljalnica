@@ -9,7 +9,6 @@ import (
 	"github.com/denbal2292/razpravljalnica/pkg/server"
 	"github.com/denbal2292/razpravljalnica/pkg/server/gui"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func registerServices(node *server.Node, gRPCServer *grpc.Server) {
@@ -26,13 +25,14 @@ func main() {
 	interfaceType := flag.String("type", "terminal", "Interface type: terminal or gui")
 
 	flag.Parse()
-	controlPlaneAddress := fmt.Sprintf("localhost:%d", *controlPlanePort)
 
-	conn, err := grpc.NewClient(
-		controlPlaneAddress,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	controlPlaneClient := pb.NewControlPlaneClient(conn)
+	// Build list of all control plane server addresses
+	// In a Raft cluster, we have multiple control plane servers
+	controlPlaneAddrs := []string{
+		fmt.Sprintf("localhost:%d", *controlPlanePort),
+		fmt.Sprintf("localhost:%d", *controlPlanePort+1),
+		fmt.Sprintf("localhost:%d", *controlPlanePort+2),
+	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
@@ -43,14 +43,14 @@ func main() {
 
 	// Initialize GUI or console mode
 	logger, stats, cleanup := gui.StartWithFallback(
-		controlPlaneAddress,
+		controlPlaneAddrs[0],
 		*interfaceType == "gui",
 	)
 	// Stop the app on exit
 	defer cleanup()
 
 	// Create node with custom logger
-	node := server.NewServer("server-"+addr, addr, controlPlaneClient, logger)
+	node := server.NewServer("server-"+addr, addr, controlPlaneAddrs, logger)
 
 	// Set the node as the stats provider
 	stats.SetProvider(node)
@@ -63,7 +63,7 @@ func main() {
 	logger.Info(
 		"Node started",
 		"address", addr,
-		"control_plane", controlPlaneAddress,
+		"control_plane", controlPlaneAddrs,
 		"interface_type", *interfaceType,
 	)
 

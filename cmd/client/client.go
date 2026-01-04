@@ -18,10 +18,15 @@ func main() {
 		"cli",
 		"Type of client to run (cli or gui)",
 	)
-
 	flag.Parse()
-	controlPlaneAddress := fmt.Sprintf("localhost:%d", *controlPlanePort)
+
+	// In a Raft cluster, we have multiple control plane servers
+	controlPlaneAddrs := []string{
+		fmt.Sprintf("localhost:%d", *controlPlanePort),
+		fmt.Sprintf("localhost:%d", *controlPlanePort+1),
+		fmt.Sprintf("localhost:%d", *controlPlanePort+2),
+	}
 
 	// Run the client
-	client.RunClient(controlPlaneAddress, *clientType)
+	client.RunClient(controlPlaneAddrs, *clientType)
 }

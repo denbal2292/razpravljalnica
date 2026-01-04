@@ -8,6 +8,10 @@ import (
 )
 
 func (cp *ControlPlane) GetClusterState(context context.Context, empty *emptypb.Empty) (*pb.GetClusterStateResponse, error) {
+	if err := cp.ensureLeader(); err != nil {
+		return nil, err
+	}
+
 	cp.mu.RLock()
 	defer cp.mu.RUnlock()
 

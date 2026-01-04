@@ -228,6 +228,36 @@ message AddSubscriptionResponse {
   string subscribe_token = 1; // token to be used when opening the subscription
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Raft-related messages (between nodes of the raft cluster)
+////////////////////////////////////////////////////////////////////////////////
+
+// service RaftService {
+//   rpc AddVoter(NodeInfo) returns (google.protobuf.Empty);
+// }
+
+enum RaftCommandType {
+  OP_REGISTER = 0;
+  OP_UNREGISTER = 1;
+  OP_UPDATE_CHAIN = 2;
+  OP_SUBSCRIBE = 3;
+}
+
+message RaftCommand {
+  RaftCommandType op = 1;
+  NodeInfo node = 2; // used for OP_REGISTER, OP_UNREGISTER
+  repeated string idsToRemove = 3; // used for OP_UPDATE_CHAIN
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message RaftSnapshot {
+  map<string, NodeInfo> nodes = 1;
+  repeated string chain = 2;
+  uint64 last_control_index = 3;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // Chain replication messages (between nodes)
 ////////////////////////////////////////////////////////////////////////////////
