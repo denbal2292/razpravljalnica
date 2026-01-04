@@ -11,6 +11,13 @@ func (n *Node) GetStats() gui.ServerStatsSnapshot {
 	succ := n.successor
 	n.mu.RUnlock()
 
+	cpAddr := "N/A"
+	n.controlPlaneMu.RLock()
+	if n.controlPlaneConnection != nil {
+		cpAddr = n.controlPlaneConnection.address
+	}
+	n.controlPlaneMu.RUnlock()
+
 	processed, applied := n.eventBuffer.GetLastReceivedAndApplied()
 
 	// Determine role based on neighbors
@@ -43,17 +50,17 @@ func (n *Node) GetStats() gui.ServerStatsSnapshot {
 	usersCount := n.storage.GetUserCount()
 
 	return gui.ServerStatsSnapshot{
-		NodeID:          n.nodeInfo.NodeId,
-		NodeAddr:        n.nodeInfo.Address,
-		Role:            role,
-		PredecessorAddr: predAddr,
-		SuccessorAddr:   succAddr,
-		Connected:       true, // We can enhance this later
-		EventsProcessed: processed,
-		EventsApplied:   applied,
-		MessagesStored:  messagesCount,
-		TopicsCount:     topicsCount,
-		UsersCount:      usersCount,
+		NodeID:           n.nodeInfo.NodeId,
+		NodeAddr:         n.nodeInfo.Address,
+		Role:             role,
+		ControlPlaneAddr: cpAddr,
+		PredecessorAddr:  predAddr,
+		SuccessorAddr:    succAddr,
+		EventsProcessed:  processed,
+		EventsApplied:    applied,
+		MessagesStored:   messagesCount,
+		TopicsCount:      topicsCount,
+		UsersCount:       usersCount,
 	}
 }
 

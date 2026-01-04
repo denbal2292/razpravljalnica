@@ -15,23 +15,22 @@ type ServerStatsProvider interface {
 
 // ServerStatsSnapshot represents a point-in-time snapshot of server stats.
 type ServerStatsSnapshot struct {
-	NodeID          string
-	NodeAddr        string
-	Role            string
-	PredecessorAddr string
-	SuccessorAddr   string
-	Connected       bool
-	EventsProcessed int64
-	EventsApplied   int64
-	MessagesStored  int
-	TopicsCount     int
-	UsersCount      int
+	NodeID           string
+	NodeAddr         string
+	Role             string
+	ControlPlaneAddr string
+	PredecessorAddr  string
+	SuccessorAddr    string
+	EventsProcessed  int64
+	EventsApplied    int64
+	MessagesStored   int
+	TopicsCount      int
+	UsersCount       int
 }
 
 // Stats holds the statistics configuration and provider.
 type Stats struct {
 	startTime time.Time
-	cpAddr    string // Control Plane address
 	provider  ServerStatsProvider
 }
 
@@ -39,7 +38,6 @@ type Stats struct {
 func NewStats(cpAddr string) *Stats {
 	return &Stats{
 		startTime: time.Now(),
-		cpAddr:    cpAddr,
 	}
 }
 
@@ -111,7 +109,6 @@ func (sc *StatsCollector) updateDisplay() {
 	// Poll the provider for fresh stats
 	snapshot := sc.stats.provider.GetStats()
 	uptime := sc.stats.GetUptime()
-	cpAddr := sc.stats.cpAddr
 	goroutines := runtime.NumGoroutine()
 
 	// Format the role with color
@@ -155,13 +152,9 @@ func (sc *StatsCollector) updateDisplay() {
 		succDisplay = "[green]" + succDisplay + "[-]"
 	}
 
-	connStatus := "[red]disconnected[-]"
-	if snapshot.Connected {
-		connStatus = "[green]connected[-]"
-	}
-
+	connStatus := "[green]connected[-]"
 	display += fmt.Sprintf("\n[white]Pred:[-] %s | [white]Succ:[-] %s | [white]CP:[-] [blue]%s[-] %s",
-		predDisplay, succDisplay, cpAddr, connStatus)
+		predDisplay, succDisplay, snapshot.ControlPlaneAddr, connStatus)
 
 	sc.app.QueueUpdateDraw(func() {
 		sc.statsView.SetText(display)
@@ -172,7 +165,7 @@ func (sc *StatsCollector) updateDisplay() {
 func (sc *StatsCollector) displayInitializing() {
 	display := "[white]Node:[-] [gray]INITIALIZING[-]\n"
 	display += fmt.Sprintf("[white]Uptime:[-] [green]%s[-]\n", sc.stats.GetUptime())
-	display += fmt.Sprintf("[white]CP:[-] [blue]%s[-]", sc.stats.cpAddr)
+	display += fmt.Sprintf("[white]CP:[-] [blue]%s[-]", "N/A")
 
 	sc.app.QueueUpdateDraw(func() {
 		sc.statsView.SetText(display)
