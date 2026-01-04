@@ -35,6 +35,15 @@ func NewSubscriptionManager() *SubscriptionManager {
 	}
 }
 
+func (sm *SubscriptionManager) AddEventIfNotNil(event *pb.Event, messsage *pb.Message) {
+	if event == nil || messsage == nil {
+		return
+	}
+
+	subEvent := sm.CreateMessageEvent(messsage, event.SequenceNumber, event.EventAt, event.Op)
+	sm.AddMessageEvent(subEvent, messsage.TopicId)
+}
+
 func (sm *SubscriptionManager) CreateMessageEvent(message *pb.Message, seqNum int64, eventAt *timestamppb.Timestamp, opType pb.OpType) *pb.MessageEvent {
 	return &pb.MessageEvent{
 		SequenceNumber: seqNum,

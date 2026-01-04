@@ -38,13 +38,8 @@ func (n *Node) PostMessage(ctx context.Context, req *pb.PostMessageRequest) (*pb
 
 	// We can now safely commit the message to storage with the event timestamp
 	n.logApplyEvent(event)
-	message := result.message
 
-	// Notify subscription manager about the new message event
-	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_POST)
-	n.subscriptionManager.AddMessageEvent(subEvent, req.TopicId)
-
-	return message, nil
+	return result.message, nil
 }
 
 func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) (*pb.Message, error) {
@@ -77,13 +72,7 @@ func (n *Node) UpdateMessage(ctx context.Context, req *pb.UpdateMessageRequest) 
 		return nil, handleStorageError(result.err)
 	}
 
-	message := result.message
-
-	// Notify subscription manager about the new message event
-	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_UPDATE)
-	n.subscriptionManager.AddMessageEvent(subEvent, req.TopicId)
-
-	return message, nil
+	return result.message, nil
 }
 
 func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) (*emptypb.Empty, error) {
@@ -112,12 +101,6 @@ func (n *Node) DeleteMessage(ctx context.Context, req *pb.DeleteMessageRequest) 
 	if result.err != nil {
 		return nil, handleStorageError(result.err)
 	}
-
-	message := result.message
-
-	// Notify subscription manager about the new message event
-	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_DELETE)
-	n.subscriptionManager.AddMessageEvent(subEvent, req.TopicId)
 
 	return &emptypb.Empty{}, nil
 }
@@ -149,14 +132,7 @@ func (n *Node) LikeMessage(ctx context.Context, req *pb.LikeMessageRequest) (*pb
 		return nil, handleStorageError(result.err)
 	}
 
-	// We can now safely commit the like to storage
-	message := result.message
-
-	// Notify subscription manager about the new message event
-	subEvent := n.subscriptionManager.CreateMessageEvent(message, event.SequenceNumber, event.EventAt, pb.OpType_OP_LIKE)
-	n.subscriptionManager.AddMessageEvent(subEvent, req.TopicId)
-
-	return message, nil
+	return result.message, nil
 }
 
 func (n *Node) GetMessages(ctx context.Context, req *pb.GetMessagesRequest) (*pb.GetMessagesResponse, error) {

@@ -213,21 +213,29 @@ func (n *Node) applyEvent(event *pb.Event) *EventApplicationResult {
 	case pb.OpType_OP_POST:
 		msgRequest := event.PostMessage
 		msg, err := n.storage.PostMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.Text, event.EventAt)
+		n.subscriptionManager.AddEventIfNotNil(event, msg)
+
 		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_UPDATE:
 		msgRequest := event.UpdateMessage
 		msg, err := n.storage.UpdateMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId, msgRequest.Text)
+		n.subscriptionManager.AddEventIfNotNil(event, msg)
+
 		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_DELETE:
 		msgRequest := event.DeleteMessage
 		msg, err := n.storage.DeleteMessage(msgRequest.TopicId, msgRequest.UserId, msgRequest.MessageId)
+		n.subscriptionManager.AddEventIfNotNil(event, msg)
+
 		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_LIKE:
 		likeRequest := event.LikeMessage
 		msg, err := n.storage.LikeMessage(likeRequest.TopicId, likeRequest.UserId, likeRequest.MessageId)
+		n.subscriptionManager.AddEventIfNotNil(event, msg)
+
 		result = &EventApplicationResult{message: msg, err: err}
 
 	case pb.OpType_OP_CREATE_USER:
