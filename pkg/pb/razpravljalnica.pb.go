@@ -1923,10 +1923,12 @@ const file_razpravljalnica_proto_rawDesc = "" +
 	"NodeUpdate\x12J\n" +
 	"\x0eSetPredecessor\x12 .razpravljalnica.NodeInfoMessage\x1a\x16.google.protobuf.Empty\x12H\n" +
 	"\fSetSuccessor\x12 .razpravljalnica.NodeInfoMessage\x1a\x16.google.protobuf.Empty\x12l\n" +
-	"\x16AddSubscriptionRequest\x12(.razpravljalnica.SubscriptionNodeRequest\x1a(.razpravljalnica.AddSubscriptionResponse2\x8a\x02\n" +
+	"\x16AddSubscriptionRequest\x12(.razpravljalnica.SubscriptionNodeRequest\x1a(.razpravljalnica.AddSubscriptionResponse2\xb2\x03\n" +
 	"\x10ChainReplication\x12@\n" +
-	"\x0eReplicateEvent\x12\x16.razpravljalnica.Event\x1a\x16.google.protobuf.Empty\x12T\n" +
-	"\x10AcknowledgeEvent\x12(.razpravljalnica.AcknowledgeEventRequest\x1a\x16.google.protobuf.Empty\x12^\n" +
+	"\x0eReplicateEvent\x12\x16.razpravljalnica.Event\x1a\x16.google.protobuf.Empty\x12H\n" +
+	"\x14ReplicateEventStream\x12\x16.razpravljalnica.Event\x1a\x16.google.protobuf.Empty(\x01\x12T\n" +
+	"\x10AcknowledgeEvent\x12(.razpravljalnica.AcknowledgeEventRequest\x1a\x16.google.protobuf.Empty\x12\\\n" +
+	"\x16AcknowledgeEventStream\x12(.razpravljalnica.AcknowledgeEventRequest\x1a\x16.google.protobuf.Empty(\x01\x12^\n" +
 	"\x16GetLastSequenceNumbers\x12\x16.google.protobuf.Empty\x1a,.razpravljalnica.LastSequenceNumbersResponseB\x12Z\x10/razpravljalnicab\x06proto3"
 
 var (
@@ -2025,31 +2027,35 @@ var file_razpravljalnica_proto_depIdxs = []int32{
 	24, // 42: razpravljalnica.NodeUpdate.SetSuccessor:input_type -> razpravljalnica.NodeInfoMessage
 	17, // 43: razpravljalnica.NodeUpdate.AddSubscriptionRequest:input_type -> razpravljalnica.SubscriptionNodeRequest
 	28, // 44: razpravljalnica.ChainReplication.ReplicateEvent:input_type -> razpravljalnica.Event
-	30, // 45: razpravljalnica.ChainReplication.AcknowledgeEvent:input_type -> razpravljalnica.AcknowledgeEventRequest
-	33, // 46: razpravljalnica.ChainReplication.GetLastSequenceNumbers:input_type -> google.protobuf.Empty
-	2,  // 47: razpravljalnica.MessageBoardWrites.CreateUser:output_type -> razpravljalnica.User
-	3,  // 48: razpravljalnica.MessageBoardWrites.CreateTopic:output_type -> razpravljalnica.Topic
-	4,  // 49: razpravljalnica.MessageBoardWrites.PostMessage:output_type -> razpravljalnica.Message
-	4,  // 50: razpravljalnica.MessageBoardWrites.UpdateMessage:output_type -> razpravljalnica.Message
-	33, // 51: razpravljalnica.MessageBoardWrites.DeleteMessage:output_type -> google.protobuf.Empty
-	4,  // 52: razpravljalnica.MessageBoardWrites.LikeMessage:output_type -> razpravljalnica.Message
-	13, // 53: razpravljalnica.MessageBoardReads.ListTopics:output_type -> razpravljalnica.ListTopicsResponse
-	2,  // 54: razpravljalnica.MessageBoardReads.GetUser:output_type -> razpravljalnica.User
-	15, // 55: razpravljalnica.MessageBoardReads.GetMessages:output_type -> razpravljalnica.GetMessagesResponse
-	19, // 56: razpravljalnica.MessageBoardSubscriptions.SubscribeTopic:output_type -> razpravljalnica.MessageEvent
-	21, // 57: razpravljalnica.ClientDiscovery.GetClusterState:output_type -> razpravljalnica.GetClusterStateResponse
-	18, // 58: razpravljalnica.ClientDiscovery.GetSubscriptionNode:output_type -> razpravljalnica.SubscriptionNodeResponse
-	33, // 59: razpravljalnica.ControlPlane.Heartbeat:output_type -> google.protobuf.Empty
-	23, // 60: razpravljalnica.ControlPlane.RegisterNode:output_type -> razpravljalnica.NeighborsInfo
-	33, // 61: razpravljalnica.ControlPlane.UnregisterNode:output_type -> google.protobuf.Empty
-	33, // 62: razpravljalnica.NodeUpdate.SetPredecessor:output_type -> google.protobuf.Empty
-	33, // 63: razpravljalnica.NodeUpdate.SetSuccessor:output_type -> google.protobuf.Empty
-	25, // 64: razpravljalnica.NodeUpdate.AddSubscriptionRequest:output_type -> razpravljalnica.AddSubscriptionResponse
-	33, // 65: razpravljalnica.ChainReplication.ReplicateEvent:output_type -> google.protobuf.Empty
-	33, // 66: razpravljalnica.ChainReplication.AcknowledgeEvent:output_type -> google.protobuf.Empty
-	29, // 67: razpravljalnica.ChainReplication.GetLastSequenceNumbers:output_type -> razpravljalnica.LastSequenceNumbersResponse
-	47, // [47:68] is the sub-list for method output_type
-	26, // [26:47] is the sub-list for method input_type
+	28, // 45: razpravljalnica.ChainReplication.ReplicateEventStream:input_type -> razpravljalnica.Event
+	30, // 46: razpravljalnica.ChainReplication.AcknowledgeEvent:input_type -> razpravljalnica.AcknowledgeEventRequest
+	30, // 47: razpravljalnica.ChainReplication.AcknowledgeEventStream:input_type -> razpravljalnica.AcknowledgeEventRequest
+	33, // 48: razpravljalnica.ChainReplication.GetLastSequenceNumbers:input_type -> google.protobuf.Empty
+	2,  // 49: razpravljalnica.MessageBoardWrites.CreateUser:output_type -> razpravljalnica.User
+	3,  // 50: razpravljalnica.MessageBoardWrites.CreateTopic:output_type -> razpravljalnica.Topic
+	4,  // 51: razpravljalnica.MessageBoardWrites.PostMessage:output_type -> razpravljalnica.Message
+	4,  // 52: razpravljalnica.MessageBoardWrites.UpdateMessage:output_type -> razpravljalnica.Message
+	33, // 53: razpravljalnica.MessageBoardWrites.DeleteMessage:output_type -> google.protobuf.Empty
+	4,  // 54: razpravljalnica.MessageBoardWrites.LikeMessage:output_type -> razpravljalnica.Message
+	13, // 55: razpravljalnica.MessageBoardReads.ListTopics:output_type -> razpravljalnica.ListTopicsResponse
+	2,  // 56: razpravljalnica.MessageBoardReads.GetUser:output_type -> razpravljalnica.User
+	15, // 57: razpravljalnica.MessageBoardReads.GetMessages:output_type -> razpravljalnica.GetMessagesResponse
+	19, // 58: razpravljalnica.MessageBoardSubscriptions.SubscribeTopic:output_type -> razpravljalnica.MessageEvent
+	21, // 59: razpravljalnica.ClientDiscovery.GetClusterState:output_type -> razpravljalnica.GetClusterStateResponse
+	18, // 60: razpravljalnica.ClientDiscovery.GetSubscriptionNode:output_type -> razpravljalnica.SubscriptionNodeResponse
+	33, // 61: razpravljalnica.ControlPlane.Heartbeat:output_type -> google.protobuf.Empty
+	23, // 62: razpravljalnica.ControlPlane.RegisterNode:output_type -> razpravljalnica.NeighborsInfo
+	33, // 63: razpravljalnica.ControlPlane.UnregisterNode:output_type -> google.protobuf.Empty
+	33, // 64: razpravljalnica.NodeUpdate.SetPredecessor:output_type -> google.protobuf.Empty
+	33, // 65: razpravljalnica.NodeUpdate.SetSuccessor:output_type -> google.protobuf.Empty
+	25, // 66: razpravljalnica.NodeUpdate.AddSubscriptionRequest:output_type -> razpravljalnica.AddSubscriptionResponse
+	33, // 67: razpravljalnica.ChainReplication.ReplicateEvent:output_type -> google.protobuf.Empty
+	33, // 68: razpravljalnica.ChainReplication.ReplicateEventStream:output_type -> google.protobuf.Empty
+	33, // 69: razpravljalnica.ChainReplication.AcknowledgeEvent:output_type -> google.protobuf.Empty
+	33, // 70: razpravljalnica.ChainReplication.AcknowledgeEventStream:output_type -> google.protobuf.Empty
+	29, // 71: razpravljalnica.ChainReplication.GetLastSequenceNumbers:output_type -> razpravljalnica.LastSequenceNumbersResponse
+	49, // [49:72] is the sub-list for method output_type
+	26, // [26:49] is the sub-list for method input_type
 	26, // [26:26] is the sub-list for extension type_name
 	26, // [26:26] is the sub-list for extension extendee
 	0,  // [0:26] is the sub-list for field type_name

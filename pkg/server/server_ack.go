@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"log/slog"
-	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -94,16 +93,14 @@ func (n *Node) acknowledgeEvent(event *pb.Event) {
 		n.ackSync.SignalAckIfWaiting(event.SequenceNumber, result)
 		slog.Info("ACK reached HEAD successfully - sending to client", "sequence_number", event.SequenceNumber)
 	} else {
-		predClient := n.getPredecessorClient()
+		stream := n.getPredecessorAckStream()
 
-		if predClient == nil {
-			panic("Predecessor client is nil when trying to propagate ACK")
+		if stream == nil {
+			slog.Error("No predecessor ACK stream available, cannot propagate ACK", "sequence_number", event.SequenceNumber)
+			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		_, err := predClient.AcknowledgeEvent(ctx, &pb.AcknowledgeEventRequest{
+		err := stream.Send(&pb.AcknowledgeEventRequest{
 			SequenceNumber: event.SequenceNumber,
 		})
 
@@ -118,4 +115,19 @@ func (n *Node) acknowledgeEvent(event *pb.Event) {
 func (n *Node) AcknowledgeEvent(ctx context.Context, req *pb.AcknowledgeEventRequest) (*emptypb.Empty, error) {
 	n.handleEventAcknowledgment(req.SequenceNumber)
 	return &emptypb.Empty{}, nil
+}
+
+// gRPC streaming method for receiving acknowledgments from the successor
+func (n *Node) AcknowledgeEventStream(stream pb.ChainReplication_AcknowledgeEventStreamServer) error {
+	slog.Info("AcknowledgeEventStream started - receiving ACKs from successor")
+
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			slog.Info("AcknowledgeEventStream closed", "error", err)
+			return err
+		}
+
+		n.handleEventAcknowledgment(req.SequenceNumber)
+	}
 }

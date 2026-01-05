@@ -22,10 +22,25 @@ func (n *Node) createClientConnection(address string) (*NodeConnection, error) {
 		return nil, err
 	}
 
+	client := pb.NewChainReplicationClient(conn)
+
+	// Create streams for replication and acknowledgment
+	replicateStream, err := client.ReplicateEventStream(context.Background())
+	if err != nil {
+		slog.Error("Failed to create replicate stream", "address", address, "error", err)
+	}
+
+	ackStream, err := client.AcknowledgeEventStream(context.Background())
+	if err != nil {
+		slog.Error("Failed to create ack stream", "address", address, "error", err)
+	}
+
 	return &NodeConnection{
-		client:  pb.NewChainReplicationClient(conn),
-		conn:    conn,
-		address: address,
+		client:          client,
+		conn:            conn,
+		address:         address,
+		replicateStream: replicateStream,
+		ackStream:       ackStream,
 	}, nil
 }
 

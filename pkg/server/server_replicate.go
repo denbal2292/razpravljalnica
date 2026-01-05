@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"log/slog"
-	"time"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -97,17 +96,15 @@ func (n *Node) replicateEvent(event *pb.Event) {
 		// If TAIL, apply the event and send ACK back
 		n.handleEventAcknowledgment(event.SequenceNumber)
 	} else {
-		// If not TAIL, forward the event to the successor
-		successorClient := n.getSuccessorClient()
+		// If not TAIL, forward the event to the successor via stream
+		stream := n.getSuccessorReplicateStream()
 
-		if successorClient == nil {
-			panic("Successor client is nil when trying to replicate event")
+		if stream == nil {
+			slog.Error("No successor replicate stream available, cannot replicate event", "sequence_number", event.SequenceNumber)
+			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		_, err := successorClient.ReplicateEvent(ctx, event)
+		err := stream.Send(event)
 
 		if err != nil {
 			slog.Error("Failed to replicate event to successor", "sequence_number", event.SequenceNumber, "error", err)
@@ -133,4 +130,19 @@ func (n *Node) handleEventReplicationAndWaitForAck(event *pb.Event) *EventApplic
 func (n *Node) ReplicateEvent(ctx context.Context, event *pb.Event) (*emptypb.Empty, error) {
 	n.bufferEvent(event)
 	return &emptypb.Empty{}, nil
+}
+
+// gRPC streaming method for receiving events from the predecessor
+func (n *Node) ReplicateEventStream(stream pb.ChainReplication_ReplicateEventStreamServer) error {
+	slog.Info("ReplicateEventStream started - receiving events from predecessor")
+
+	for {
+		event, err := stream.Recv()
+		if err != nil {
+			slog.Info("ReplicateEventStream closed", "error", err)
+			return err
+		}
+
+		n.bufferEvent(event)
+	}
 }

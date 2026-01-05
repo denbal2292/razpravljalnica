@@ -239,7 +239,7 @@ message AddSubscriptionResponse {
 
 enum RaftCommandType {
   OP_REGISTER = 0;
-  OP_UNREGISTER = 1;
+  OP_UNREGISTER = 1;      
   OP_UPDATE_CHAIN = 2;
   OP_SUBSCRIBE = 3;
 }
@@ -266,9 +266,15 @@ service ChainReplication {
   // Replicate an event to the next node in the chain (succeeeds when new node receives)
   rpc ReplicateEvent(Event) returns (google.protobuf.Empty);
 
+  // Stream events to the successor node (persistent stream)
+  rpc ReplicateEventStream(stream Event) returns (google.protobuf.Empty);
+
   // Acknowledge the event with given sequence number was applied by the TAIL
   // (used for propagating ACKs back to HEAD)
   rpc AcknowledgeEvent(AcknowledgeEventRequest) returns (google.protobuf.Empty);
+
+  // Stream acknowledgments to the predecessor node (persistent stream)
+  rpc AcknowledgeEventStream(stream AcknowledgeEventRequest) returns (google.protobuf.Empty);
 
   // Ask the node for its latest sequence number and latest acknowledged sequence number
   rpc GetLastSequenceNumbers(google.protobuf.Empty) returns (LastSequenceNumbersResponse);

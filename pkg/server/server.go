@@ -61,9 +61,11 @@ type Node struct {
 }
 
 type NodeConnection struct {
-	address string
-	client  pb.ChainReplicationClient // gRPC client to the connected node
-	conn    *grpc.ClientConn          // underlying gRPC connection we can close
+	address         string
+	client          pb.ChainReplicationClient                        // gRPC client to the connected node
+	conn            *grpc.ClientConn                                 // underlying gRPC connection we can close
+	replicateStream pb.ChainReplication_ReplicateEventStreamClient   // stream for sending events
+	ackStream       pb.ChainReplication_AcknowledgeEventStreamClient // stream for sending ACKs
 }
 
 type ControlPlaneConnection struct {

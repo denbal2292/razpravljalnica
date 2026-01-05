@@ -99,3 +99,25 @@ func (n *Node) getPredecessorClient() pb.ChainReplicationClient {
 
 	return n.predecessor.client
 }
+
+func (n *Node) getSuccessorReplicateStream() pb.ChainReplication_ReplicateEventStreamClient {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+
+	if n.successor == nil {
+		return nil
+	}
+
+	return n.successor.replicateStream
+}
+
+func (n *Node) getPredecessorAckStream() pb.ChainReplication_AcknowledgeEventStreamClient {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+
+	if n.predecessor == nil {
+		return nil
+	}
+
+	return n.predecessor.ackStream
+}
