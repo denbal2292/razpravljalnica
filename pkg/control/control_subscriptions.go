@@ -15,7 +15,7 @@ type getSubscriptionNodeResult struct {
 func (cp *ControlPlane) getSubscriptionNode() *getSubscriptionNodeResult {
 	if len(cp.nodes) == 0 {
 		slog.Info("GetSubscriptionNode: No nodes available")
-		return &getSubscriptionNodeResult{"", status.Error(codes.Unavailable, "No nodes available")}
+		return &getSubscriptionNodeResult{"", status.Error(codes.NotFound, "No nodes available")}
 	}
 
 	// Simple round-robin selection of nodes for subscription requests
