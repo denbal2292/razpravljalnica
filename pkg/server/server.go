@@ -195,6 +195,11 @@ func (n *Node) connectToControlPlane() {
 }
 
 func (n *Node) AddSubscriptionRequest(ctx context.Context, req *pb.SubscriptionNodeRequest) (*pb.AddSubscriptionResponse, error) {
+	// Check if user exists before adding subscription
+	if !n.storage.UserExists(req.UserId) {
+		return nil, status.Error(codes.NotFound, "user not found")
+	}
+
 	return n.subscriptionManager.AddSubscriptionRequest(req)
 }
 

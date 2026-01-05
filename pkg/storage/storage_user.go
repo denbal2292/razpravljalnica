@@ -30,3 +30,12 @@ func (s *Storage) GetUser(userId int64) (*pb.User, error) {
 
 	return user, nil
 }
+
+// Check if a user exists
+func (s *Storage) UserExists(userId int64) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	_, ok := s.users[userId]
+	return ok
+}
