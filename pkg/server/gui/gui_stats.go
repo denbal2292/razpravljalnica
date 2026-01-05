@@ -152,9 +152,8 @@ func (sc *StatsCollector) updateDisplay() {
 		succDisplay = "[green]" + succDisplay + "[-]"
 	}
 
-	connStatus := "[green]connected[-]"
-	display += fmt.Sprintf("\n[white]Pred:[-] %s | [white]Succ:[-] %s | [white]CP:[-] [blue]%s[-] %s",
-		predDisplay, succDisplay, snapshot.ControlPlaneAddr, connStatus)
+	display += fmt.Sprintf("\n[white]Pred:[-] %s | [white]Succ:[-] %s | [white]CP:[-] [blue]%s[-]",
+		predDisplay, succDisplay, snapshot.ControlPlaneAddr)
 
 	sc.app.QueueUpdateDraw(func() {
 		sc.statsView.SetText(display)
