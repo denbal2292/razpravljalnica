@@ -139,20 +139,16 @@ func (sc *StatsCollector) updateDisplay() {
 	var display strings.Builder
 
 	// Node ID, addresses, and Raft state
-	fmt.Fprintf(&display, "[white]Control Plane:[-] [cyan]%-10s[-] [darkgray](gRPC: %-21s Raft: %-21s)[-]",
+	fmt.Fprintf(&display, "[white]Control Plane:[-] [cyan]%-10s[-] [darkgray](gRPC: %s, Raft: %s)[-]",
 		snapshot.NodeID, snapshot.GRPCAddr, snapshot.RaftAddr)
 
 	// Raft state and metrics
 	leaderDisplay := formatLeader(snapshot.RaftLeader)
-	fmt.Fprintf(&display, "\n[white]Raft:[-] [%s]%-10s[-] | [white]Leader:[-] %-10s | [white]Uptime:[-] [green]%-10s[-] | [white]Goroutines:[-] [cyan]%-4d[-]",
+	fmt.Fprintf(&display, "\n[white]Raft:[-] [%s]%s[-] | [white]Leader:[-] %s | [white]Uptime:[-] [green]%s[-] | [white]Goroutines:[-] [cyan]%d[-]",
 		stateColor, snapshot.RaftState, leaderDisplay, uptime, goroutines)
 
-	// fmt.Fprintf(&display, "\n[white]=== Server Chain (%d nodes) ===[-]", snapshot.TotalNodes)
-
-	// Chain visualization with bigger, boxed nodes
 	fmt.Fprintf(&display, "\n")
 
-	// display.WriteString(formatChain(snapshot.ChainNodes))
 	sc.app.QueueUpdateDraw(func() {
 		sc.statsView.SetText(display.String())
 	})
@@ -169,11 +165,28 @@ func formatLeader(leader string) string {
 }
 
 func (sc *StatsCollector) updateChainNodesView(nodes []ChainNodeInfo) {
-	sc.chainViewContainer.SetTitle(fmt.Sprintf("Server chain ([yellow]%d[-] nodes)", len(nodes)))
+	var nodeText string
+
+	if len(nodes) == 1 {
+		nodeText = "node"
+	} else {
+		nodeText = "nodes"
+	}
+
+	sc.chainViewContainer.SetTitle(fmt.Sprintf("Server chain ([yellow]%d[-] %s)", len(nodes), nodeText))
 	// Clear existing items
 	sc.chainView.Clear()
 
+	// Left padding
 	sc.chainView.AddItem(nil, 0, 1, false)
+	if len(nodes) == 0 {
+		textView := tview.NewTextView().
+			SetTextAlign(tview.AlignCenter).
+			SetDynamicColors(true)
+
+		textView.SetText("\n\n[yellow]No nodes in the chain[-]")
+		sc.chainView.AddItem(textView, 0, 1, false)
+	}
 	for i, node := range nodes {
 		var color tcell.Color
 		var roleLabel string
@@ -195,21 +208,30 @@ func (sc *StatsCollector) updateChainNodesView(nodes []ChainNodeInfo) {
 			roleLabel = "UNKNOWN"
 		}
 
-		view := tview.NewTextView().
-			SetTextAlign(tview.AlignCenter).
-			SetDynamicColors(true)
+		serverNode := createServerNode(&node, color, roleLabel)
 
-		view.SetBorder(true).SetBorderColor(color)
-		view.SetText(fmt.Sprintf("%s\n\n[gray]%s[-]", roleLabel, node.Address))
-
-		sc.chainView.AddItem(view, 12, 1, false)
+		sc.chainView.AddItem(serverNode, 12, 1, false)
 		if i < len(nodes)-1 {
 			sc.chainView.AddItem(createArrow(), 5, 1, false)
 		}
 	}
+	// Right padding
 	sc.chainView.AddItem(nil, 0, 1, false)
 }
 
+// createServerNode creates a boxed TextView for a server node visualization.
+func createServerNode(node *ChainNodeInfo, color tcell.Color, roleLabel string) *tview.TextView {
+	view := tview.NewTextView().
+		SetTextAlign(tview.AlignCenter).
+		SetDynamicColors(true)
+
+	view.SetBorder(true).SetBorderColor(color)
+	view.SetText(fmt.Sprintf("%s\n\n[darkgray]%s[-]", roleLabel, node.Address))
+
+	return view
+}
+
+// createArrow creates a TextView representing an arrow between nodes.
 func createArrow() *tview.TextView {
 	return tview.NewTextView().
 		SetTextAlign(tview.AlignCenter).
