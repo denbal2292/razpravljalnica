@@ -72,7 +72,7 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 		// Try the request
 		err = requestFunc(client)
 		if err == nil {
-			// Success! Update our current connection
+			// Update our current connection
 			slog.Info("Successfully connected to control plane", "address", addr)
 
 			n.controlPlaneMu.Lock()
@@ -90,7 +90,7 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 			return nil
 		}
 
-		// Close this connection since it didn't work
+		// Close connection since it didn't work
 		conn.Close()
 
 		// Check if error is retryable
@@ -109,6 +109,7 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 		return fmt.Errorf("all control plane servers failed: %w", lastErr)
 	}
 
+	// No control plane servers available
 	return fmt.Errorf("no control plane servers available")
 }
 
