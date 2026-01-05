@@ -58,7 +58,7 @@ func (c *ClientSet) resetClients() bool {
 		}
 
 		if serverConns.Head == nil || serverConns.Tail == nil {
-			return fmt.Errorf("no nodes available in the cluster")
+			return status.Error(codes.NotFound, "no nodes available in the cluster")
 		}
 
 		headAddr = serverConns.Head.Address

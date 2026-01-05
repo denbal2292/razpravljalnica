@@ -10,7 +10,9 @@ import (
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -56,7 +58,7 @@ func newClientSet(controlPlaneAddrs []string) (*shared.ClientSet, error) {
 		}
 
 		if serverConns.Head == nil || serverConns.Tail == nil {
-			return fmt.Errorf("no nodes available in the cluster")
+			return status.Error(codes.NotFound, "no nodes available in the cluster")
 		}
 
 		headAddr = serverConns.Head.Address
