@@ -43,7 +43,7 @@ func (n *Node) bufferEvent(event *pb.Event) {
 
 // The goroutine which actually sends events to the successor
 func (n *Node) eventReplicator() {
-	defer slog.Warn("Stopping event replicator goroutine")
+	defer slog.Info("Stopping event replicator goroutine")
 
 	slog.Info("Starting event replicator goroutine")
 
@@ -55,8 +55,7 @@ func (n *Node) eventReplicator() {
 		case <-n.sendChan:
 			n.replicateNextEvents()
 
-		case <-n.sendCancelCtx.Done():
-			slog.Info("Event replicator goroutine exiting due to cancellation")
+		case <-n.sendCancelChan:
 			return
 		}
 	}

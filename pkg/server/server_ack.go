@@ -39,7 +39,7 @@ func (n *Node) bufferAck(seqNum int64) {
 }
 
 func (n *Node) ackProcessor() {
-	defer slog.Warn("Stopping ACK processor goroutine")
+	defer slog.Info("Stopping ACK processor goroutine")
 
 	slog.Info("Starting ACK processor goroutine")
 
@@ -51,8 +51,7 @@ func (n *Node) ackProcessor() {
 		case <-n.ackChan:
 			n.processNextAcks()
 
-		case <-n.ackCancelCtx.Done():
-			slog.Info("ACK processor goroutine exiting due to cancellation")
+		case <-n.ackCancelChan:
 			return
 		}
 	}

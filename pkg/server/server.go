@@ -46,15 +46,13 @@ type Node struct {
 
 	syncMu sync.Mutex // protects multiple sync operations from being run concurrently
 
-	sendChan       chan struct{} // sync channel for signaling new events to send
-	sendCancelCtx  context.Context
-	sendCancelFunc context.CancelFunc
+	sendChan       chan struct{}  // sync channel for signaling new events to sen
+	sendCancelChan chan struct{}  // channel to signal event replication goroutine to stop (closed when stopping)
 	sendWg         sync.WaitGroup // for waiting for sync goroutine to finish
 
-	ackGoroutineMu sync.Mutex    // protects starting/stopping ACK processor goroutine
-	ackChan        chan struct{} // sync channel for signaling new ACKs to process
-	ackCancelCtx   context.Context
-	ackCancelFunc  context.CancelFunc
+	ackGoroutineMu sync.Mutex     // protects starting/stopping ACK processor goroutine
+	ackChan        chan struct{}  // sync channel for signaling new ACKs to process
+	ackCancelChan  chan struct{}  // channel to signal ACK processor goroutine to stop (closed when stopping)
 	ackWg          sync.WaitGroup // for waiting for ACK processor goroutine to finish
 
 	logger *slog.Logger // logger for the node
@@ -75,9 +73,6 @@ type ControlPlaneConnection struct {
 }
 
 func NewServer(name string, address string, controlPlaneAddrs []string) *Node {
-	sendCtx, sendCancel := context.WithCancel(context.Background())
-	ackCtx, ackCancel := context.WithCancel(context.Background())
-
 	n := &Node{
 		storage:     storage.NewStorage(),
 		eventBuffer: NewEventBuffer(),
@@ -98,19 +93,13 @@ func NewServer(name string, address string, controlPlaneAddrs []string) *Node {
 		predecessor:         nil,
 		successor:           nil,
 
-		// NOTE: cancelCtx and cancelFunc can be accessed only when holding syncMu
-		sendCancelCtx:  sendCtx,    // for cancelling event replication goroutine
-		sendCancelFunc: sendCancel, // for cancelling event replication goroutine
-		sendChan:       make(chan struct{}),
-		sendWg:         sync.WaitGroup{},
+		syncMu:   sync.Mutex{},
+		sendChan: make(chan struct{}),
+		sendWg:   sync.WaitGroup{},
 
 		ackGoroutineMu: sync.Mutex{},
-		ackCancelCtx:   ackCtx,
-		ackCancelFunc:  ackCancel,
 		ackChan:        make(chan struct{}),
 		ackWg:          sync.WaitGroup{},
-
-		syncMu: sync.Mutex{},
 
 		heartbeatInterval: 5 * time.Second,
 	}
@@ -143,18 +132,16 @@ func (n *Node) requireTail() error {
 }
 
 func (n *Node) startEventReplicationGoroutine() {
-	ctx, cancel := context.WithCancel(context.Background())
-	n.sendCancelCtx = ctx
-	n.sendCancelFunc = cancel
+	// Initialize cancel channel
+	n.sendCancelChan = make(chan struct{})
 
 	// Start the event replicator goroutine
 	n.sendWg.Go(n.eventReplicator)
 }
 
 func (n *Node) startAckProcessorGoroutine() {
-	ctx, cancel := context.WithCancel(context.Background())
-	n.ackCancelCtx = ctx
-	n.ackCancelFunc = cancel
+	// Initialize cancel channel
+	n.ackCancelChan = make(chan struct{})
 
 	// Start the ACK processor goroutine
 	n.ackWg.Go(n.ackProcessor)
