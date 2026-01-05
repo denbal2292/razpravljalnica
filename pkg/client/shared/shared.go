@@ -182,8 +182,6 @@ func connectToControlPlaneServer(addr string) (pb.ClientDiscoveryClient, *grpc.C
 }
 
 // TryControlPlaneRequest executes a request function against control plane servers
-// It tries the current server first, then all others if it fails due to connection
-// issues or the server not being the leader. Panics if all servers are unreachable.
 func (c *ClientSet) TryControlPlaneRequest(requestFunc func(pb.ClientDiscoveryClient) error) error {
 	c.controlPlaneMu.RLock()
 	currentConn := c.ControlConn
@@ -216,7 +214,6 @@ func (c *ClientSet) TryControlPlaneRequest(requestFunc func(pb.ClientDiscoveryCl
 		// Try the request
 		err = requestFunc(client)
 		if err == nil {
-			// Success! Update our current client
 			c.controlPlaneMu.Lock()
 			// Close old connection if exists
 			if currentConn != nil {
@@ -228,7 +225,7 @@ func (c *ClientSet) TryControlPlaneRequest(requestFunc func(pb.ClientDiscoveryCl
 			return nil
 		}
 
-		// Close this connection since it didn't work
+		// Close connection since it didn't work
 		conn.Close()
 
 		// Check if error is retryable
@@ -239,6 +236,6 @@ func (c *ClientSet) TryControlPlaneRequest(requestFunc func(pb.ClientDiscoveryCl
 		lastErr = err
 	}
 
-	// All servers failed - panic as requested
+	// No control plane server could handle the request
 	panic(fmt.Sprintf("Control plane is unreachable: %v", lastErr))
 }
