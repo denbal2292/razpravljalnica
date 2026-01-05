@@ -36,8 +36,8 @@ func (n *Node) SetPredecessor(ctx context.Context, predMsg *pb.NodeInfoMessage) 
 	n.ackGoroutineMu.Lock()
 	defer n.ackGoroutineMu.Unlock()
 
-	n.ackCancelFunc() // Cancel any existing ACK processor goroutine
-	n.ackWg.Wait()    // Wait for it to finish
+	close(n.ackCancelChan) // Cancel existing ACK processor goroutine
+	n.ackWg.Wait()         // Wait for it to finish
 
 	n.setPredecessor(pred)
 
@@ -58,8 +58,8 @@ func (n *Node) SetSuccessor(ctx context.Context, succMsg *pb.NodeInfoMessage) (*
 		n.syncMu.Lock()
 		defer n.syncMu.Unlock()
 
-		n.sendCancelFunc() // Cancel any existing sending goroutine
-		n.sendWg.Wait()    // Wait for it to finish
+		close(n.sendCancelChan) // Cancel existing event replicator goroutine
+		n.sendWg.Wait()         // Wait for it to finish
 
 		// Update the successor connection
 		n.setSuccessor(succ)
