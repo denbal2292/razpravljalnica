@@ -262,6 +262,12 @@ func (gc *guiClient) subscribeToTopic(topicId int64) {
 		gc.displayTopics()
 
 		gc.displayStatus("Uspešna naročnina na temo", "green")
-		gc.handleSubscriptionStream(topicId, subscriptionStream)
+
+		streamSyncChannel := make(chan struct{})
+		gc.clientMu.Lock()
+		gc.streamsChans[topicId] = streamSyncChannel
+		gc.clientMu.Unlock()
+
+		gc.handleSubscriptionStream(topicId, subscriptionStream, streamSyncChannel)
 	}()
 }

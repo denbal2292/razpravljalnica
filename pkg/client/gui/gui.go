@@ -45,6 +45,9 @@ type guiClient struct {
 	unreadTopic map[int64]bool
 	topicOrder  []int64
 
+	// Streams for message events per topic
+	streamsChans map[int64]chan struct{}
+
 	// Topics we are subscribed to
 	subscribedTopics map[int64]bool
 
@@ -90,6 +93,9 @@ func newGuiClient(clients *shared.ClientSet) *guiClient {
 		unreadTopic:      make(map[int64]bool),
 		users:            make(map[int64]*pb.User),
 		clients:          clients,
+
+		// Used for closing streams
+		streamsChans: make(map[int64]chan struct{}),
 
 		// Messages
 		messageCache: make(map[int64]*messageCacheEntry),
@@ -349,4 +355,17 @@ func (gc *guiClient) setupLayout() {
 	})
 
 	gc.app.SetRoot(gc.pages, true)
+}
+
+func (gc *guiClient) closeSubscriptions() {
+	gc.clientMu.Lock()
+	defer gc.clientMu.Unlock()
+
+	for key, v := range gc.streamsChans {
+		close(v)
+		gc.subscribedTopics[key] = false
+	}
+
+	// Reset the streams channels map
+	gc.streamsChans = make(map[int64]chan struct{})
 }

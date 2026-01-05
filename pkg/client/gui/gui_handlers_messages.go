@@ -546,88 +546,97 @@ func (gc *guiClient) showMessageActionsModal(messageId int64) {
 	gc.app.SetFocus(focusables[0])
 }
 
-func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc.ServerStreamingClient[pb.MessageEvent]) {
+func (gc *guiClient) handleSubscriptionStream(topicId int64, msgEventStream grpc.ServerStreamingClient[pb.MessageEvent], syncChan <-chan struct{}) {
+	// Close the stream when done
+	defer msgEventStream.CloseSend()
+
 	// Wrapping this in a goroutine is not wanted since that makes connection closing harder.
 	for {
-		msgEvent, err := msgEventStream.Recv()
-
-		if err != nil {
-			gc.displayStatus("Prekinjena povezava za naročanje na temo", "red")
-
-			// Mark the topic as unsubscribed
-			gc.clientMu.Lock()
-			gc.subscribedTopics[topicId] = false
-			gc.clientMu.Unlock()
-
-			// Update the topics display to show subscription status
-			gc.displayTopics()
+		select {
+		case <-syncChan:
+			// Stream closed signal received
 			return
-		}
+		default:
+			msgEvent, err := msgEventStream.Recv()
 
-		msg := msgEvent.Message
-		if msg == nil {
-			continue
-		}
-		msgTopicId := msg.TopicId
+			if err != nil {
+				gc.displayStatus("Prekinjena povezava za naročanje na temo", "red")
 
-		gc.clientMu.Lock()
-		entry, ok := gc.messageCache[msgTopicId]
-		if !ok {
-			entry = &messageCacheEntry{
-				messages: make(map[int64]*pb.Message),
-				order:    make([]int64, 0),
+				// Mark the topic as unsubscribed
+				gc.clientMu.Lock()
+				gc.subscribedTopics[topicId] = false
+				gc.clientMu.Unlock()
+
+				// Update the topics display to show subscription status
+				gc.displayTopics()
+				return
 			}
-			gc.messageCache[msgTopicId] = entry
-		}
 
-		var deletedMsgId int64
-		var wasCurrentlySelected bool
-
-		switch msgEvent.Op {
-		case pb.OpType_OP_POST:
-			if _, exists := entry.messages[msg.Id]; !exists {
-				entry.order = append(entry.order, msg.Id)
+			msg := msgEvent.Message
+			if msg == nil {
+				continue
 			}
-			entry.messages[msg.Id] = msg
-		case pb.OpType_OP_DELETE:
-			deletedMsgId = msg.Id
-			// Check if the deleted message was currently selected
-			wasCurrentlySelected = (gc.selectedMessageId == msg.Id)
-			delete(entry.messages, msg.Id)
-			// We don't remove from the order slice - the ID just doesn't
-			// exist - that is checked in updateMessageView when iterting
-			// over the order slice
-		case pb.OpType_OP_UPDATE, pb.OpType_OP_LIKE:
-			entry.messages[msg.Id] = msg
-		}
-		gc.clientMu.Unlock()
-		// Special care is taken on the other GUI update handlers to not redraw
-		// twice
-		gc.clientMu.RLock()
-		currentTopicId := gc.currentTopicId
-		gc.clientMu.RUnlock()
+			msgTopicId := msg.TopicId
 
-		if msgTopicId == currentTopicId {
-			gc.updateMessageView(msgTopicId)
-
-			// If a message was deleted and it was currently selected, select another
-			if msgEvent.Op == pb.OpType_OP_DELETE && wasCurrentlySelected && deletedMsgId > 0 {
-				gc.app.QueueUpdateDraw(func() {
-					gc.selectNearestMessage(msgTopicId, deletedMsgId)
-				})
+			gc.clientMu.Lock()
+			entry, ok := gc.messageCache[msgTopicId]
+			if !ok {
+				entry = &messageCacheEntry{
+					messages: make(map[int64]*pb.Message),
+					order:    make([]int64, 0),
+				}
+				gc.messageCache[msgTopicId] = entry
 			}
-		} else {
-			// Add a small notification that there are new messages in another topic
+
+			var deletedMsgId int64
+			var wasCurrentlySelected bool
+
+			switch msgEvent.Op {
+			case pb.OpType_OP_POST:
+				if _, exists := entry.messages[msg.Id]; !exists {
+					entry.order = append(entry.order, msg.Id)
+				}
+				entry.messages[msg.Id] = msg
+			case pb.OpType_OP_DELETE:
+				deletedMsgId = msg.Id
+				// Check if the deleted message was currently selected
+				wasCurrentlySelected = (gc.selectedMessageId == msg.Id)
+				delete(entry.messages, msg.Id)
+				// We don't remove from the order slice - the ID just doesn't
+				// exist - that is checked in updateMessageView when iterting
+				// over the order slice
+			case pb.OpType_OP_UPDATE, pb.OpType_OP_LIKE:
+				entry.messages[msg.Id] = msg
+			}
+			gc.clientMu.Unlock()
+			// Special care is taken on the other GUI update handlers to not redraw
+			// twice
 			gc.clientMu.RLock()
-			// Se if it's already marked as having unread messages
-			status := gc.unreadTopic[msgTopicId]
+			currentTopicId := gc.currentTopicId
 			gc.clientMu.RUnlock()
 
-			if !status {
-				gc.clientMu.Lock()
-				gc.unreadTopic[msgTopicId] = true
-				gc.clientMu.Unlock()
-				gc.displayTopics()
+			if msgTopicId == currentTopicId {
+				gc.updateMessageView(msgTopicId)
+
+				// If a message was deleted and it was currently selected, select another
+				if msgEvent.Op == pb.OpType_OP_DELETE && wasCurrentlySelected && deletedMsgId > 0 {
+					gc.app.QueueUpdateDraw(func() {
+						gc.selectNearestMessage(msgTopicId, deletedMsgId)
+					})
+				}
+			} else {
+				// Add a small notification that there are new messages in another topic
+				gc.clientMu.RLock()
+				// Se if it's already marked as having unread messages
+				status := gc.unreadTopic[msgTopicId]
+				gc.clientMu.RUnlock()
+
+				if !status {
+					gc.clientMu.Lock()
+					gc.unreadTopic[msgTopicId] = true
+					gc.clientMu.Unlock()
+					gc.displayTopics()
+				}
 			}
 		}
 	}

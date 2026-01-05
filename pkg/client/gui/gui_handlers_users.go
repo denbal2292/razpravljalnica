@@ -36,6 +36,10 @@ func (gc *guiClient) handleCreateUser() {
 			gc.displayStatus("Uporabnik uspešno ustvarjen", "green")
 		}
 
+		gc.closeSubscriptions()
+		// Refresh topics to reset state
+		gc.refreshTopics()
+
 		// Set the user ID for future operations
 		gc.clientMu.Lock()
 		gc.userId = user.Id
@@ -46,6 +50,7 @@ func (gc *guiClient) handleCreateUser() {
 			gc.newUserInput.SetText("")
 			gc.loggedInUserView.SetText(fmt.Sprintf("[green]Prijavljen kot[-]: [yellow]%s[-]", user.Name))
 		})
+
 	}()
 }
 
