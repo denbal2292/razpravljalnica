@@ -61,7 +61,7 @@ Dodatna navodila za uporabo odjemalca so na voljo ob zagonu.
 Zastavico `--type gui` lahko seveda tudi tukaj izpustimo, a tega za dobro uporabniško izkušnjo ne priporočava. Tudi odjemalec sprejme zastavico `--control-port`, ki ima enak pomen kot pri zagonu strežnika v podatkovni ravnini.
 
 Ko se odjemalec poveže na trenutnega voditelja v kontrolni ravnini, mu ta sporoči naslov trenutne glave in repa verige strežnikov v podatkovni ravnini. Vsi pisalni dostopi
-se samodejno izvajajo na glavi, vsi bralni pa na repu. V primeru, da se stanje verige spremeni in odjemec v roku ne dobi ustreznega, odgovora pridobi novo stanje verige iz nadzorne ravnine.
+se samodejno izvajajo na glavi, vsi bralni pa na repu. V primeru, da se stanje verige spremeni in odjemec v roku ne dobi ustreznega odgovora, pridobi novo stanje verige iz nadzorne ravnine.
 
 Podobno delujejo naročnine na teme, kjer si z replikacijo podatkovnih strežnikov lahko v primeru, da je teh dovolj, privoščimo tudi delitev obremenitve med njimi.
 
