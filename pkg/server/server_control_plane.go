@@ -83,7 +83,7 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 			return nil
 		}
 
-		// Close this connection since it didn't work
+		// Close connection since it didn't work
 		conn.Close()
 
 		// Check if error is retryable
@@ -102,6 +102,7 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 		return fmt.Errorf("all control plane servers failed: %w", lastErr)
 	}
 
+	// No control plane servers available
 	return fmt.Errorf("no control plane servers available")
 }
 

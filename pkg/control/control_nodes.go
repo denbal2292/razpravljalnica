@@ -31,7 +31,16 @@ func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo) *registerNodeResult 
 		return &registerNodeResult{"", "", status.Error(codes.AlreadyExists, "Node already registered")}
 	}
 
-	// 2. Create a gRPC client to the node's NodeSyncServer
+	// 2. The node id must not be empty
+	if nodeInfo.NodeId == "" {
+		slog.Warn("RegisterNode: Node ID cannot be empty",
+			"address", nodeInfo.Address,
+		)
+
+		return &registerNodeResult{"", "", status.Error(codes.InvalidArgument, "Node ID cannot be empty")}
+	}
+
+	// 3. Create a gRPC client to the node's NodeSyncServer
 	client, err := grpc.NewClient(nodeInfo.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return &registerNodeResult{"", "", err}
@@ -47,7 +56,7 @@ func (cp *ControlPlane) registerNode(nodeInfo *pb.NodeInfo) *registerNodeResult 
 
 	cp.logNodeInfo(newNode, "New node registered")
 
-	// 3. Check if this is the first node in the chain
+	// 4. Check if this is the first node in the chain
 	if len(cp.chain) == 0 {
 		// First node becomes both HEAD and TAIL (no predecessor or successor)
 		cp.appendNode(newNode)
