@@ -2,79 +2,17 @@ package main
 
 import (
 	"flag"
-	"io"
 	"log"
 	"log/slog"
 	"net"
-	"os"
 	"time"
 
 	"github.com/denbal2292/razpravljalnica/pkg/control"
 	"github.com/denbal2292/razpravljalnica/pkg/control/gui"
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 )
-
-// slogWriter wraps slog.Logger to implement io.Writer for Raft transport.
-type slogWriter struct {
-	logger *slog.Logger
-}
-
-func (w *slogWriter) Write(p []byte) (n int, err error) {
-	w.logger.Info(string(p))
-	return len(p), nil
-}
-
-// slogAdapter adapts slog.Logger to hclog.Logger interface for Raft.
-type slogAdapter struct {
-	logger *slog.Logger
-	name   string
-}
-
-func newSlogAdapter(logger *slog.Logger, name string) hclog.Logger {
-	return &slogAdapter{logger: logger, name: name}
-}
-
-func (a *slogAdapter) Log(level hclog.Level, msg string, args ...interface{}) {
-	switch level {
-	case hclog.Trace, hclog.Debug:
-		a.logger.Debug(msg, args...)
-	case hclog.Info:
-		a.logger.Info(msg, args...)
-	case hclog.Warn:
-		a.logger.Warn(msg, args...)
-	case hclog.Error:
-		a.logger.Error(msg, args...)
-	}
-}
-
-func (a *slogAdapter) Trace(msg string, args ...interface{}) { a.logger.Debug(msg, args...) }
-func (a *slogAdapter) Debug(msg string, args ...interface{}) { a.logger.Debug(msg, args...) }
-func (a *slogAdapter) Info(msg string, args ...interface{})  { a.logger.Info(msg, args...) }
-func (a *slogAdapter) Warn(msg string, args ...interface{})  { a.logger.Warn(msg, args...) }
-func (a *slogAdapter) Error(msg string, args ...interface{}) { a.logger.Error(msg, args...) }
-
-func (a *slogAdapter) IsTrace() bool { return true }
-func (a *slogAdapter) IsDebug() bool { return true }
-func (a *slogAdapter) IsInfo() bool  { return true }
-func (a *slogAdapter) IsWarn() bool  { return true }
-func (a *slogAdapter) IsError() bool { return true }
-
-func (a *slogAdapter) ImpliedArgs() []interface{}            { return nil }
-func (a *slogAdapter) With(args ...interface{}) hclog.Logger { return a }
-func (a *slogAdapter) Name() string                          { return a.name }
-func (a *slogAdapter) Named(name string) hclog.Logger        { return newSlogAdapter(a.logger, name) }
-func (a *slogAdapter) ResetNamed(name string) hclog.Logger   { return newSlogAdapter(a.logger, name) }
-func (a *slogAdapter) SetLevel(level hclog.Level)            {}
-func (a *slogAdapter) GetLevel() hclog.Level                 { return hclog.Debug }
-func (a *slogAdapter) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
-	return log.New(os.Stderr, "", log.LstdFlags)
-}
-func (a *slogAdapter) StandardWriter(opts *hclog.StandardLoggerOptions) io.Writer {
-	return os.Stderr
-}
 
 // Static cluster configuration
 var clusterConfig = []struct {
@@ -92,7 +30,7 @@ func createRaft(nodeIdx int, cp *control.ControlPlane, raftLogger *slog.Logger) 
 	config.LocalID = raft.ServerID(clusterConfig[nodeIdx].id)
 
 	// Use the raftLogger adapter for Raft logs
-	config.Logger = newSlogAdapter(raftLogger, "raft")
+	config.Logger = gui.NewSlogAdapter(raftLogger, "raft")
 
 	logStore := raft.NewInmemStore()
 	stableStore := raft.NewInmemStore()
@@ -104,7 +42,7 @@ func createRaft(nodeIdx int, cp *control.ControlPlane, raftLogger *slog.Logger) 
 	}
 
 	// Create a custom writer for transport logs
-	transportWriter := &slogWriter{logger: raftLogger}
+	transportWriter := gui.NewSlogWriter(raftLogger)
 
 	transport, err := raft.NewTCPTransport(
 		clusterConfig[nodeIdx].raftAddr,
