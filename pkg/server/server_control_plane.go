@@ -13,8 +13,6 @@ import (
 
 // connectToControlPlaneServer establishes a gRPC connection to a specific control plane server
 func (n *Node) connectToControlPlaneServer(addr string) (pb.ControlPlaneClient, *grpc.ClientConn, error) {
-	slog.Debug("Attempting to connect to control plane server", "address", addr)
-
 	conn, err := grpc.NewClient(
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -25,13 +23,10 @@ func (n *Node) connectToControlPlaneServer(addr string) (pb.ControlPlaneClient, 
 	}
 
 	client := pb.NewControlPlaneClient(conn)
-	slog.Debug("Successfully connected to control plane server", "address", addr)
-
 	return client, conn, nil
 }
 
-// tryControlPlaneRequest executes a request function against control plane servers
-// It tries the current server first, then all others if it fails due to connection
+// Try current server first, then all others if it fails due to connection
 // issues or the server not being the leader
 func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) error) error {
 	n.controlPlaneMu.RLock()
@@ -40,11 +35,9 @@ func (n *Node) tryControlPlaneRequest(requestFunc func(pb.ControlPlaneClient) er
 
 	// Try current client first if we have one
 	if currentConnection != nil {
-		slog.Debug("Trying request with current control plane client")
 		err := requestFunc(currentConnection.client)
 
 		if err == nil {
-			slog.Debug("Request succeeded with current control plane client")
 			return nil
 		}
 
