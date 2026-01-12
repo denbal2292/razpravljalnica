@@ -1,10 +1,41 @@
 # Projektna naloga: Razpravljalnica
 
+**Avtorja**: Denis Balant, Enej Hudobreznik
+
+## Navodila
+
 Ustvarite distribuirano spletno storitev **Razpravljalnica**, ki bo namenjena izmenjavi mnenj med uporabniki o različnih temah.
 
 Razpravljalnici se lahko pridružijo novi **uporabniki**, ki nato vanjo dodajajo nove **teme** in znotraj posameznih tem objavljajo **sporočila**. Razpravljalnica omogoča, da se lahko uporabnik na eno ali več tem naroči in sproti prejema iz strežnika sporočila, ki se objavljajo znotraj naročenih tem. Podprto je tudi **všečkanje** sporočil. Za vsako objavljeno sporočilo se beleži število prejetih všečkov. Uporabniki lahko lastna sporočila tudi **urejajo/brišejo**.
 
 Storitev (strežnik) napišite v programskem jeziku Go. Uporablja naj ogrodje **gRPC** za komunikacijo z odjemalci (uporabniki). Prav tako napišite odjemalca, ki bo znal komunicirati s strežnikom in bo podpiral vse operacije, ki jih ponuja Razpravljalnica. Za komunikacijo znotraj storitve (med strežniki) lahko uporabite poljubno rešitev (rpc).
+
+## Navodila za zagon
+
+1. **Zagon nadzorne ravnine**:
+
+   ```
+   go run ./cmd/control --node 0 --type gui
+   go run ./cmd/control --node 1 --type gui
+   go run ./cmd/control --node 2 --type gui
+   ```
+
+   Vsak ukaz zažene novo instanco strežnika v kontrolni ravnini. Strežniki se usklajujejo po protokolu RAFT. Vsak ukaz je potrebno zagnati v svojem oknu.
+
+2. **Zagon strežnikov v verigi**:
+
+   ```
+   go run ./cmd/server --type gui
+   ...
+   ```
+
+   Ukaz lahko poženemo poljubno mnogokrat, odvisno od števila strežnikov, ki jih želimo imeti v verigi.
+
+3. **Zagon odjemalca**:
+   ```
+   go run ./cmd/client --type gui
+   ```
+   Ukaz požene eno instanco odjemalca.
 
 ## Podrobnosti naloge
 
@@ -195,15 +226,13 @@ message GetClusterStateResponse {
 
 Primarna naloga je, da implementirate zgornji programski vmesnik strežnika in pripravite odjemalca, ki bo s strežnikom znal komunicirati in uporabljati vse oddaljene operacije, ki jih strežnik ponuja. Strežnik naj vse podatke hrani v delovnem pomnilniku (_ang. in-memory storage_) Pripravite tudi demonstracijo delovanja strežnika in odjemalca.
 
--   **Ocena 6-7:** Strežnik je samo en in omogoča hkratno delo z večimi odjemalci. Implementiran mora biti celotni programski vmesnik po zgornji specifikaciji.
+- **Ocena 6-7:** Strežnik je samo en in omogoča hkratno delo z večimi odjemalci. Implementiran mora biti celotni programski vmesnik po zgornji specifikaciji.
 
--   **Ocena 7-8:** Uporabite [verižno replikacijo](https://www.cs.cornell.edu/home/rvr/papers/OSDI04.pdf), zato da porazdelite bralne dostope med več vozlišč. Predpostavite, da so vozlišča popolnoma zanesljiva. Vsi pisalni dostopi se izvajajo nad glavo. Naročnine na teme pa glava po nekem ključu (uravnoteženje obremenitve) porazdeli med vozlišča. Enkratni bralni dostopi se izvedejo nad repom verige. Programski vmesnik ustrezno razširite tako, da bo omogočal delovanje verižne replikacije. Uporabite lahko poljubno tehnologijo za izvedbo oddaljenih klicev.
+- **Ocena 7-8:** Uporabite [verižno replikacijo](https://www.cs.cornell.edu/home/rvr/papers/OSDI04.pdf), zato da porazdelite bralne dostope med več vozlišč. Predpostavite, da so vozlišča popolnoma zanesljiva. Vsi pisalni dostopi se izvajajo nad glavo. Naročnine na teme pa glava po nekem ključu (uravnoteženje obremenitve) porazdeli med vozlišča. Enkratni bralni dostopi se izvedejo nad repom verige. Programski vmesnik ustrezno razširite tako, da bo omogočal delovanje verižne replikacije. Uporabite lahko poljubno tehnologijo za izvedbo oddaljenih klicev.
 
--   **Ocena 9-10:** Uporabite verižno replikacijo, zato da porazdelite bralne dostope med več vozlišč. Predpostavite, da vozlišča niso zanesljiva in lahko pride do odpovedi vozlišča v verigi. V takem primeru se mora veriga ponovno vzpostaviti in zapisi uskladiti. Vsi pisalni dostopi se izvajajo nad glavo. Naročnine na teme pa glava po nekem ključu (uravnoteženje obremenitve) porazdeli med vozlišča. Enkratni bralni dostopi se izvedejo nad repom verige. V verigo naj bo možno dodati nova vozlišča in jih odvzemati. Za preverjanje dostopnosti vozlišč v verigi, dodajanje novih in prevezovanje v primeru odpovedi implementirajte tudi nadzorno ravnino (dodatni strežnik). Ustrezno razširite programski vmesnik.
+- **Ocena 9-10:** Uporabite verižno replikacijo, zato da porazdelite bralne dostope med več vozlišč. Predpostavite, da vozlišča niso zanesljiva in lahko pride do odpovedi vozlišča v verigi. V takem primeru se mora veriga ponovno vzpostaviti in zapisi uskladiti. Vsi pisalni dostopi se izvajajo nad glavo. Naročnine na teme pa glava po nekem ključu (uravnoteženje obremenitve) porazdeli med vozlišča. Enkratni bralni dostopi se izvedejo nad repom verige. V verigo naj bo možno dodati nova vozlišča in jih odvzemati. Za preverjanje dostopnosti vozlišč v verigi, dodajanje novih in prevezovanje v primeru odpovedi implementirajte tudi nadzorno ravnino (dodatni strežnik). Ustrezno razširite programski vmesnik.
 
--   **Bonus:**
+- **Bonus:**
 
-    -   Uporabite pakete za pisanje ukaznih vmesnikov ukazne lupine, kot so [cli](https://cli.urfave.org/), [cobra](https://pkg.go.dev/github.com/spf13/cobra), [kong](https://github.com/alecthomas/kong).
-    -   Uporabite pakete za pisanje grafičnih vmesnikov za strežnik in odjemalec npr. [tview](https://github.com/rivo/tview).
-    -   Go ima vgrajeno [podporo](https://go.dev/doc/tutorial/fuzz) za pisanje testov. Pripravite nabor testov, ki validirajo delovanje vaše Razpravljalnice.
-    -   Predvidite, da lahko pride do odpovedi nadzorne ravnine. Uvedite več vozlišč v nadzorno ravnino in uporabite protokol [raft](https://repozitorij.uni-lj.si/Dokument.php?id=215152&lang=slv), da poskrbite za primere odpovedi. Poslužite se lahko katere izmed obstoječih, na primer [HashiCorp](https://github.com/hashicorp/raft) ali [diploma FRI](https://github.com/Timcek/raft) protokola raft v Go.
+  - Uporabite pakete za pisanje ukaznih vmesnikov ukazne lupine, kot so [cli](https://cli.urfave.org/), [cobra](https://pkg.go.dev/github.com/spf13/cobra), [kong](https://github.com/alecthomas/kong).
+  - Uporabite pakete za pisanje grafičnih vmesnikov za strežnik in odjemalec npr. [tview](https://github.com/rivo/tview).
