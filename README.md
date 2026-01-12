@@ -1,238 +1,70 @@
-# Projektna naloga: Razpravljalnica
+# PS 2025/2026 - Razpravljalnica
 
-**Avtorja**: Denis Balant, Enej Hudobreznik
+**Avtorja:** Denis Balant, Enej Hudobreznik
 
-## Navodila
+Projekt implementira porazdeljeno razpravljalnico, ki je sestavljena iz 3 glavnih delov:
 
-Ustvarite distribuirano spletno storitev **Razpravljalnica**, ki bo namenjena izmenjavi mnenj med uporabniki o različnih temah.
+- Nadzorne ravnine (`control/`), ki je z implementacijo protokola `Raft` robustna na izpade vozlišč znotraj nje
+- Podatkovne ravnine (`server/`), v kateri so podatkovni strežniki med seboj dvosmerno povezani z verižno replikacijo
+- Odjemalca (`client/`)
 
-Razpravljalnici se lahko pridružijo novi **uporabniki**, ki nato vanjo dodajajo nove **teme** in znotraj posameznih tem objavljajo **sporočila**. Razpravljalnica omogoča, da se lahko uporabnik na eno ali več tem naroči in sproti prejema iz strežnika sporočila, ki se objavljajo znotraj naročenih tem. Podprto je tudi **všečkanje** sporočil. Za vsako objavljeno sporočilo se beleži število prejetih všečkov. Uporabniki lahko lastna sporočila tudi **urejajo/brišejo**.
+### 1. Nadzorna ravnina
 
-Storitev (strežnik) napišite v programskem jeziku Go. Uporablja naj ogrodje **gRPC** za komunikacijo z odjemalci (uporabniki). Prav tako napišite odjemalca, ki bo znal komunicirati s strežnikom in bo podpiral vse operacije, ki jih ponuja Razpravljalnica. Za komunikacijo znotraj storitve (med strežniki) lahko uporabite poljubno rešitev (rpc).
+Za delovanje aplikacije je najprej potrebno zagnati nadzorno ravnino, ki jo v osnovi sestavljajo
+3 instance strežnikov in je zato z implementacijo protokola `Raft` odporna na izpad enega (za večino potrebujemo 2 glasova).
 
-## Navodila za zagon
+Vozlišča v nadzorni ravnini komuniciraj preko protokola `Raft`, z ostalimi pa preko gRPC, zato morajo poslušati na dveh naslovih.
 
-1. **Zagon nadzorne ravnine**:
+IP naslovi in vrata strežnikov za so za lažji zagon vnaprej določeni:
 
-   ```
-   go run ./cmd/control --node 0 --type gui
-   go run ./cmd/control --node 1 --type gui
-   go run ./cmd/control --node 2 --type gui
-   ```
-
-   Vsak ukaz zažene novo instanco strežnika v kontrolni ravnini. Strežniki se usklajujejo po protokolu RAFT. Vsak ukaz je potrebno zagnati v svojem oknu.
-
-2. **Zagon strežnikov v verigi**:
-
-   ```
-   go run ./cmd/server --type gui
-   ...
-   ```
-
-   Ukaz lahko poženemo poljubno mnogokrat, odvisno od števila strežnikov, ki jih želimo imeti v verigi.
-
-3. **Zagon odjemalca**:
-   ```
-   go run ./cmd/client --type gui
-   ```
-   Ukaz požene eno instanco odjemalca.
-
-## Podrobnosti naloge
-
-Projekto nalogo rešujete v parih. Na spletni učilnici najdete [anketo](https://ucilnica.fri.uni-lj.si/mod/choicegroup/view.php?id=60665) preko katere se razdelite v pare.
-Vašo rešitev v obliki modula objavite v javnem repozitoriju GitHub/Gitlab in preko spletne učilnice [oddate](https://ucilnica.fri.uni-lj.si/mod/assign/view.php?id=16663) povezavo do njega. Vaš repozitorij naj bo do izteka roka za oddajo zaseben, potem pa ga naredite javnega. **Rok za oddajo projektne naloge je 12. 1. 2026**. Po izteku roka bomo organizirali zagovore na katerih boste predstavili vaše rešitve.
-
-Podano imate spodnjo specifikacijo v jeziku Protocol Buffer, ki definira programski vmesnik Razpravljalnice, kot je viden iz stališča odjemalca (uporabnika):
-
-```protobuf
-syntax = "proto3";
-
-package razpravljalnica;
-
-option go_package = "/razpravljalnica";
-
-import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
-////////////////////////////////////////////////////////////////////////////////
-// Basic data types
-////////////////////////////////////////////////////////////////////////////////
-message User {
-  int64 id = 1;
-  string name = 2;
-}
-
-message Topic {
-  int64 id = 1;
-  string name = 2;
-}
-
-message Message {
-  int64 id = 1;
-  int64 topic_id = 2;
-  int64 user_id = 3;
-  string text = 4;
-  google.protobuf.Timestamp created_at = 5;
-  int32 likes = 6;
-}
-
-message Like {
-  int64 topic_id = 1;
-  int64 message_id = 2;
-  int64 user_id = 3; // user who liked the message
-}
-
-enum OpType {
-  OP_POST   = 0; // add a message to a topic
-  OP_LIKE   = 1; // like a message
-  OP_DELETE = 2; // delete a message
-  OP_UPDATE = 3; // update a message
-}
-
-message NodeInfo {
-  string node_id = 1;
-  string address = 2;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Data plane
-////////////////////////////////////////////////////////////////////////////////
-
-service  MessageBoard{
-  // Writes (only to head)
-
-  // Creates a new user and assigns it an id
-  rpc CreateUser(CreateUserRequest) returns (User);
-
-  // Creates a new topic to which users can post messages
-  rpc CreateTopic(CreateTopicRequest) returns (Topic);
-
-  // Post a message to a topic; Succeed only if the User and the Topic exist in the database.
-  rpc PostMessage(PostMessageRequest) returns (Message);
-
-  // Update an existing message. Allowed only for the user who posted the message.
-  rpc UpdateMessage(UpdateMessageRequest) returns (Message);
-
-  // Delete an existing message. Allowed only for the user who posted the message.
-  rpc DeleteMessage(DeleteMessageRequest) returns (google.protobuf.Empty);
-
-  // Like an existing message. Return the message with the new number of likes.
-  rpc LikeMessage(LikeMessageRequest) returns (Message);
-
-  // Request a node to which a subscription can be opened.
-  rpc GetSubscriptionNode(SubscriptionNodeRequest) returns (SubscriptionNodeResponse);
-
-  // Reads go to the tail node
-
-  // Returns all the topics
-  rpc ListTopics(google.protobuf.Empty) returns (ListTopicsResponse);
-
-  // NOTE: Add method GetUsers or attach name to message in order to obtain user names.
-  // Currently, there is no way for the client to display user names, only user IDs
-
-  // Returns messages in a topic
-  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
-
-  // Subscribe to topics; goes to the node returned by head
-  rpc SubscribeTopic(SubscribeTopicRequest) returns (stream MessageEvent);
-
-}
-
-message CreateUserRequest {
-  string name = 1;
-}
-
-message CreateTopicRequest {
-  string name = 1;
-}
-
-message PostMessageRequest {
-  int64 topic_id = 1;
-  int64 user_id = 2;
-  string text = 3;
-}
-
-message DeleteMessageRequest {
-  int64 topic_id = 1;
-  int64 user_id = 2;
-  int64 message_id = 3;
-}
-
-message UpdateMessageRequest {
-  int64 topic_id = 1;
-  int64 user_id = 2;
-  int64 message_id = 3;
-  string text = 4; // new text
-}
-
-message LikeMessageRequest {
-  int64 topic_id = 1;
-  int64 message_id = 2;
-  int64 user_id = 3; // user who posted the like
-}
-
-message ListTopicsResponse {
-  repeated Topic topics = 1;
-}
-
-message GetMessagesRequest {
-  int64 topic_id = 1;
-  int64 from_message_id = 2; // starting id of the message (0 from beggining)
-  int32 limit = 3; // max number of messages
-}
-message GetMessagesResponse {
-  repeated Message messages = 1;
-}
-
-message SubscribeTopicRequest {
-  repeated int64 topic_id = 1;
-  int64 user_id = 2;
-  int64 from_message_id = 3; // starting id of the message
-  string subscribe_token = 4; // token generated by the head used to authorize the subscription
-}
-
-message SubscriptionNodeRequest {
-  int64 user_id = 1;
-  repeated int64 topic_id = 2;
-}
-
-message SubscriptionNodeResponse {
-  string subscribe_token = 1; // subscription token to be presented to the returned node
-  NodeInfo node = 2;
-}
-
-message MessageEvent {
-  int64 sequence_number = 1; // monotonically increasing event number
-  OpType op = 2; // type of event
-  Message message = 3;
-  google.protobuf.Timestamp event_at = 4; // timestamp of the event
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Control plane
-////////////////////////////////////////////////////////////////////////////////
-
-// Return the the head and the tail node address
-service ControlPlane {
-  rpc GetClusterState(google.protobuf.Empty) returns (GetClusterStateResponse);
-}
-
-message GetClusterStateResponse {
-  NodeInfo head = 1;
-  NodeInfo tail = 2;
-}
+```
+node0: 127.0.0.1:7000 (Raft), 127.0.0.1:50051 (gRPC)
+node1: 127.0.0.1:7001 (Raft), 127.0.0.1:50052 (gRPC)
+node2: 127.0.0.1:7002 (Raft), 127.0.0.1:50053 (gRPC)
 ```
 
-## Kriterij ocenjevanja
+Nadzorno ravnino postavimo tako, da naslednje ukaze poženemo vsakega v svojem oknu terminala:
 
-Primarna naloga je, da implementirate zgornji programski vmesnik strežnika in pripravite odjemalca, ki bo s strežnikom znal komunicirati in uporabljati vse oddaljene operacije, ki jih strežnik ponuja. Strežnik naj vse podatke hrani v delovnem pomnilniku (_ang. in-memory storage_) Pripravite tudi demonstracijo delovanja strežnika in odjemalca.
+```
+go run ./cmd/control --node 0 --type gui
+go run ./cmd/control --node 1 --type gui
+go run ./cmd/control --node 2 --type gui
+```
 
-- **Ocena 6-7:** Strežnik je samo en in omogoča hkratno delo z večimi odjemalci. Implementiran mora biti celotni programski vmesnik po zgornji specifikaciji.
+Če si terminalskega uporabniškega vmesnika ne želimo in smo zadovoljni z manj bogatim (ampak hitrejšim in za razvoj primernejšim) izpisom, lahko zastavico `--type gui` izpustimo. Z zastavico `--node` določimo enolični identifikator strežnika, ki mora iz nabora `0, 1, 2`.
 
-- **Ocena 7-8:** Uporabite [verižno replikacijo](https://www.cs.cornell.edu/home/rvr/papers/OSDI04.pdf), zato da porazdelite bralne dostope med več vozlišč. Predpostavite, da so vozlišča popolnoma zanesljiva. Vsi pisalni dostopi se izvajajo nad glavo. Naročnine na teme pa glava po nekem ključu (uravnoteženje obremenitve) porazdeli med vozlišča. Enkratni bralni dostopi se izvedejo nad repom verige. Programski vmesnik ustrezno razširite tako, da bo omogočal delovanje verižne replikacije. Uporabite lahko poljubno tehnologijo za izvedbo oddaljenih klicev.
+### 2. Podatkovna ravnina
 
-- **Ocena 9-10:** Uporabite verižno replikacijo, zato da porazdelite bralne dostope med več vozlišč. Predpostavite, da vozlišča niso zanesljiva in lahko pride do odpovedi vozlišča v verigi. V takem primeru se mora veriga ponovno vzpostaviti in zapisi uskladiti. Vsi pisalni dostopi se izvajajo nad glavo. Naročnine na teme pa glava po nekem ključu (uravnoteženje obremenitve) porazdeli med vozlišča. Enkratni bralni dostopi se izvedejo nad repom verige. V verigo naj bo možno dodati nova vozlišča in jih odvzemati. Za preverjanje dostopnosti vozlišč v verigi, dodajanje novih in prevezovanje v primeru odpovedi implementirajte tudi nadzorno ravnino (dodatni strežnik). Ustrezno razširite programski vmesnik.
+Ko je nadzorna ravnina zagnana, lahko začnemo z zagonom poljubnega števila strežnikov, ki se bodo samodejno registrirali pri nadzorni ravnini, ta pa jih bo na ustrezen način povezala v verigo in jih ob morebitnem izpadu tudi prevezala.
 
-- **Bonus:**
+Za vsako željeno instanco strežnika odpremo novo okno terminala in vnesemo:
 
-  - Uporabite pakete za pisanje ukaznih vmesnikov ukazne lupine, kot so [cli](https://cli.urfave.org/), [cobra](https://pkg.go.dev/github.com/spf13/cobra), [kong](https://github.com/alecthomas/kong).
-  - Uporabite pakete za pisanje grafičnih vmesnikov za strežnik in odjemalec npr. [tview](https://github.com/rivo/tview).
+```
+go run ./cmd/server --type gui
+```
+
+Tudi tukaj lahko zastavico `--type gui` izpustimo. Na voljo sta še dve zastavici:
+
+- `--port`: določimo vrata na katerih strežnik posluša. Privzeta vrednost je `0`, kar pomeni, da se nastavijo na ustrezno naključno vrednost.
+- `--control-port`: podamo bazna vrata, ki jih uporabimo za izračun naslovov za dostop do strežnikov na nadzorni ravnini. Privzeta vrednost je `50051`.
+
+### 3. Odjemalec
+
+Ko je zaledni del pripravljen lahko poženemo enega ali več odjemalcev:
+
+```
+go run ./cmd/client --type gui
+```
+
+Dodatna navodila za uporabo odjemalca so na ob zagonu.
+
+Zastavico `--type gui` lahko seveda tudi tukaj izpustimo, a tega za dobro uporabniško izkušnjo ne priporočava. Tudi odjemalec sprejme zastavico `--control-port`, ki ima enak pomen kot pri zagonu strežnika v podatkovni ravnini.
+
+Ko se odjemalec poveže na trenutnega voditelja v kontrolni ravnini, mu ta sporoči naslov trenutne glave in repa verige strežnikov v podatkovni ravnini. Vsa pisanja
+se samodejno izvajajo na glavo, vsa branja pa na rep. V primeru, da se stanje verige spremeni in odjemec v roku ne dobi ustreznega, odgovora pridobi novo stanje verige iz nadzorne ravnine.
+
+Podobno delujejo naročnine na teme, kjer si z replikacijo podatkovnih strežnikov lahko v primeru, da je teh dovolj, privoščimo tudi delitev obremenitve med njimi.
+
+### Opomba:
+
+Če želimo spremeniti vmesnik aplikacije moramo ponovno prevesti `proto` datoteko z ukazom `make proto`
