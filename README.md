@@ -67,4 +67,4 @@ Podobno delujejo naročnine na teme, kjer si z replikacijo podatkovnih strežnik
 
 ### Opomba:
 
-Če želimo spremeniti vmesnik aplikacije moramo ponovno prevesti `proto` datoteko z ukazom `make proto`
+Če želimo spremeniti vmesnik aplikacije, moramo ponovno prevesti `proto` datoteko z ukazom `make proto`
