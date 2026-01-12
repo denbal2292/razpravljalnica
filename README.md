@@ -56,7 +56,7 @@ Ko je zaledni del pripravljen lahko poženemo enega ali več odjemalcev:
 go run ./cmd/client --type gui
 ```
 
-Dodatna navodila za uporabo odjemalca so na ob zagonu.
+Dodatna navodila za uporabo odjemalca so na voljo ob zagonu.
 
 Zastavico `--type gui` lahko seveda tudi tukaj izpustimo, a tega za dobro uporabniško izkušnjo ne priporočava. Tudi odjemalec sprejme zastavico `--control-port`, ki ima enak pomen kot pri zagonu strežnika v podatkovni ravnini.
 
