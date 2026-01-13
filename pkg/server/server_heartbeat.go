@@ -34,3 +34,23 @@ func (n *Node) startHeartbeat() {
 		}
 	}
 }
+
+// Shutdown gracefully shuts down the node by unregistering from the control plane
+func (n *Node) Shutdown() {
+	slog.Warn("Shutting down node", "node_id", n.nodeInfo.NodeId)
+
+	// Unregister from control plane
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := n.tryControlPlaneRequest(func(client pb.ControlPlaneClient) error {
+		_, err := client.UnregisterNode(ctx, n.nodeInfo)
+		return err
+	})
+
+	if err != nil {
+		slog.Error("Failed to unregister node from control plane", "error", err)
+	} else {
+		slog.Info("Successfully unregistered node from control plane")
+	}
+}
