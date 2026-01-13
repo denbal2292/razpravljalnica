@@ -22,21 +22,15 @@ func (n *Node) startHeartbeat() {
 	defer ticker.Stop()
 
 	// Periodically send heartbeats
-	for {
-		select {
-		case <-n.heartbeatStop:
-			slog.Info("Stopping heartbeat goroutine")
-			return
-		case <-ticker.C:
-			heartbeatCtx, cancel := context.WithTimeout(context.Background(), n.heartbeatInterval/2)
-			err := n.sendHeartbeat(heartbeatCtx)
-			cancel()
+	for range ticker.C {
+		ctx, cancel := context.WithTimeout(context.Background(), n.heartbeatInterval/2)
+		err := n.sendHeartbeat(ctx)
+		cancel()
 
-			if err != nil {
-				slog.Warn("Failed to send heartbeat to control plane", "error", err)
-			} else {
-				slog.Debug("Heartbeat sent to control plane")
-			}
+		if err != nil {
+			slog.Warn("Failed to send heartbeat to control plane", "error", err)
+		} else {
+			slog.Debug("Heartbeat sent to control plane")
 		}
 	}
 }
@@ -44,9 +38,6 @@ func (n *Node) startHeartbeat() {
 // Shutdown gracefully shuts down the node by unregistering from the control plane
 func (n *Node) Shutdown() {
 	slog.Warn("Shutting down node", "node_id", n.nodeInfo.NodeId)
-
-	// Stop heartbeat goroutine
-	close(n.heartbeatStop)
 
 	// Unregister from control plane
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -62,12 +53,4 @@ func (n *Node) Shutdown() {
 	} else {
 		slog.Info("Successfully unregistered node from control plane")
 	}
-
-	// Close control plane connection
-	n.controlPlaneMu.Lock()
-	if n.controlPlaneConnection != nil {
-		n.controlPlaneConnection.conn.Close()
-		n.controlPlaneConnection = nil
-	}
-	n.controlPlaneMu.Unlock()
 }

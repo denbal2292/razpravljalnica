@@ -26,7 +26,6 @@ type Node struct {
 	controlPlaneConnection *ControlPlaneConnection // gRPC connection to the control plane
 	controlPlaneMu         sync.RWMutex            // protects controlPlaneConnection
 	heartbeatInterval      time.Duration           // interval between heartbeats
-	heartbeatStop          chan struct{}           // channel to stop heartbeat goroutine
 
 	storage             *storage.Storage
 	eventBuffer         *EventBuffer
@@ -101,7 +100,6 @@ func NewServer(name string, address string, controlPlaneAddrs []string) *Node {
 		ackWg:          sync.WaitGroup{},
 
 		heartbeatInterval: 5 * time.Second,
-		heartbeatStop:     make(chan struct{}),
 	}
 
 	n.connectToControlPlane()

@@ -73,9 +73,9 @@ func main() {
 
 	go func() {
 		<-sigChan
-		logger.Info("Received shutdown signal, shutting down gracefully...")
+		logger.Error("Received shutdown signal, shutting down...")
 		node.Shutdown()
-		gRPCServer.GracefulStop()
+		gRPCServer.Stop()
 	}()
 
 	logger.Info(
