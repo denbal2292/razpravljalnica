@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
 	pb "github.com/denbal2292/razpravljalnica/pkg/pb"
 	"github.com/denbal2292/razpravljalnica/pkg/server"
@@ -63,6 +66,17 @@ func main() {
 	gRPCServer := grpc.NewServer()
 	pb.RegisterNodeUpdateServer(gRPCServer, node)
 	registerServices(node, gRPCServer)
+
+	// Setup graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		logger.Info("Received shutdown signal, shutting down gracefully...")
+		node.Shutdown()
+		gRPCServer.GracefulStop()
+	}()
 
 	logger.Info(
 		"Node started",
