@@ -22,9 +22,9 @@ func main() {
 
 	// In a Raft cluster, we have multiple control plane servers
 	controlPlaneAddrs := []string{
-		fmt.Sprintf("localhost:%d", *controlPlanePort),
-		fmt.Sprintf("localhost:%d", *controlPlanePort+1),
-		fmt.Sprintf("localhost:%d", *controlPlanePort+2),
+		fmt.Sprintf("127.0.0.1:%d", *controlPlanePort),
+		fmt.Sprintf("127.0.0.1:%d", *controlPlanePort+1),
+		fmt.Sprintf("127.0.0.1:%d", *controlPlanePort+2),
 	}
 
 	// Run the client

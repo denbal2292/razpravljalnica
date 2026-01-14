@@ -1154,9 +1154,7 @@ var NodeUpdate_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChainReplication_ReplicateEvent_FullMethodName         = "/razpravljalnica.ChainReplication/ReplicateEvent"
 	ChainReplication_ReplicateEventStream_FullMethodName   = "/razpravljalnica.ChainReplication/ReplicateEventStream"
-	ChainReplication_AcknowledgeEvent_FullMethodName       = "/razpravljalnica.ChainReplication/AcknowledgeEvent"
 	ChainReplication_AcknowledgeEventStream_FullMethodName = "/razpravljalnica.ChainReplication/AcknowledgeEventStream"
 	ChainReplication_GetLastSequenceNumbers_FullMethodName = "/razpravljalnica.ChainReplication/GetLastSequenceNumbers"
 )
@@ -1165,13 +1163,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChainReplicationClient interface {
-	// Replicate an event to the next node in the chain (succeeeds when new node receives)
-	ReplicateEvent(ctx context.Context, in *Event, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Stream events to the successor node (persistent stream)
 	ReplicateEventStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Event, emptypb.Empty], error)
-	// Acknowledge the event with given sequence number was applied by the TAIL
-	// (used for propagating ACKs back to HEAD)
-	AcknowledgeEvent(ctx context.Context, in *AcknowledgeEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Stream acknowledgments to the predecessor node (persistent stream)
 	AcknowledgeEventStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[AcknowledgeEventRequest, emptypb.Empty], error)
 	// Ask the node for its latest sequence number and latest acknowledged sequence number
@@ -1186,16 +1179,6 @@ func NewChainReplicationClient(cc grpc.ClientConnInterface) ChainReplicationClie
 	return &chainReplicationClient{cc}
 }
 
-func (c *chainReplicationClient) ReplicateEvent(ctx context.Context, in *Event, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, ChainReplication_ReplicateEvent_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *chainReplicationClient) ReplicateEventStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Event, emptypb.Empty], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &ChainReplication_ServiceDesc.Streams[0], ChainReplication_ReplicateEventStream_FullMethodName, cOpts...)
@@ -1208,16 +1191,6 @@ func (c *chainReplicationClient) ReplicateEventStream(ctx context.Context, opts 
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChainReplication_ReplicateEventStreamClient = grpc.ClientStreamingClient[Event, emptypb.Empty]
-
-func (c *chainReplicationClient) AcknowledgeEvent(ctx context.Context, in *AcknowledgeEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, ChainReplication_AcknowledgeEvent_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
 
 func (c *chainReplicationClient) AcknowledgeEventStream(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[AcknowledgeEventRequest, emptypb.Empty], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -1246,13 +1219,8 @@ func (c *chainReplicationClient) GetLastSequenceNumbers(ctx context.Context, in 
 // All implementations must embed UnimplementedChainReplicationServer
 // for forward compatibility.
 type ChainReplicationServer interface {
-	// Replicate an event to the next node in the chain (succeeeds when new node receives)
-	ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error)
 	// Stream events to the successor node (persistent stream)
 	ReplicateEventStream(grpc.ClientStreamingServer[Event, emptypb.Empty]) error
-	// Acknowledge the event with given sequence number was applied by the TAIL
-	// (used for propagating ACKs back to HEAD)
-	AcknowledgeEvent(context.Context, *AcknowledgeEventRequest) (*emptypb.Empty, error)
 	// Stream acknowledgments to the predecessor node (persistent stream)
 	AcknowledgeEventStream(grpc.ClientStreamingServer[AcknowledgeEventRequest, emptypb.Empty]) error
 	// Ask the node for its latest sequence number and latest acknowledged sequence number
@@ -1267,14 +1235,8 @@ type ChainReplicationServer interface {
 // pointer dereference when methods are called.
 type UnimplementedChainReplicationServer struct{}
 
-func (UnimplementedChainReplicationServer) ReplicateEvent(context.Context, *Event) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method ReplicateEvent not implemented")
-}
 func (UnimplementedChainReplicationServer) ReplicateEventStream(grpc.ClientStreamingServer[Event, emptypb.Empty]) error {
 	return status.Error(codes.Unimplemented, "method ReplicateEventStream not implemented")
-}
-func (UnimplementedChainReplicationServer) AcknowledgeEvent(context.Context, *AcknowledgeEventRequest) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method AcknowledgeEvent not implemented")
 }
 func (UnimplementedChainReplicationServer) AcknowledgeEventStream(grpc.ClientStreamingServer[AcknowledgeEventRequest, emptypb.Empty]) error {
 	return status.Error(codes.Unimplemented, "method AcknowledgeEventStream not implemented")
@@ -1303,48 +1265,12 @@ func RegisterChainReplicationServer(s grpc.ServiceRegistrar, srv ChainReplicatio
 	s.RegisterService(&ChainReplication_ServiceDesc, srv)
 }
 
-func _ChainReplication_ReplicateEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Event)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChainReplicationServer).ReplicateEvent(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChainReplication_ReplicateEvent_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainReplicationServer).ReplicateEvent(ctx, req.(*Event))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ChainReplication_ReplicateEventStream_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(ChainReplicationServer).ReplicateEventStream(&grpc.GenericServerStream[Event, emptypb.Empty]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChainReplication_ReplicateEventStreamServer = grpc.ClientStreamingServer[Event, emptypb.Empty]
-
-func _ChainReplication_AcknowledgeEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AcknowledgeEventRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ChainReplicationServer).AcknowledgeEvent(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ChainReplication_AcknowledgeEvent_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChainReplicationServer).AcknowledgeEvent(ctx, req.(*AcknowledgeEventRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
 
 func _ChainReplication_AcknowledgeEventStream_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(ChainReplicationServer).AcknowledgeEventStream(&grpc.GenericServerStream[AcknowledgeEventRequest, emptypb.Empty]{ServerStream: stream})
@@ -1378,14 +1304,6 @@ var ChainReplication_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "razpravljalnica.ChainReplication",
 	HandlerType: (*ChainReplicationServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "ReplicateEvent",
-			Handler:    _ChainReplication_ReplicateEvent_Handler,
-		},
-		{
-			MethodName: "AcknowledgeEvent",
-			Handler:    _ChainReplication_AcknowledgeEvent_Handler,
-		},
 		{
 			MethodName: "GetLastSequenceNumbers",
 			Handler:    _ChainReplication_GetLastSequenceNumbers_Handler,

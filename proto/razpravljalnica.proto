@@ -263,15 +263,8 @@ message RaftSnapshot {
 ////////////////////////////////////////////////////////////////////////////////
 
 service ChainReplication {
-  // Replicate an event to the next node in the chain (succeeeds when new node receives)
-  rpc ReplicateEvent(Event) returns (google.protobuf.Empty);
-
   // Stream events to the successor node (persistent stream)
   rpc ReplicateEventStream(stream Event) returns (google.protobuf.Empty);
-
-  // Acknowledge the event with given sequence number was applied by the TAIL
-  // (used for propagating ACKs back to HEAD)
-  rpc AcknowledgeEvent(AcknowledgeEventRequest) returns (google.protobuf.Empty);
 
   // Stream acknowledgments to the predecessor node (persistent stream)
   rpc AcknowledgeEventStream(stream AcknowledgeEventRequest) returns (google.protobuf.Empty);
